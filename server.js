@@ -4,22 +4,35 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+const portfolioRoutes =
+require("./routes/portfolioRoutes");
+
 require("./config/db");
 
 const authRoutes = require("./routes/authRoutes");
 const protectedRoutes = require("./routes/protectedRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const technicianRoutes = require("./routes/technicianRoutes");
+const serviceRequestRoutes = require("./routes/serviceRequestRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+app.use(
+    "/uploads",
+    express.static("uploads")
+);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/protected", protectedRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/technicians", technicianRoutes);
+app.use("/api/service-requests", serviceRequestRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/portfolios", portfolioRoutes);
 
 app.get("/", (req, res) => {
   res.send("ProQuire API Running");

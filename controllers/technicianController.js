@@ -70,8 +70,10 @@ exports.getAllTechnicians = (req, res) => {
     JOIN categories c
       ON tp.category_id = c.category_id
 
+    WHERE tp.is_verified = 1
+
     ORDER BY tp.technician_id DESC
-  `;
+`;
 
   db.query(sql, (err, results) => {
 
@@ -116,6 +118,7 @@ exports.getTechnicianById = (req, res) => {
             ON tp.category_id = c.category_id
 
         WHERE tp.technician_id = ?
+        AND tp.is_verified = 1
     `;
 
     db.query(sql, [id], (err, results) => {
