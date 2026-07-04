@@ -15,4 +15,8 @@ db.connect((err) => {
   }
 });
 
+db.query("SELECT DATABASE()", (err, result) => {
+    console.log(result);
+});
+
 module.exports = db;

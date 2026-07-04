@@ -13,6 +13,8 @@ const storage = multer.diskStorage({
 
         const uniqueName =
             Date.now() +
+            "-" +
+            Math.round(Math.random() * 1E9) +
             path.extname(file.originalname);
 
         cb(null, uniqueName);
@@ -21,42 +23,62 @@ const storage = multer.diskStorage({
 
 });
 
+
+const fileFilter = (req, file, cb) => {
+
+    const allowedMimeTypes = [
+
+        // Images
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+
+        // PDF
+        "application/pdf",
+
+        // Microsoft Word (.doc)
+        "application/msword",
+
+        // Microsoft Word (.docx)
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+
+        cb(null, true);
+
+    } else {
+
+        cb(
+
+            new Error(
+
+                "Only JPG, JPEG, PNG, WEBP, PDF, DOC and DOCX files are allowed."
+
+            )
+
+        );
+
+    }
+
+};
+
+
 const upload = multer({
 
     storage,
 
-    fileFilter: (req, file, cb) => {
+    fileFilter,
 
-        const allowed = /jpeg|jpg|png|webp/;
+    limits: {
 
-        const ext =
-            allowed.test(
-                path.extname(
-                    file.originalname
-                ).toLowerCase()
-            );
-
-        const mime =
-            allowed.test(
-                file.mimetype
-            );
-
-        if (ext && mime) {
-
-            cb(null, true);
-
-        } else {
-
-            cb(
-                new Error(
-                    "Only image files are allowed"
-                )
-            );
-
-        }
+        fileSize: 10 * 1024 * 1024 // 10 MB
 
     }
 
 });
+
 
 module.exports = upload;
