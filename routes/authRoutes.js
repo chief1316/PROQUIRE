@@ -6,7 +6,14 @@ const {
     login
 } = require("../controllers/authController");
 
-router.post("/register", register);
+const upload = require("../middleware/uploadMiddleware");
+
+router.post(
+    "/register",
+    upload.single("profile_photo"),
+    register
+);
+
 router.post("/login", login);
 
 module.exports = router;

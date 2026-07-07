@@ -94,13 +94,26 @@ const createTechnician = async (req, res) => {
 
 const getAgencyTechnicians = (req, res) => {
 
+    console.log("===== CONTROLLER HIT =====");
+
     console.log("JWT USER:");
     console.log(req.user);
+
+    console.log("================================");
+    console.log("INSIDE getAgencyTechnicians");
+    console.log("req.user:");
+    console.log(req.user);
+
+    console.log("Searching agency for user_id:");
+    console.log(req.user.user_id);
 
     db.query(
         "SELECT agency_id FROM agency_profiles WHERE user_id = ?",
         [req.user.user_id],
         (err, agencyResult) => {
+
+            console.log("SQL Error:");
+            console.log(err);
 
             console.log("Agency Result:");
             console.log(agencyResult);

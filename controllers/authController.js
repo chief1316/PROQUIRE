@@ -6,17 +6,22 @@ exports.register = async (req, res) => {
     try {
         const { full_name, email, phone, password, role } = req.body;
 
+        const profile_photo =
+          req.file
+            ? `profile_photos/${req.file.filename}`
+            : null;
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const sql = `
-            INSERT INTO users
-            (full_name, email, phone, password, role)
-            VALUES (?, ?, ?, ?, ?)
-        `;
+INSERT INTO users
+(full_name, email, phone, profile_photo, password, role)
+VALUES (?, ?, ?, ?, ?, ?)
+`;
 
         db.query(
             sql,
-            [full_name, email, phone, hashedPassword, role || "client"],
+            [full_name, email, phone, profile_photo, hashedPassword, role || "client"],
             (err, result) => {
                 if (err) {
                     return res.status(500).json(err);
@@ -73,9 +78,19 @@ exports.login = (req, res) => {
             );
 
             res.json({
-                token,
-                role: user.role
-            });
+    message: "Login successful",
+    token,
+    user: {
+        user_id: user.user_id,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        profile_photo: user.profile_photo
+            ? `http://localhost:5000/uploads/profile_photos/${user.profile_photo}`
+            : null
+    }
+});
         }
     );
 };

@@ -1,11 +1,33 @@
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const storage = multer.diskStorage({
 
     destination: (req, file, cb) => {
 
-        cb(null, "uploads/");
+        let folder = "uploads/";
+
+        if (file.fieldname === "logo") {
+            folder = "uploads/agency_logos/";
+        }
+
+        else if (file.fieldname === "profile_photo") {
+            folder = "uploads/profile_photos/";
+        }
+
+        else if (file.fieldname === "portfolio_image") {
+            folder = "uploads/portfolios/";
+        }
+
+        else if (file.fieldname === "document") {
+            folder = "uploads/documents/";
+        }
+
+        // Create folder automatically if it doesn't exist
+        fs.mkdirSync(folder, { recursive: true });
+
+        cb(null, folder);
 
     },
 
@@ -37,10 +59,8 @@ const fileFilter = (req, file, cb) => {
         // PDF
         "application/pdf",
 
-        // Microsoft Word (.doc)
+        // Word
         "application/msword",
-
-        // Microsoft Word (.docx)
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     ];
@@ -52,13 +72,9 @@ const fileFilter = (req, file, cb) => {
     } else {
 
         cb(
-
             new Error(
-
                 "Only JPG, JPEG, PNG, WEBP, PDF, DOC and DOCX files are allowed."
-
             )
-
         );
 
     }
@@ -74,11 +90,10 @@ const upload = multer({
 
     limits: {
 
-        fileSize: 10 * 1024 * 1024 // 10 MB
+        fileSize: 10 * 1024 * 1024
 
     }
 
 });
-
 
 module.exports = upload;

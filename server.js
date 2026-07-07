@@ -19,6 +19,7 @@ const agencyRoutes = require("./routes/agencyRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const agencyTechnicianRoutes =
 require("./routes/agencyTechnicianRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
@@ -37,12 +38,13 @@ app.use("/api/technicians", technicianRoutes);
 app.use("/api/service-requests", serviceRequestRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/portfolios", portfolioRoutes);
-app.use("/api/agencies", agencyRoutes);
 app.use("/api/documents", documentRoutes);
 app.use(
     "/api/agencies/technicians",
     agencyTechnicianRoutes
 );
+app.use("/api/agencies", agencyRoutes);
+app.use("/api/users", userRoutes);
 app.get("/", (req, res) => {
   res.send("ProQuire API Running");
 });

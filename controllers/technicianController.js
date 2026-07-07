@@ -1,52 +1,5 @@
 const db = require("../config/db");
 
-exports.addTechnicianProfile = (req, res) => {
-
-    const {
-        user_id,
-        category_id,
-        bio,
-        years_experience,
-        location
-    } = req.body;
-
-    const sql = `
-        INSERT INTO technician_profiles
-        (user_id, category_id, bio, years_experience, location)
-        VALUES (?, ?, ?, ?, ?)
-    `;
-
-    db.query(
-        sql,
-        [
-            user_id,
-            category_id,
-            bio,
-            years_experience,
-            location
-        ],
-        (err, result) => {
-
-            if (err) {
-
-                return res.status(500).json({
-                    message: "Error creating technician profile",
-                    error: err
-                });
-
-            }
-
-            res.status(201).json({
-                message: "Technician profile created successfully",
-                technician_id: result.insertId
-            });
-
-        }
-    );
-
-};
-
-//adding controller
 exports.getAllTechnicians = (req, res) => {
 
   const sql = `
@@ -339,5 +292,90 @@ exports.getPendingTechnicians = (req, res) => {
         res.status(200).json(results);
 
     });
+
+};
+
+exports.createProfile = (req, res) => {
+
+    const user_id = req.user.user_id;
+
+    const {
+        category_id,
+        bio,
+        years_experience,
+        location,
+        employment_type
+    } = req.body;
+
+    const checkSql = `
+    SELECT technician_id
+    FROM technician_profiles
+    WHERE user_id = ?
+`;
+
+db.query(checkSql, [user_id], (checkErr, checkResults) => {
+
+    if (checkErr) {
+
+        return res.status(500).json(checkErr);
+
+    }
+
+    if (checkResults.length > 0) {
+
+        return res.status(409).json({
+
+            message: "Technician profile already exists"
+
+        });
+
+    }
+
+    const insertSql = `
+        INSERT INTO technician_profiles
+        (
+            user_id,
+            category_id,
+            bio,
+            years_experience,
+            location,
+            employment_type
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(
+
+        insertSql,
+
+        [
+            user_id,
+            category_id,
+            bio,
+            years_experience,
+            location,
+            employment_type
+        ],
+
+        (err, result) => {
+
+            if (err) {
+
+                return res.status(500).json(err);
+
+            }
+
+                res.status(201).json({
+
+                message: "Technician profile created successfully",
+                technician_id: result.insertId
+
+            });
+
+        }
+
+    );
+
+});
 
 };

@@ -3,45 +3,74 @@ const express = require("express");
 const router = express.Router();
 
 const {
-    addTechnicianProfile,
+    createProfile,
     getAllTechnicians,
     getTechnicianById,
     getTechniciansByCategory,
     verifyTechnician,
-    uploadVerificationDocument
+    uploadVerificationDocument,
+    getPendingTechnicians
 } = require("../controllers/technicianController");
 
 const verifyToken = require("../middleware/authMiddleware");
-
 const isAdmin = require("../middleware/adminMiddleware");
 
 
+/*
+|--------------------------------------------------------------------------
+| Technician creates own profile
+|--------------------------------------------------------------------------
+*/
+
 router.post(
-    "/add",
+    "/profile",
     verifyToken,
-    isAdmin,
-    addTechnicianProfile
+    createProfile
 );
 
-//adding route for getting all technicians
+
+/*
+|--------------------------------------------------------------------------
+| Get all verified technicians
+|--------------------------------------------------------------------------
+*/
+
 router.get(
-  "/",
-  getAllTechnicians
+    "/",
+    getAllTechnicians
 );
 
-//adding route for getting technicians by category
+
+/*
+|--------------------------------------------------------------------------
+| Get technicians by category
+|--------------------------------------------------------------------------
+*/
+
 router.get(
     "/category/:categoryId",
     getTechniciansByCategory
 );
 
-//adding route for getting technician by id
+
+/*
+|--------------------------------------------------------------------------
+| Get technician by ID
+|--------------------------------------------------------------------------
+*/
+
 router.get(
     "/:id",
     getTechnicianById
 );
 
-//adding route for verifying technician
+
+/*
+|--------------------------------------------------------------------------
+| Admin verifies technician
+|--------------------------------------------------------------------------
+*/
+
 router.patch(
     "/verify/:id",
     verifyToken,
@@ -49,10 +78,30 @@ router.patch(
     verifyTechnician
 );
 
-//adding route for verification documents
+
+/*
+|--------------------------------------------------------------------------
+| Upload verification document
+|--------------------------------------------------------------------------
+*/
+
 router.post(
     "/verification/upload",
     uploadVerificationDocument
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Admin gets pending technicians
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+    "/pending/list",
+    verifyToken,
+    isAdmin,
+    getPendingTechnicians
 );
 
 
