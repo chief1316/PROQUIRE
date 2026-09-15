@@ -3,105 +3,196 @@ const express = require("express");
 const router = express.Router();
 
 const {
+
     createProfile,
+
     getAllTechnicians,
+
     getTechnicianById,
+
     getTechniciansByCategory,
+
     verifyTechnician,
+
     uploadVerificationDocument,
-    getPendingTechnicians
+
+    getPendingTechnicians,
+
+    getAIVerificationResults,
+
+    reviewVerificationDocument
+
 } = require("../controllers/technicianController");
 
 const verifyToken = require("../middleware/authMiddleware");
+
 const isAdmin = require("../middleware/adminMiddleware");
 
+const upload = require("../middleware/uploadMiddleware");
 
-/*
-|--------------------------------------------------------------------------
-| Technician creates own profile
-|--------------------------------------------------------------------------
-*/
+
+// =========================
+
+// Create Technician Profile
+
+// =========================
 
 router.post(
+
     "/profile",
+
     verifyToken,
+
     createProfile
+
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Get all verified technicians
-|--------------------------------------------------------------------------
-*/
+// =========================
+
+// Get All Verified Technicians
+
+// =========================
 
 router.get(
+
     "/",
+
     getAllTechnicians
+
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Get technicians by category
-|--------------------------------------------------------------------------
-*/
+// =========================
+
+// Get Technicians By Category
+
+// =========================
 
 router.get(
+
     "/category/:categoryId",
+
     getTechniciansByCategory
+
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Get technician by ID
-|--------------------------------------------------------------------------
-*/
+// =========================
+
+// Get Technician By ID
+
+// =========================
 
 router.get(
+
     "/:id",
+
     getTechnicianById
+
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Admin verifies technician
-|--------------------------------------------------------------------------
-*/
+// =========================
+
+// Verify Technician
+
+// Admin Only
+
+// =========================
 
 router.patch(
+
     "/verify/:id",
+
     verifyToken,
+
     isAdmin,
+
     verifyTechnician
+
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Upload verification document
-|--------------------------------------------------------------------------
-*/
+// =========================
+
+// Upload Verification Document
+
+// =========================
 
 router.post(
+
     "/verification/upload",
+
+    verifyToken,
+
+    upload.single("document"),
+
     uploadVerificationDocument
+
 );
 
 
-/*
-|--------------------------------------------------------------------------
-| Admin gets pending technicians
-|--------------------------------------------------------------------------
-*/
+// =========================
+
+// Get Pending Technicians
+
+// Admin Only
+
+// =========================
 
 router.get(
+
     "/pending/list",
+
     verifyToken,
+
     isAdmin,
+
     getPendingTechnicians
+
+);
+
+
+// =========================
+
+// Get AI Verification Results
+
+// Admin Only
+
+// =========================
+
+router.get(
+
+    "/ai-verification/results",
+
+    verifyToken,
+
+    isAdmin,
+
+    getAIVerificationResults
+
+);
+
+
+// =========================
+
+// Admin Final Review
+
+// Admin Only
+
+// =========================
+
+router.patch(
+
+    "/verification/review/:documentId",
+
+    verifyToken,
+
+    isAdmin,
+
+    reviewVerificationDocument
+
 );
 
 
