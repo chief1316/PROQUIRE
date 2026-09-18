@@ -21,6 +21,19 @@ const agencyTechnicianRoutes =
 require("./routes/agencyTechnicianRoutes");
 const userRoutes = require("./routes/userRoutes");
 
+
+// Subscription routes
+const subscriptionRoutes =
+require("./routes/subscriptionRoutes");
+
+const paymentRoutes =
+require("./routes/paymentRoutes");
+
+// Report routes
+const reportRoutes =
+require("./routes/reportRoutes");
+
+
 const app = express();
 
 app.use(cors());
@@ -39,18 +52,40 @@ app.use("/api/service-requests", serviceRequestRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/portfolios", portfolioRoutes);
 app.use("/api/documents", documentRoutes);
+
 app.use(
     "/api/agencies/technicians",
     agencyTechnicianRoutes
 );
+
 app.use("/api/agencies", agencyRoutes);
 app.use("/api/users", userRoutes);
+
+
+// Subscription module
+app.use(
+    "/api/subscriptions",
+    subscriptionRoutes
+);
+
+app.use(
+    "/api/payments",
+    paymentRoutes
+);
+
+// Report module
+app.use(
+    "/api/reports",
+    reportRoutes
+);
+
 app.get("/", (req, res) => {
-  res.send("ProQuire API Running");
+    res.send("ProQuire API Running");
 });
+
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
