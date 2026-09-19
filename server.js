@@ -29,9 +29,16 @@ require("./routes/subscriptionRoutes");
 const paymentRoutes =
 require("./routes/paymentRoutes");
 
+const availabilityRoutes =
+require("./routes/availabilityRoutes");
+
 // Report routes
 const reportRoutes =
 require("./routes/reportRoutes");
+
+// Client routes
+const clientRoutes =
+require("./routes/clientRoutes");
 
 
 const app = express();
@@ -73,10 +80,21 @@ app.use(
     paymentRoutes
 );
 
+app.use(
+    "/api/availability",
+    availabilityRoutes
+);
+
 // Report module
 app.use(
     "/api/reports",
     reportRoutes
+);
+
+// Client module
+app.use(
+    "/api/clients",
+    clientRoutes
 );
 
 app.get("/", (req, res) => {
