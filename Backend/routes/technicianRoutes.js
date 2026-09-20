@@ -3,25 +3,16 @@ const express = require("express");
 const router = express.Router();
 
 const {
-
     createProfile,
-
     getAllTechnicians,
-
     getTechnicianById,
-
+    getMyProfile,
     getTechniciansByCategory,
-
     verifyTechnician,
-
     uploadVerificationDocument,
-
     getPendingTechnicians,
-
     getAIVerificationResults,
-
     reviewVerificationDocument
-
 } = require("../controllers/technicianController");
 
 const verifyToken = require("../middleware/authMiddleware");
@@ -75,6 +66,12 @@ router.get(
 
     getTechniciansByCategory
 
+);
+
+router.get(
+    "/my-profile",
+    verifyToken,
+    getMyProfile
 );
 
 

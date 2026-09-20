@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
@@ -8,6 +8,18 @@ import logo from "../assets/proquire-logo.png";
 
 function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Get the selected role from the URL
+  const selectedRole = searchParams.get("role");
+
+  const roleNames = {
+    client: "Client",
+    technician: "Technician",
+    agency: "Agency",
+  };
+
+  const currentRole = roleNames[selectedRole] || "User";
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -68,7 +80,6 @@ function Login() {
       } else if (role === "client") {
         navigate("/client");
       } else {
-        // Temporary fallback
         navigate("/");
       }
 
@@ -78,7 +89,7 @@ function Login() {
       if (err.response) {
         setError(
           err.response.data?.message ||
-          "Invalid email or password."
+            "Invalid email or password."
         );
       } else {
         setError(
@@ -94,10 +105,13 @@ function Login() {
     <div className="login-page">
       <div className="login-card">
 
-        {/* Back to home */}
-        <Link to="/" className="back-home">
+        {/* Back to role selection */}
+        <Link
+          to="/role-selection"
+          className="back-home"
+        >
           <ArrowLeft size={18} />
-          Back to Home
+          Back to Role Selection
         </Link>
 
         {/* Logo */}
@@ -110,10 +124,18 @@ function Login() {
           <h1>Welcome Back</h1>
 
           <p>
-            Log in to your ProQuire account and connect with trusted
-            service professionals.
+            Log in to your ProQuire{" "}
+            {selectedRole ? `${currentRole.toLowerCase()} ` : ""}
+            account and connect with trusted service professionals.
           </p>
         </div>
+
+        {/* Selected role indicator */}
+        {selectedRole && (
+          <div className="login-role">
+            Logging in as <strong>{currentRole}</strong>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
@@ -123,7 +145,10 @@ function Login() {
         )}
 
         {/* Login form */}
-        <form className="login-form" onSubmit={handleLogin}>
+        <form
+          className="login-form"
+          onSubmit={handleLogin}
+        >
 
           {/* Email */}
           <div className="form-group">
@@ -139,7 +164,9 @@ function Login() {
                 id="email"
                 placeholder="Enter your email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) =>
+                  setEmail(event.target.value)
+                }
                 required
               />
             </div>
@@ -155,18 +182,26 @@ function Login() {
               <Lock size={19} />
 
               <input
-                type={showPassword ? "text" : "password"}
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
                 id="password"
                 placeholder="Enter your password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
                 required
               />
 
               <button
                 type="button"
                 className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() =>
+                  setShowPassword(!showPassword)
+                }
                 aria-label={
                   showPassword
                     ? "Hide password"
@@ -190,7 +225,9 @@ function Login() {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(event) =>
-                  setRememberMe(event.target.checked)
+                  setRememberMe(
+                    event.target.checked
+                  )
                 }
               />
 
@@ -212,16 +249,26 @@ function Login() {
             className="login-submit"
             disabled={loading}
           >
-            {loading ? "Logging in..." : "Log In"}
+            {loading
+              ? "Logging in..."
+              : "Log In"}
           </button>
 
         </form>
 
         {/* Register */}
         <div className="login-register">
-          <span>Don't have an account?</span>
+          <span>
+            Don't have an account?
+          </span>
 
-          <Link to="/register">
+          <Link
+            to={
+              selectedRole
+                ? `/register?role=${selectedRole}`
+                : "/register"
+            }
+          >
             Create an account
           </Link>
         </div>
@@ -229,7 +276,8 @@ function Login() {
         {/* Account types */}
         <div className="login-info">
           <p>
-            ProQuire supports clients, technicians and service agencies.
+            ProQuire supports clients, technicians
+            and service agencies.
           </p>
         </div>
 

@@ -21,6 +21,16 @@ router.post(
 
 
 // =========================
+// Get all agencies
+// =========================
+
+router.get(
+    "/",
+    agencyController.getAllAgencies
+);
+
+
+// =========================
 // Get logged in agency
 // =========================
 router.get(

@@ -63,6 +63,29 @@ const createAgency = (req, res) => {
 
 };
 
+/*
+|--------------------------------------------------------------------------
+| Get All Agencies
+|--------------------------------------------------------------------------
+*/
+
+const getAllAgencies = (req, res) => {
+
+    agencyModel.getAllAgencies((err, result) => {
+
+        if (err) {
+            return res.status(500).json({
+                message: "Failed to fetch agencies.",
+                error: err
+            });
+        }
+
+        res.status(200).json(result);
+
+    });
+
+};
+
 
 /*
 |--------------------------------------------------------------------------
@@ -222,6 +245,7 @@ const deleteAgency = (req, res) => {
 module.exports = {
 
     createAgency,
+    getAllAgencies,
     getAgencyById,
     getMyAgency,
     updateAgency,

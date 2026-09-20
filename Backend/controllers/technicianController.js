@@ -107,6 +107,71 @@ exports.getTechnicianById = (req, res) => {
 
 
 // ======================================================
+// Get My Technician Profile
+// Logged-in Technician
+// ======================================================
+
+exports.getMyProfile = (req, res) => {
+
+    const user_id = req.user.user_id;
+
+    const sql = `
+        SELECT
+            tp.technician_id,
+            tp.user_id,
+            u.full_name,
+            u.email,
+            u.phone,
+            c.category_name,
+            tp.category_id,
+            tp.bio,
+            tp.years_experience,
+            tp.location,
+            tp.employment_type,
+            tp.agency_id,
+            ap.company_name AS agency_name,
+            tp.is_verified
+
+        FROM technician_profiles tp
+
+        JOIN users u
+            ON tp.user_id = u.user_id
+
+        JOIN categories c
+            ON tp.category_id = c.category_id
+
+        LEFT JOIN agency_profiles ap
+            ON tp.agency_id = ap.agency_id
+
+        WHERE tp.user_id = ?
+    `;
+
+    db.query(sql, [user_id], (err, results) => {
+
+        if (err) {
+
+            return res.status(500).json({
+                message: "Error fetching your technician profile",
+                error: err
+            });
+
+        }
+
+        if (results.length === 0) {
+
+            return res.status(404).json({
+                message: "Technician profile not found"
+            });
+
+        }
+
+        res.status(200).json(results[0]);
+
+    });
+
+};
+
+// ======================================================
 // Get Technicians By Category
 // ======================================================
 
@@ -551,6 +616,7 @@ exports.uploadVerificationDocument = (req, res) => {
 // ======================================================
 // Get Pending Technicians
 // Admin Only
+// Includes AI Verification Results
 // ======================================================
 
 exports.getPendingTechnicians = (req, res) => {
@@ -561,9 +627,18 @@ exports.getPendingTechnicians = (req, res) => {
             u.full_name,
             tp.bio,
             tp.location,
+
+            vd.document_id,
             vd.document_type,
             vd.document_path,
-            vd.verification_status
+            vd.verification_status,
+
+            av.verification_id,
+            av.confidence_score,
+            av.verification_result,
+            av.remarks,
+            av.verification_date,
+            av.verified_by
 
         FROM technician_profiles tp
 
@@ -573,14 +648,26 @@ exports.getPendingTechnicians = (req, res) => {
         JOIN verification_documents vd
             ON tp.technician_id = vd.technician_id
 
+        LEFT JOIN ai_verifications av
+            ON vd.document_id = av.document_id
+
         WHERE vd.verification_status = 'pending'
+
+        ORDER BY vd.uploaded_at DESC
     `;
 
     db.query(sql, (err, results) => {
 
         if (err) {
+
+            console.error(
+                "Error fetching pending technicians:",
+                err
+            );
+
             return res.status(500).json({
-                message: "Error fetching technicians",
+                message:
+                    "Error fetching pending technicians",
                 error: err
             });
         }
@@ -605,9 +692,31 @@ exports.createProfile = (req, res) => {
         bio,
         years_experience,
         location,
-        employment_type
+        employment_type,
+        agency_id
     } = req.body;
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validate agency selection
+    |--------------------------------------------------------------------------
+    */
+
+    if (employment_type === "Agency" && !agency_id) {
+
+        return res.status(400).json({
+            message: "Please select an agency."
+        });
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check if technician profile already exists
+    |--------------------------------------------------------------------------
+    */
 
     const checkSql = `
         SELECT technician_id
@@ -621,8 +730,14 @@ exports.createProfile = (req, res) => {
         (checkErr, checkResults) => {
 
             if (checkErr) {
-                return res.status(500).json(checkErr);
+
+                return res.status(500).json({
+                    message: "Error checking technician profile",
+                    error: checkErr
+                });
+
             }
+
 
             if (checkResults.length > 0) {
 
@@ -634,6 +749,12 @@ exports.createProfile = (req, res) => {
             }
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | Create technician profile
+            |--------------------------------------------------------------------------
+            */
+
             const insertSql = `
                 INSERT INTO technician_profiles
                 (
@@ -642,10 +763,12 @@ exports.createProfile = (req, res) => {
                     bio,
                     years_experience,
                     location,
-                    employment_type
+                    employment_type,
+                    agency_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             `;
+
 
             db.query(
                 insertSql,
@@ -655,13 +778,23 @@ exports.createProfile = (req, res) => {
                     bio,
                     years_experience,
                     location,
-                    employment_type
+                    employment_type,
+                    employment_type === "Agency"
+                        ? agency_id
+                        : null
                 ],
                 (err, result) => {
 
                     if (err) {
-                        return res.status(500).json(err);
+
+                        return res.status(500).json({
+                            message:
+                                "Error creating technician profile",
+                            error: err
+                        });
+
                     }
+
 
                     res.status(201).json({
 

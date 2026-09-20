@@ -1,0 +1,264 @@
+/* =========================================================
+   TECHNICIAN PROFILE PAGE
+========================================================= */
+
+.technician-profile-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 50px 20px;
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   PROFILE CARD
+========================================================= */
+
+.technician-profile-card {
+  width: 100%;
+  max-width: 760px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 40px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   BACK BUTTON
+========================================================= */
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  border: none;
+  background: transparent;
+
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 28px;
+}
+
+.back-button:hover {
+  color: #2563eb;
+}
+
+
+/* =========================================================
+   HEADING
+========================================================= */
+
+.profile-heading {
+  margin-bottom: 30px;
+}
+
+.profile-heading h1 {
+  margin: 0 0 10px;
+
+  color: #111827;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.profile-heading p {
+  margin: 0;
+
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   MESSAGES
+========================================================= */
+
+.profile-error,
+.profile-success {
+  border-radius: 10px;
+  padding: 13px 15px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.profile-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.profile-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+
+/* =========================================================
+   FORM
+========================================================= */
+
+.technician-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+
+/* =========================================================
+   FORM GROUP
+========================================================= */
+
+.technician-profile-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.technician-profile-form label {
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+.technician-profile-form input,
+.technician-profile-form select,
+.technician-profile-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  color: #111827;
+  font-family: inherit;
+  font-size: 14px;
+
+  padding: 13px 14px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.technician-profile-form input,
+.technician-profile-form select {
+  min-height: 48px;
+}
+
+.technician-profile-form textarea {
+  resize: vertical;
+  min-height: 130px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   INPUT FOCUS
+========================================================= */
+
+.technician-profile-form input:focus,
+.technician-profile-form select:focus,
+.technician-profile-form textarea:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+
+/* =========================================================
+   PLACEHOLDER
+========================================================= */
+
+.technician-profile-form input::placeholder,
+.technician-profile-form textarea::placeholder {
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   SUBMIT BUTTON
+========================================================= */
+
+.profile-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  width: 100%;
+
+  border: none;
+  border-radius: 10px;
+
+  background: #2563eb;
+  color: #ffffff;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  padding: 14px 20px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.profile-submit:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.profile-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   RESPONSIVE DESIGN
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .technician-profile-page {
+    padding: 25px 15px;
+  }
+
+  .technician-profile-card {
+    padding: 25px 20px;
+    border-radius: 14px;
+  }
+
+  .profile-heading h1 {
+    font-size: 25px;
+  }
+
+  .profile-heading p {
+    font-size: 14px;
+  }
+
+}

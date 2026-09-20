@@ -47,6 +47,41 @@ const createAgency = (agencyData, callback) => {
 
 /*
 |--------------------------------------------------------------------------
+| Get All Agencies
+|--------------------------------------------------------------------------
+|
+| Used when technicians need to select an agency.
+|
+| Only public/basic agency information is returned.
+| Sensitive information such as KRA PIN and registration number
+| is not exposed.
+|
+|--------------------------------------------------------------------------
+*/
+
+const getAllAgencies = (callback) => {
+
+    db.query(
+        `
+        SELECT
+            agency_id,
+            company_name,
+            county,
+            address,
+            description,
+            logo,
+            is_verified
+        FROM agency_profiles
+        ORDER BY company_name ASC
+        `,
+        callback
+    );
+
+};
+
+
+/*
+|--------------------------------------------------------------------------
 | Get Agency By Agency ID
 |--------------------------------------------------------------------------
 */
@@ -160,6 +195,7 @@ const deleteAgency = (agencyId, callback) => {
 module.exports = {
 
     createAgency,
+    getAllAgencies,
     getAgencyById,
     getAgencyByUserId,
     updateAgency,

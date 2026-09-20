@@ -148,6 +148,10 @@ a {
 }
 
 .login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
   background: #ffffff;
   color: #175dcc;
   border: 1px solid #cfd9e8;
@@ -158,6 +162,10 @@ a {
 }
 
 .signup-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
   border: 1px solid #175dcc;
   background: #175dcc;
   color: #ffffff;
@@ -1025,5 +1033,308 @@ a {
   .footer-links {
     flex-direction: column;
     gap: 15px;
+  }
+}
+
+/* =========================================================
+   ROLE SELECTION PAGE
+   ========================================================= */
+
+.role-selection-page {
+  min-height: 100vh;
+  background: #f5f8fc;
+  color: #102a43;
+}
+
+/* Header */
+
+.role-header {
+  height: 78px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5eaf0;
+  display: flex;
+  align-items: center;
+  padding: 0 6%;
+}
+
+.role-logo {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.role-logo img {
+  width: 150px;
+  height: auto;
+  display: block;
+}
+
+/* Main */
+
+.role-main {
+  min-height: calc(100vh - 78px);
+  display: flex;
+  justify-content: center;
+  padding: 55px 20px 70px;
+}
+
+.role-container {
+  width: 100%;
+  max-width: 1050px;
+}
+
+/* Heading */
+
+.role-heading {
+  text-align: center;
+  margin-bottom: 42px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #eaf2ff;
+  color: #175dcc;
+  border: 1px solid #d5e4ff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.role-heading h1 {
+  margin: 0;
+  font-size: 42px;
+  line-height: 1.15;
+  font-weight: 800;
+  color: #102a43;
+}
+
+.role-heading h1 span {
+  color: #175dcc;
+}
+
+.role-heading p {
+  margin: 14px auto 0;
+  max-width: 620px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #627d98;
+}
+
+/* Role Cards */
+
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.role-card {
+  background: #ffffff;
+  border: 1px solid #e1e8f0;
+  border-radius: 16px;
+  padding: 30px 26px;
+  text-decoration: none;
+  color: inherit;
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.role-card:hover {
+  transform: translateY(-5px);
+  border-color: #b9d0f5;
+  box-shadow: 0 14px 35px rgba(23, 93, 204, 0.12);
+}
+
+.role-icon {
+  width: 62px;
+  height: 62px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.client-icon {
+  background: #eaf2ff;
+  color: #175dcc;
+}
+
+.technician-icon {
+  background: #fff3e8;
+  color: #e87916;
+}
+
+.agency-icon {
+  background: #eaf8f1;
+  color: #16845b;
+}
+
+.role-card-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.role-card-content h2 {
+  margin: 0 0 10px;
+  font-size: 24px;
+  color: #102a43;
+}
+
+.role-card-content p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #627d98;
+}
+
+.role-card-link {
+  margin-top: auto;
+  padding-top: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #175dcc;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Admin Section */
+
+.admin-login-section {
+  margin-top: 42px;
+  text-align: center;
+}
+
+.admin-divider {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.admin-divider span {
+  height: 1px;
+  background: #dbe3ec;
+  flex: 1;
+}
+
+.admin-divider p {
+  margin: 0;
+  color: #829ab1;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 22px;
+  background: #ffffff;
+  color: #334e68;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-login-button:hover {
+  background: #f8fafc;
+  border-color: #9fb3c8;
+  transform: translateY(-2px);
+}
+
+.admin-note {
+  margin: 12px 0 0;
+  color: #829ab1;
+  font-size: 13px;
+}
+
+/* Back Home */
+
+.back-home {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  color: #175dcc;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.back-home:hover {
+  text-decoration: underline;
+}
+
+/* =========================================================
+   ROLE SELECTION RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 850px) {
+  .role-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .role-card {
+    min-height: auto;
+  }
+
+  .role-heading h1 {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-header {
+    height: 70px;
+    padding: 0 20px;
+  }
+
+  .role-logo img {
+    width: 130px;
+  }
+
+  .role-main {
+    padding: 40px 16px 50px;
+  }
+
+  .role-heading {
+    margin-bottom: 30px;
+  }
+
+  .role-heading h1 {
+    font-size: 30px;
+  }
+
+  .role-heading p {
+    font-size: 15px;
+  }
+
+  .role-card {
+    padding: 25px 22px;
+  }
+
+  .admin-divider p {
+    font-size: 11px;
   }
 }
