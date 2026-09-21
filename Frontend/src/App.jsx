@@ -19,6 +19,11 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import TechnicianProfile from "./pages/TechnicianProfile";
+import AgencyRegister from "./pages/AgencyRegister";
+import AgencyProfileSetup from "./pages/AgencyProfileSetup";
+import AgencyDashboard from "./pages/AgencyDashboard";
+import AgencyTechnicians from "./pages/AgencyTechnicians";
+import AgencyTechnicianDetails from "./pages/AgencyTechnicianDetails";
 
 import "./App.css";
 
@@ -45,7 +50,6 @@ function Home() {
             />
           </Link>
 
-
           <div className="nav-links">
 
             <a href="#home">
@@ -65,7 +69,6 @@ function Home() {
             </a>
 
           </div>
-
 
           <div className="nav-actions">
 
@@ -110,7 +113,6 @@ function Home() {
 
             </div>
 
-
             <h1>
 
               Find the Right
@@ -123,12 +125,10 @@ function Home() {
 
             </h1>
 
-
             <p>
               Connect with verified skilled technicians and service
               agencies for reliable, professional services.
             </p>
-
 
             <div className="hero-buttons">
 
@@ -143,7 +143,6 @@ function Home() {
 
               </Link>
 
-
               <Link
                 to="/role-selection"
                 className="secondary-button"
@@ -152,7 +151,6 @@ function Home() {
               </Link>
 
             </div>
-
 
             <div className="hero-trust">
 
@@ -164,7 +162,6 @@ function Home() {
 
               </div>
 
-
               <div className="trust-item">
 
                 <Star size={16} />
@@ -172,7 +169,6 @@ function Home() {
                 Trusted Reviews
 
               </div>
-
 
               <div className="trust-item">
 
@@ -212,7 +208,6 @@ function Home() {
 
               </div>
 
-
               <div className="search-box">
 
                 <Search size={19} />
@@ -222,7 +217,6 @@ function Home() {
                 </span>
 
               </div>
-
 
               <div className="search-box">
 
@@ -234,7 +228,6 @@ function Home() {
 
               </div>
 
-
               <Link
                 to="/role-selection"
                 className="search-button"
@@ -245,7 +238,6 @@ function Home() {
                 <ArrowRight size={18} />
 
               </Link>
-
 
               <div className="rating-preview">
 
@@ -277,7 +269,6 @@ function Home() {
                   />
 
                 </div>
-
 
                 <span>
                   Find trusted professionals through ratings and reviews
@@ -322,7 +313,6 @@ function Home() {
 
           </div>
 
-
           <div className="service-cards">
 
             <div className="service-card">
@@ -347,7 +337,6 @@ function Home() {
 
             </div>
 
-
             <div className="service-card">
 
               <div className="service-icon">
@@ -370,7 +359,6 @@ function Home() {
 
             </div>
 
-
             <div className="service-card">
 
               <div className="service-icon">
@@ -392,7 +380,6 @@ function Home() {
               </button>
 
             </div>
-
 
             <div className="service-card">
 
@@ -450,7 +437,6 @@ function Home() {
 
           </div>
 
-
           <div className="steps">
 
             <div className="step">
@@ -470,7 +456,6 @@ function Home() {
 
             </div>
 
-
             <div className="step">
 
               <div className="step-number">
@@ -488,7 +473,6 @@ function Home() {
 
             </div>
 
-
             <div className="step">
 
               <div className="step-number">
@@ -505,7 +489,6 @@ function Home() {
               </p>
 
             </div>
-
 
             <div className="step">
 
@@ -555,7 +538,6 @@ function Home() {
 
           </div>
 
-
           <Link
             to="/role-selection"
             className="light-button"
@@ -594,7 +576,6 @@ function Home() {
             </h2>
 
           </div>
-
 
           <div className="about-content">
 
@@ -640,7 +621,6 @@ function Home() {
 
           </div>
 
-
           <div className="footer-links">
 
             <a href="#home">
@@ -666,7 +646,6 @@ function Home() {
           </div>
 
         </div>
-
 
         <div className="footer-bottom">
 
@@ -709,23 +688,33 @@ function App() {
         />
 
 
-        {/* Existing Login */}
+        {/* Login */}
         <Route
           path="/login"
           element={<Login />}
         />
 
+
+        {/* Registration */}
         <Route
           path="/register"
           element={<Register />}
         />
 
-        <Route path="/admin-login" element={<AdminLogin />} />
 
-        <Route path="/admin" element={<AdminDashboard />} />
+        {/* Admin */}
+        <Route
+          path="/admin-login"
+          element={<AdminLogin />}
+        />
+
+        <Route
+          path="/admin"
+          element={<AdminDashboard />}
+        />
 
 
-        {/* Existing Technician Dashboard */}
+        {/* Technician */}
         <Route
           path="/technician"
           element={<TechnicianDashboard />}
@@ -736,10 +725,40 @@ function App() {
           element={<TechnicianProfile />}
         />
 
+
+        {/* Agency Registration */}
+        <Route
+          path="/agency-register"
+          element={<AgencyRegister />}
+        />
+
+
+        {/* Agency Profile Setup */}
+        <Route
+          path="/agency/profile-setup"
+          element={<AgencyProfileSetup />}
+        />
+
+
+        {/* Agency Dashboard */}
+        <Route
+          path="/agency"
+          element={<AgencyDashboard />}
+        />
+
+        <Route
+           path="/agency/technicians"
+           element={<AgencyTechnicians />}
+         />
+
+         <Route
+          path="/agency/technicians/:id"
+          element={<AgencyTechnicianDetails />}
+        />
+
       </Routes>
 
     </BrowserRouter>
-
   );
 }
 

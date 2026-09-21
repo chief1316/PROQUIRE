@@ -1,5 +1,13 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Phone,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
 import "./Register.css";
@@ -74,7 +82,10 @@ function Register() {
         }
       );
 
-      console.log("Registration successful:", response.data);
+      console.log(
+        "Registration successful:",
+        response.data
+      );
 
       setSuccess(
         "Account created successfully. You can now log in."
@@ -85,7 +96,10 @@ function Register() {
       }, 1500);
 
     } catch (err) {
-      console.error("Registration error:", err);
+      console.error(
+        "Registration error:",
+        err
+      );
 
       if (err.response) {
         setError(
@@ -97,6 +111,7 @@ function Register() {
           "Unable to connect to the ProQuire server. Make sure the backend is running."
         );
       }
+
     } finally {
       setLoading(false);
     }
@@ -146,7 +161,9 @@ function Register() {
         {selectedRole && (
           <div className="register-role">
             Creating account as{" "}
-            <strong>{currentRole}</strong>
+            <strong>
+              {currentRole}
+            </strong>
           </div>
         )}
 
@@ -170,11 +187,13 @@ function Register() {
           onSubmit={handleRegister}
         >
 
-          {/* Full name */}
+          {/* Full name / Contact person */}
           <div className="form-group">
 
             <label htmlFor="fullName">
-              Full Name
+              {selectedRole === "agency"
+                ? "Contact Person"
+                : "Full Name"}
             </label>
 
             <div className="input-wrapper">
@@ -184,7 +203,11 @@ function Register() {
               <input
                 type="text"
                 id="fullName"
-                placeholder="Enter your full name"
+                placeholder={
+                  selectedRole === "agency"
+                    ? "Enter contact person's name"
+                    : "Enter your full name"
+                }
                 value={fullName}
                 onChange={(event) =>
                   setFullName(event.target.value)
@@ -196,11 +219,13 @@ function Register() {
 
           </div>
 
-          {/* Phone number */}
+          {/* Phone */}
           <div className="form-group">
 
             <label htmlFor="phone">
-              Phone Number
+              {selectedRole === "agency"
+                ? "Business Phone"
+                : "Phone Number"}
             </label>
 
             <div className="input-wrapper">
@@ -210,7 +235,11 @@ function Register() {
               <input
                 type="tel"
                 id="phone"
-                placeholder="Enter your phone number"
+                placeholder={
+                  selectedRole === "agency"
+                    ? "Enter business phone number"
+                    : "Enter your phone number"
+                }
                 value={phone}
                 onChange={(event) =>
                   setPhone(event.target.value)
@@ -226,7 +255,9 @@ function Register() {
           <div className="form-group">
 
             <label htmlFor="email">
-              Email Address
+              {selectedRole === "agency"
+                ? "Business Email"
+                : "Email Address"}
             </label>
 
             <div className="input-wrapper">
@@ -236,7 +267,11 @@ function Register() {
               <input
                 type="email"
                 id="email"
-                placeholder="Enter your email"
+                placeholder={
+                  selectedRole === "agency"
+                    ? "Enter business email"
+                    : "Enter your email"
+                }
                 value={email}
                 onChange={(event) =>
                   setEmail(event.target.value)

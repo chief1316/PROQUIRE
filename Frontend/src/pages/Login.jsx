@@ -57,14 +57,19 @@ function Login() {
       if (data.token) {
         if (rememberMe) {
           localStorage.setItem("token", data.token);
+          sessionStorage.removeItem("token");
         } else {
           sessionStorage.setItem("token", data.token);
+          localStorage.removeItem("token");
         }
       }
 
       // Store user information if returned by the backend
       if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem(
+          "user",
+          JSON.stringify(data.user)
+        );
       }
 
       // Determine the user's role
@@ -72,18 +77,72 @@ function Login() {
 
       // Redirect according to account type
       if (role === "admin") {
+
         navigate("/admin");
+
       } else if (role === "technician") {
+
         navigate("/technician");
+
       } else if (role === "agency") {
-        navigate("/agency");
+
+        /*
+         * Check whether this agency already has
+         * an agency profile.
+         */
+        const token = data.token;
+
+        try {
+          await axios.get(
+            "http://localhost:5000/api/agencies/me",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          /*
+           * Agency profile exists.
+           * Continue to the agency dashboard.
+           */
+          navigate("/agency");
+
+        } catch (agencyError) {
+
+          /*
+           * A 404 means the agency account exists,
+           * but the agency profile has not been created yet.
+           */
+          if (
+            agencyError.response &&
+            agencyError.response.status === 404
+          ) {
+            navigate("/agency/profile-setup");
+          } else {
+            console.error(
+              "Agency profile check failed:",
+              agencyError
+            );
+
+            setError(
+              "Unable to check your agency profile. Please try again."
+            );
+          }
+        }
+
       } else if (role === "client") {
+
         navigate("/client");
+
       } else {
+
         navigate("/");
+
       }
 
     } catch (err) {
+
       console.error("Login error:", err);
 
       if (err.response) {
@@ -96,13 +155,17 @@ function Login() {
           "Unable to connect to the ProQuire server. Make sure the backend is running."
         );
       }
+
     } finally {
+
       setLoading(false);
+
     }
   };
 
   return (
     <div className="login-page">
+
       <div className="login-card">
 
         {/* Back to role selection */}
@@ -116,24 +179,36 @@ function Login() {
 
         {/* Logo */}
         <div className="login-logo">
-          <img src={logo} alt="ProQuire Logo" />
+          <img
+            src={logo}
+            alt="ProQuire Logo"
+          />
         </div>
 
         {/* Heading */}
         <div className="login-heading">
-          <h1>Welcome Back</h1>
+
+          <h1>
+            Welcome Back
+          </h1>
 
           <p>
             Log in to your ProQuire{" "}
-            {selectedRole ? `${currentRole.toLowerCase()} ` : ""}
+            {selectedRole
+              ? `${currentRole.toLowerCase()} `
+              : ""}
             account and connect with trusted service professionals.
           </p>
+
         </div>
 
         {/* Selected role indicator */}
         {selectedRole && (
           <div className="login-role">
-            Logging in as <strong>{currentRole}</strong>
+            Logging in as{" "}
+            <strong>
+              {currentRole}
+            </strong>
           </div>
         )}
 
@@ -152,11 +227,13 @@ function Login() {
 
           {/* Email */}
           <div className="form-group">
+
             <label htmlFor="email">
               Email Address
             </label>
 
             <div className="input-wrapper">
+
               <Mail size={19} />
 
               <input
@@ -169,16 +246,20 @@ function Login() {
                 }
                 required
               />
+
             </div>
+
           </div>
 
           {/* Password */}
           <div className="form-group">
+
             <label htmlFor="password">
               Password
             </label>
 
             <div className="input-wrapper">
+
               <Lock size={19} />
 
               <input
@@ -208,19 +289,24 @@ function Login() {
                     : "Show password"
                 }
               >
+
                 {showPassword ? (
                   <EyeOff size={19} />
                 ) : (
                   <Eye size={19} />
                 )}
+
               </button>
+
             </div>
+
           </div>
 
           {/* Remember / Forgot */}
           <div className="login-options">
 
             <label className="remember-me">
+
               <input
                 type="checkbox"
                 checked={rememberMe}
@@ -231,7 +317,10 @@ function Login() {
                 }
               />
 
-              <span>Remember me</span>
+              <span>
+                Remember me
+              </span>
+
             </label>
 
             <button
@@ -249,15 +338,18 @@ function Login() {
             className="login-submit"
             disabled={loading}
           >
+
             {loading
               ? "Logging in..."
               : "Log In"}
+
           </button>
 
         </form>
 
         {/* Register */}
         <div className="login-register">
+
           <span>
             Don't have an account?
           </span>
@@ -271,17 +363,21 @@ function Login() {
           >
             Create an account
           </Link>
+
         </div>
 
         {/* Account types */}
         <div className="login-info">
+
           <p>
             ProQuire supports clients, technicians
             and service agencies.
           </p>
+
         </div>
 
       </div>
+
     </div>
   );
 }

@@ -40,6 +40,8 @@ require("./routes/reportRoutes");
 const clientRoutes =
 require("./routes/clientRoutes");
 
+const categoryRoutes = require("./routes/categoryRoutes");
+
 
 const app = express();
 
@@ -67,6 +69,7 @@ app.use(
 
 app.use("/api/agencies", agencyRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/categories", categoryRoutes);
 
 
 // Subscription module

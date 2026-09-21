@@ -1,0 +1,425 @@
+/* =========================
+   PAGE
+========================= */
+
+.agency-profile-page {
+  min-height: 100vh;
+  background: #f5f8fc;
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+
+/* =========================
+   CARD
+========================= */
+
+.agency-profile-card {
+  width: 100%;
+  max-width: 760px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+}
+
+
+/* =========================
+   BACK LINK
+========================= */
+
+.agency-profile-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 25px;
+}
+
+.agency-profile-back:hover {
+  color: #1d4ed8;
+}
+
+
+/* =========================
+   LOGO
+========================= */
+
+.agency-profile-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.agency-profile-logo img {
+  width: 150px;
+  height: auto;
+  object-fit: contain;
+}
+
+
+/* =========================
+   HEADING
+========================= */
+
+.agency-profile-heading {
+  text-align: center;
+  margin-bottom: 35px;
+}
+
+.agency-profile-heading h1 {
+  margin: 0 0 10px;
+  color: #0f172a;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.agency-profile-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+
+/* =========================
+   MESSAGES
+========================= */
+
+.agency-profile-error,
+.agency-profile-success {
+  padding: 13px 16px;
+  border-radius: 10px;
+  margin-bottom: 22px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.agency-profile-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.agency-profile-success {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+
+/* =========================
+   FORM
+========================= */
+
+.agency-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+
+/* =========================
+   SECTION
+========================= */
+
+.agency-profile-section {
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+
+.agency-profile-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.agency-profile-section-title svg {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.agency-profile-section-title h2 {
+  margin: 0 0 4px;
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.agency-profile-section-title p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+
+/* =========================
+   FORM GROUP
+========================= */
+
+.agency-profile-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agency-profile-form-group label {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+/* =========================
+   INPUT WRAPPER
+========================= */
+
+.agency-profile-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.agency-profile-input-wrapper svg {
+  position: absolute;
+  left: 15px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.agency-profile-input-wrapper input,
+.agency-profile-input-wrapper select {
+  width: 100%;
+  min-height: 50px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 14px;
+  padding: 0 15px 0 45px;
+  outline: none;
+  transition: border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+.agency-profile-input-wrapper input::placeholder {
+  color: #94a3b8;
+}
+
+.agency-profile-input-wrapper input:focus,
+.agency-profile-input-wrapper select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+
+/* =========================
+   TEXTAREA
+========================= */
+
+.agency-profile-form-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 140px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 14px 15px;
+  outline: none;
+  transition: border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+.agency-profile-form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+.agency-profile-form-group textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+
+/* =========================
+   UPLOAD
+========================= */
+
+.agency-profile-upload-box {
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #f8fafc;
+  transition: border-color 0.2s ease,
+              background 0.2s ease;
+}
+
+.agency-profile-upload-box:hover {
+  border-color: #2563eb;
+  background: #f8fbff;
+}
+
+.agency-profile-upload-box > svg {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.agency-profile-upload-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.agency-profile-upload-box label strong {
+  color: #334155;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.agency-profile-upload-box label span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.agency-profile-upload-box input[type="file"] {
+  display: none;
+}
+
+
+/* =========================
+   SUBMIT BUTTON
+========================= */
+
+.agency-profile-submit {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  transition: background 0.2s ease,
+              transform 0.1s ease;
+}
+
+.agency-profile-submit:hover {
+  background: #1d4ed8;
+}
+
+.agency-profile-submit:active {
+  transform: translateY(1px);
+}
+
+.agency-profile-submit:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
+.agency-profile-footer {
+  margin-top: 35px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.agency-profile-footer span:first-child {
+  font-weight: 700;
+  color: #64748b;
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 700px) {
+
+  .agency-profile-page {
+    padding: 20px 12px;
+  }
+
+  .agency-profile-card {
+    padding: 25px 20px;
+    border-radius: 15px;
+  }
+
+  .agency-profile-heading h1 {
+    font-size: 25px;
+  }
+
+  .agency-profile-heading p {
+    font-size: 14px;
+  }
+
+  .agency-profile-upload-box {
+    padding: 20px;
+  }
+
+  .agency-profile-footer {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+
+/* =========================
+   SMALL MOBILE
+========================= */
+
+@media (max-width: 420px) {
+
+  .agency-profile-card {
+    padding: 22px 16px;
+  }
+
+  .agency-profile-heading h1 {
+    font-size: 22px;
+  }
+
+  .agency-profile-section-title h2 {
+    font-size: 16px;
+  }
+
+  .agency-profile-section-title p {
+    font-size: 12px;
+  }
+
+  .agency-profile-upload-box {
+    align-items: flex-start;
+  }
+}

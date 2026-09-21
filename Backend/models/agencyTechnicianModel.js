@@ -80,6 +80,7 @@ const getAgencyTechnicians = (agencyId, callback) => {
             u.email,
             u.phone,
             tp.category_id,
+            c.category_name,
             tp.location,
             tp.years_experience,
             tp.bio,
@@ -87,6 +88,8 @@ const getAgencyTechnicians = (agencyId, callback) => {
         FROM technician_profiles tp
         JOIN users u
             ON tp.user_id = u.user_id
+        LEFT JOIN categories c
+            ON tp.category_id = c.category_id
         WHERE tp.agency_id = ?
     `;
 
@@ -107,10 +110,13 @@ const getTechnicianById = (technicianId, callback) => {
             tp.*,
             u.full_name,
             u.email,
-            u.phone
+            u.phone,
+            c.category_name
         FROM technician_profiles tp
         JOIN users u
             ON tp.user_id = u.user_id
+        LEFT JOIN categories c
+            ON tp.category_id = c.category_id
         WHERE tp.technician_id = ?
     `;
 

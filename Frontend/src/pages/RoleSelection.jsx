@@ -104,7 +104,7 @@ function RoleSelection() {
 
             {/* AGENCY */}
             <a
-              href="/login?role=agency"
+              href="/agency-register"
               className="role-card"
             >
               <div className="role-icon agency-icon">

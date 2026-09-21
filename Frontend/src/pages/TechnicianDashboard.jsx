@@ -46,7 +46,10 @@ function TechnicianDashboard() {
   useEffect(() => {
     const fetchTechnicianProfile = async () => {
       try {
-        const token = localStorage.getItem("token");
+        // Check both localStorage and sessionStorage
+        const token =
+          localStorage.getItem("token") ||
+          sessionStorage.getItem("token");
 
         if (!token) {
           navigate("/login");
@@ -70,6 +73,7 @@ function TechnicianDashboard() {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           sessionStorage.removeItem("token");
+          sessionStorage.removeItem("user");
 
           navigate("/login");
         }
@@ -114,6 +118,7 @@ function TechnicianDashboard() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
 
     navigate("/login");
   };
@@ -514,7 +519,6 @@ function TechnicianDashboard() {
 
               <div>
                 <strong>ProQuire Verified</strong>
-
                 <span>Build trust with clients</span>
               </div>
             </div>
@@ -576,7 +580,6 @@ function TechnicianDashboard() {
                   className="technician-profile-mini-text"
                 >
                   <strong>{technicianName}</strong>
-
                   <span>Technician</span>
                 </div>
               </div>
