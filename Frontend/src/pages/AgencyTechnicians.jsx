@@ -14,6 +14,7 @@ import {
   Lock,
   FileText,
   Save,
+  Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -35,6 +36,15 @@ function AgencyTechnicians() {
   const [addError, setAddError] = useState("");
   const [addSuccess, setAddSuccess] = useState("");
 
+  // ------------------------------------------------------------
+  // DELETE STATE
+  // ------------------------------------------------------------
+
+  const [deletingTechnicianId, setDeletingTechnicianId] =
+    useState(null);
+
+  const [deleteError, setDeleteError] = useState("");
+
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -52,6 +62,10 @@ function AgencyTechnicians() {
       sessionStorage.getItem("token")
     );
   };
+
+  // ------------------------------------------------------------
+  // FETCH TECHNICIANS
+  // ------------------------------------------------------------
 
   const fetchTechnicians = async () => {
     const token = getToken();
@@ -96,6 +110,10 @@ function AgencyTechnicians() {
     }
   };
 
+  // ------------------------------------------------------------
+  // FETCH CATEGORIES
+  // ------------------------------------------------------------
+
   const fetchCategories = async () => {
     try {
       setCategoriesLoading(true);
@@ -123,6 +141,10 @@ function AgencyTechnicians() {
     fetchCategories();
   }, []);
 
+  // ------------------------------------------------------------
+  // INITIALS
+  // ------------------------------------------------------------
+
   const getInitials = (name) => {
     if (!name) return "T";
 
@@ -133,6 +155,10 @@ function AgencyTechnicians() {
       .substring(0, 2)
       .toUpperCase();
   };
+
+  // ------------------------------------------------------------
+  // FORM HANDLING
+  // ------------------------------------------------------------
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
@@ -170,6 +196,10 @@ function AgencyTechnicians() {
     setShowAddModal(false);
     resetForm();
   };
+
+  // ------------------------------------------------------------
+  // ADD TECHNICIAN
+  // ------------------------------------------------------------
 
   const handleAddTechnician = async (event) => {
     event.preventDefault();
@@ -248,6 +278,68 @@ function AgencyTechnicians() {
       );
     } finally {
       setAddingTechnician(false);
+    }
+  };
+
+  // ------------------------------------------------------------
+  // DELETE TECHNICIAN
+  // ------------------------------------------------------------
+
+  const handleDeleteTechnician = async (technician) => {
+    const technicianId = technician.technician_id;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${technician.full_name || "this technician"}?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const token = getToken();
+
+    if (!token) {
+      navigate("/login?role=agency");
+      return;
+    }
+
+    try {
+      setDeleteError("");
+      setDeletingTechnicianId(technicianId);
+
+      await axios.delete(
+        `http://localhost:5000/api/agencies/technicians/${technicianId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Remove the deleted technician from the current list.
+      setTechnicians((previousTechnicians) =>
+        previousTechnicians.filter(
+          (item) => item.technician_id !== technicianId
+        )
+      );
+    } catch (err) {
+      console.error("Error deleting technician:", err);
+
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        navigate("/login?role=agency");
+        return;
+      }
+
+      setDeleteError(
+        err.response?.data?.message ||
+          "Unable to delete technician. Please try again."
+      );
+    } finally {
+      setDeletingTechnicianId(null);
     }
   };
 
@@ -598,6 +690,24 @@ function AgencyTechnicians() {
             </button>
           </div>
 
+          {/* Delete Error */}
+
+          {deleteError && (
+            <div
+              style={{
+                marginTop: "18px",
+                padding: "12px 14px",
+                borderRadius: "9px",
+                background: "#fff0f2",
+                border: "1px solid #f2c4cb",
+                color: "#b52d40",
+                fontSize: "13px",
+              }}
+            >
+              {deleteError}
+            </div>
+          )}
+
           {/* Loading */}
 
           {loading && (
@@ -720,6 +830,10 @@ function AgencyTechnicians() {
                 const verified =
                   Number(technician.is_verified) === 1;
 
+                const isDeleting =
+                  deletingTechnicianId ===
+                  technician.technician_id;
+
                 return (
                   <div
                     key={technician.technician_id}
@@ -789,6 +903,8 @@ function AgencyTechnicians() {
                       </div>
                     </div>
 
+                    {/* Verification badge */}
+
                     <div
                       style={{
                         display: "inline-flex",
@@ -819,6 +935,8 @@ function AgencyTechnicians() {
                         </>
                       )}
                     </div>
+
+                    {/* Technician details */}
 
                     <div
                       style={{
@@ -862,12 +980,15 @@ function AgencyTechnicians() {
                       </div>
                     </div>
 
+                    {/* View button */}
+
                     <button
                       onClick={() =>
                         navigate(
                           `/agency/technicians/${technician.technician_id}`
                         )
                       }
+                      disabled={isDeleting}
                       style={{
                         width: "100%",
                         marginTop: "18px",
@@ -878,10 +999,46 @@ function AgencyTechnicians() {
                         color: "#2166d1",
                         fontSize: "12px",
                         fontWeight: 600,
-                        cursor: "pointer",
+                        cursor: isDeleting
+                          ? "not-allowed"
+                          : "pointer",
                       }}
                     >
                       View Technician
+                    </button>
+
+                    {/* DELETE BUTTON */}
+
+                    <button
+                      onClick={() =>
+                        handleDeleteTechnician(technician)
+                      }
+                      disabled={isDeleting}
+                      style={{
+                        width: "100%",
+                        marginTop: "9px",
+                        padding: "9px 12px",
+                        border: "1px solid #f0c7cd",
+                        borderRadius: "8px",
+                        background: "#fff5f6",
+                        color: "#c9384a",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "7px",
+                        cursor: isDeleting
+                          ? "not-allowed"
+                          : "pointer",
+                        opacity: isDeleting ? 0.65 : 1,
+                      }}
+                    >
+                      <Trash2 size={15} />
+
+                      {isDeleting
+                        ? "Deleting..."
+                        : "Delete Technician"}
                     </button>
                   </div>
                 );
@@ -1380,10 +1537,7 @@ function AgencyTechnicians() {
                     padding: "0 13px",
                   }}
                 >
-                  <MapPin
-                    size={17}
-                    color="#8190a7"
-                  />
+                  <MapPin size={17} color="#8190a7" />
 
                   <input
                     type="text"
@@ -1489,7 +1643,9 @@ function AgencyTechnicians() {
 
                 <button
                   type="submit"
-                  disabled={addingTechnician || categoriesLoading}
+                  disabled={
+                    addingTechnician || categoriesLoading
+                  }
                   style={{
                     border: "none",
                     background:

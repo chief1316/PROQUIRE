@@ -164,13 +164,134 @@ const updateTechnician = (technicianId, data, callback) => {
 
 const deleteTechnician = (technicianId, callback) => {
 
-    db.query(
-        "DELETE FROM technician_profiles WHERE technician_id = ?",
-        [technicianId],
-        callback
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | Start transaction
+    |--------------------------------------------------------------------------
+    */
+
+    db.beginTransaction((transactionError) => {
+
+        if (transactionError) {
+            return callback(transactionError);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find the user account belonging to the technician
+        |--------------------------------------------------------------------------
+        */
+
+        const findUserSql = `
+            SELECT user_id
+            FROM technician_profiles
+            WHERE technician_id = ?
+        `;
+
+        db.query(
+            findUserSql,
+            [technicianId],
+            (findError, results) => {
+
+                if (findError) {
+                    return db.rollback(() => {
+                        callback(findError);
+                    });
+                }
+
+                if (results.length === 0) {
+                    return db.rollback(() => {
+                        callback({
+                            code: "TECHNICIAN_NOT_FOUND",
+                            message: "Technician not found."
+                        });
+                    });
+                }
+
+                const userId = results[0].user_id;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Delete technician profile
+                |--------------------------------------------------------------------------
+                */
+
+                const deleteProfileSql = `
+                    DELETE FROM technician_profiles
+                    WHERE technician_id = ?
+                `;
+
+                db.query(
+                    deleteProfileSql,
+                    [technicianId],
+                    (profileError) => {
+
+                        if (profileError) {
+                            return db.rollback(() => {
+                                callback(profileError);
+                            });
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Delete associated user account
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const deleteUserSql = `
+                            DELETE FROM users
+                            WHERE user_id = ?
+                        `;
+
+                        db.query(
+                            deleteUserSql,
+                            [userId],
+                            (userError) => {
+
+                                if (userError) {
+                                    return db.rollback(() => {
+                                        callback(userError);
+                                    });
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Commit transaction
+                                |--------------------------------------------------------------------------
+                                */
+
+                                db.commit((commitError) => {
+
+                                    if (commitError) {
+                                        return db.rollback(() => {
+                                            callback(commitError);
+                                        });
+                                    }
+
+                                    callback(null, {
+                                        message: "Technician and user account deleted successfully."
+                                    });
+
+                                });
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+    });
 
 };
+
+/*
+|--------------------------------------------------------------------------
+| Export Functions
+|--------------------------------------------------------------------------
+*/
 
 module.exports = {
 
