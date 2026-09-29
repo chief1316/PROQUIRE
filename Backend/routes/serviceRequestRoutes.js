@@ -18,6 +18,13 @@ router.get(
     serviceRequestController.getAllServiceRequests
 );
 
+// Get requests belonging to the logged-in client
+router.get(
+    "/my-requests",
+    verifyToken,
+    serviceRequestController.getMyRequests
+);
+
 router.get(
     "/:id",
     serviceRequestController.getServiceRequestById
@@ -35,6 +42,7 @@ router.get(
 
 router.patch(
     "/:id/status",
+    verifyToken,
     serviceRequestController.updateRequestStatus
 );
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import "./TechnicianDashboard.css";
 import {
   LayoutDashboard,
   User,
@@ -20,7 +21,11 @@ import {
   Menu,
   X,
   Wrench,
+  MapPin,
+  RefreshCw,
 } from "lucide-react";
+
+const API = "http://localhost:5000/api";
 
 function TechnicianDashboard() {
   const navigate = useNavigate();
@@ -28,6 +33,12 @@ function TechnicianDashboard() {
   const [technicianProfile, setTechnicianProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [serviceRequests, setServiceRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [updatingRequestId, setUpdatingRequestId] = useState(null);
+  const [requestMessage, setRequestMessage] = useState("");
+  const [requestError, setRequestError] = useState("");
 
   const user = useMemo(() => {
     try {
@@ -43,21 +54,21 @@ function TechnicianDashboard() {
     technicianProfile?.full_name ||
     "Technician";
 
+  const token =
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("token");
+
+  // Fetch technician profile
   useEffect(() => {
     const fetchTechnicianProfile = async () => {
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
       try {
-        // Check both localStorage and sessionStorage
-        const token =
-          localStorage.getItem("token") ||
-          sessionStorage.getItem("token");
-
-        if (!token) {
-          navigate("/login");
-          return;
-        }
-
         const response = await axios.get(
-          "http://localhost:5000/api/technicians/my-profile",
+          `${API}/technicians/my-profile`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -67,7 +78,10 @@ function TechnicianDashboard() {
 
         setTechnicianProfile(response.data);
       } catch (error) {
-        console.error("Error fetching technician profile:", error);
+        console.error(
+          "Error fetching technician profile:",
+          error
+        );
 
         if (error.response?.status === 401) {
           localStorage.removeItem("token");
@@ -83,8 +97,55 @@ function TechnicianDashboard() {
     };
 
     fetchTechnicianProfile();
-  }, [navigate]);
+  }, [navigate, token]);
 
+  // Fetch service requests assigned to this technician
+  useEffect(() => {
+    const fetchServiceRequests = async () => {
+      if (!technicianProfile?.technician_id) {
+        if (!loadingProfile) {
+          setLoadingRequests(false);
+        }
+        return;
+      }
+
+      try {
+        setLoadingRequests(true);
+        setRequestError("");
+
+        const response = await axios.get(
+          `${API}/service-requests/technician/${technicianProfile.technician_id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setServiceRequests(
+          Array.isArray(response.data)
+            ? response.data
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Error fetching service requests:",
+          error
+        );
+
+        setRequestError(
+          error.response?.data?.message ||
+            "Unable to load service requests."
+        );
+      } finally {
+        setLoadingRequests(false);
+      }
+    };
+
+    fetchServiceRequests();
+  }, [technicianProfile, loadingProfile, token]);
+
+  // Profile completion
   const profileCompletion = useMemo(() => {
     if (!technicianProfile) {
       return 25;
@@ -105,7 +166,9 @@ function TechnicianDashboard() {
 
     const completed = requirements.filter(Boolean).length;
 
-    return Math.round((completed / requirements.length) * 100);
+    return Math.round(
+      (completed / requirements.length) * 100
+    );
   }, [technicianProfile]);
 
   const isProfileComplete = profileCompletion === 100;
@@ -114,288 +177,127 @@ function TechnicianDashboard() {
     technicianProfile?.is_verified === 1 ||
     technicianProfile?.is_verified === true;
 
+  const pendingRequests = serviceRequests.filter(
+    (request) => request.request_status === "pending"
+  );
+
+  const acceptedRequests = serviceRequests.filter(
+    (request) => request.request_status === "accepted"
+  );
+
+  // Accept or reject a request
+  const handleRequestDecision = async (
+    requestId,
+    status
+  ) => {
+    const action = status === "accepted" ? "accept" : "reject";
+
+    const confirmed = window.confirm(
+      `Are you sure you want to ${action} this service request?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setUpdatingRequestId(requestId);
+      setRequestMessage("");
+      setRequestError("");
+
+      const response = await axios.patch(
+        `${API}/service-requests/${requestId}/status`,
+        {
+          request_status: status,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Update the request status immediately.
+      setServiceRequests((previousRequests) =>
+        previousRequests.map((request) =>
+          request.request_id === requestId
+            ? {
+                ...request,
+                request_status:
+                  response.data.request_status,
+              }
+            : request
+        )
+      );
+
+      // Reload requests so the accepted request receives the
+      // client's phone and email from the backend response.
+      if (status === "accepted" && technicianProfile?.technician_id) {
+        const refreshedRequests = await axios.get(
+          `${API}/service-requests/technician/${technicianProfile.technician_id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setServiceRequests(
+          Array.isArray(refreshedRequests.data)
+            ? refreshedRequests.data
+            : []
+        );
+      }
+
+      setRequestMessage(
+        `Request ${status} successfully.`
+      );
+    } catch (error) {
+      console.error(
+        "Error updating service request:",
+        error
+      );
+
+      setRequestError(
+        error.response?.data?.message ||
+          "Unable to update the request. Please try again."
+      );
+    } finally {
+      setUpdatingRequestId(null);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
 
-    navigate("/login");
+    navigate("/");
   };
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
   };
 
+  const formatDate = (date) => {
+    if (!date) return "Not specified";
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date;
+    }
+
+    return parsedDate.toLocaleDateString();
+  };
+
   return (
     <>
-      <style>
-        {`
-          * {
-            box-sizing: border-box;
-          }
+      {/* Dashboard styles are imported from TechnicianDashboard.css. */}
 
-          body {
-            margin: 0;
-            overflow-x: hidden;
-          }
-
-          .technician-dashboard-page {
-            width: 100%;
-            min-height: 100vh;
-          }
-
-          .technician-sidebar {
-            transform: translateX(0);
-            transition: transform 0.25s ease;
-          }
-
-          .technician-main {
-            transition: margin-left 0.25s ease;
-          }
-
-          .mobile-overlay {
-            display: none;
-          }
-
-          .topbar-logout-button {
-            border: 1px solid #e4e8ef;
-            background: #ffffff;
-            color: #d94b4b;
-            padding: 9px 13px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s ease;
-          }
-
-          .topbar-logout-button:hover {
-            background: #fff5f5;
-            border-color: #f0caca;
-          }
-
-          @media (max-width: 1100px) {
-            .technician-stats-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            }
-
-            .technician-quick-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            }
-
-            .technician-dashboard-grid {
-              grid-template-columns: 1fr !important;
-            }
-          }
-
-          @media (max-width: 768px) {
-            .technician-sidebar {
-              width: 250px !important;
-              transform: translateX(-100%);
-              box-shadow: 8px 0 30px rgba(20, 40, 70, 0.15);
-            }
-
-            .technician-sidebar.mobile-open {
-              transform: translateX(0);
-            }
-
-            .technician-main {
-              margin-left: 0 !important;
-              width: 100% !important;
-            }
-
-            .technician-topbar {
-              height: 64px !important;
-              padding: 0 16px !important;
-            }
-
-            .technician-mobile-menu {
-              display: flex !important;
-            }
-
-            .technician-content {
-              padding: 22px 16px !important;
-            }
-
-            .technician-welcome-row {
-              align-items: flex-start !important;
-              flex-direction: column !important;
-              gap: 18px !important;
-            }
-
-            .technician-welcome-row > div:first-child {
-              width: 100%;
-            }
-
-            .technician-heading {
-              font-size: 26px !important;
-            }
-
-            .technician-primary-button {
-              width: 100% !important;
-              justify-content: center !important;
-            }
-
-            .technician-verification-banner {
-              align-items: flex-start !important;
-              flex-wrap: wrap !important;
-              padding: 17px !important;
-            }
-
-            .technician-verification-text {
-              min-width: 0;
-              width: calc(100% - 70px);
-            }
-
-            .technician-verification-text p {
-              line-height: 1.5 !important;
-            }
-
-            .technician-outline-button {
-              width: 100% !important;
-              justify-content: center !important;
-              margin-top: 4px;
-            }
-
-            .technician-stats-grid {
-              grid-template-columns: 1fr !important;
-              gap: 12px !important;
-            }
-
-            .technician-dashboard-grid {
-              grid-template-columns: 1fr !important;
-              gap: 14px !important;
-            }
-
-            .technician-panel {
-              padding: 17px !important;
-              min-height: auto !important;
-            }
-
-            .technician-panel-header {
-              flex-direction: column !important;
-              align-items: flex-start !important;
-            }
-
-            .technician-text-button {
-              padding: 0 !important;
-            }
-
-            .technician-quick-grid {
-              grid-template-columns: 1fr !important;
-              gap: 10px !important;
-            }
-
-            .technician-quick-card {
-              width: 100% !important;
-            }
-
-            .technician-footer {
-              padding: 17px 16px !important;
-              flex-direction: column !important;
-              gap: 6px !important;
-            }
-
-            .technician-profile-mini-text {
-              display: none !important;
-            }
-
-            .technician-topbar-right {
-              gap: 8px !important;
-            }
-
-            .technician-profile-avatar {
-              width: 38px !important;
-              height: 38px !important;
-            }
-
-            .topbar-logout-button {
-              padding: 9px !important;
-            }
-
-            .topbar-logout-text {
-              display: none;
-            }
-
-            .mobile-overlay {
-              position: fixed;
-              inset: 0;
-              background: rgba(15, 23, 42, 0.35);
-              z-index: 15;
-            }
-
-            .mobile-overlay.visible {
-              display: block;
-            }
-          }
-
-          @media (max-width: 480px) {
-            .technician-content {
-              padding: 18px 12px !important;
-            }
-
-            .technician-heading {
-              font-size: 23px !important;
-              line-height: 1.25 !important;
-            }
-
-            .technician-subheading {
-              font-size: 13px !important;
-              line-height: 1.5 !important;
-            }
-
-            .technician-verification-banner {
-              gap: 12px !important;
-            }
-
-            .technician-verification-icon {
-              width: 44px !important;
-              height: 44px !important;
-            }
-
-            .technician-verification-title-row {
-              flex-wrap: wrap !important;
-            }
-
-            .technician-verification-title {
-              font-size: 16px !important;
-            }
-
-            .technician-stat-card {
-              padding: 15px !important;
-            }
-
-            .technician-stat-value {
-              font-size: 19px !important;
-            }
-
-            .technician-panel-title {
-              font-size: 15px !important;
-            }
-
-            .technician-empty-state {
-              padding: 20px 10px !important;
-            }
-
-            .technician-topbar {
-              padding: 0 12px !important;
-            }
-
-            .topbar-logout-button {
-              width: 38px;
-              height: 38px;
-              padding: 0 !important;
-            }
-          }
-        `}
-      </style>
-
-      <div style={styles.page} className="technician-dashboard-page">
+      <div
+        style={styles.page}
+        className="technician-dashboard-page"
+      >
         <div
           className={`mobile-overlay ${
             mobileMenuOpen ? "visible" : ""
@@ -403,6 +305,7 @@ function TechnicianDashboard() {
           onClick={closeMobileMenu}
         />
 
+        {/* Sidebar */}
         <aside
           style={styles.sidebar}
           className={`technician-sidebar ${
@@ -448,17 +351,29 @@ function TechnicianDashboard() {
                 My Profile
               </Link>
 
-              <Link
-                to="/technician"
-                style={styles.navItem}
-                onClick={closeMobileMenu}
+              <button
+                type="button"
+                style={styles.navButton}
+                onClick={() => {
+                  document
+                    .getElementById("service-requests")
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                    });
+                  closeMobileMenu();
+                }}
               >
                 <ClipboardList size={19} />
                 Service Requests
-              </Link>
+                {pendingRequests.length > 0 && (
+                  <span style={styles.navCount}>
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </button>
 
               <Link
-                to="/technician"
+                to="/technician/availability"
                 style={styles.navItem}
                 onClick={closeMobileMenu}
               >
@@ -533,6 +448,7 @@ function TechnicianDashboard() {
           </div>
         </aside>
 
+        {/* Main dashboard */}
         <main
           style={styles.main}
           className="technician-main"
@@ -562,9 +478,15 @@ function TechnicianDashboard() {
               style={styles.topbarRight}
               className="technician-topbar-right"
             >
-              <button style={styles.iconButton}>
+              <button
+                style={styles.iconButton}
+                type="button"
+                title="Notifications"
+              >
                 <Bell size={20} />
-                <span style={styles.notificationDot}></span>
+                {pendingRequests.length > 0 && (
+                  <span style={styles.notificationDot} />
+                )}
               </button>
 
               <div style={styles.profileMini}>
@@ -601,6 +523,7 @@ function TechnicianDashboard() {
             style={styles.content}
             className="technician-content"
           >
+            {/* Welcome */}
             <div
               style={styles.welcomeRow}
               className="technician-welcome-row"
@@ -639,6 +562,7 @@ function TechnicianDashboard() {
               </button>
             </div>
 
+            {/* Verification banner */}
             <div
               style={styles.verificationBanner}
               className="technician-verification-banner"
@@ -700,6 +624,7 @@ function TechnicianDashboard() {
               )}
             </div>
 
+            {/* Statistics */}
             <div
               style={styles.statsGrid}
               className="technician-stats-grid"
@@ -720,18 +645,50 @@ function TechnicianDashboard() {
 
                 <div>
                   <span style={styles.statLabel}>
-                    Service Requests
+                    Pending Requests
                   </span>
 
                   <strong
                     style={styles.statValue}
                     className="technician-stat-value"
                   >
-                    0
+                    {pendingRequests.length}
                   </strong>
 
                   <span style={styles.statDescription}>
-                    No pending requests
+                    Awaiting your response
+                  </span>
+                </div>
+              </div>
+
+              <div
+                style={styles.statCard}
+                className="technician-stat-card"
+              >
+                <div
+                  style={{
+                    ...styles.statIcon,
+                    background: "#eaf9f0",
+                    color: "#159447",
+                  }}
+                >
+                  <CheckCircle size={21} />
+                </div>
+
+                <div>
+                  <span style={styles.statLabel}>
+                    Accepted Requests
+                  </span>
+
+                  <strong
+                    style={styles.statValue}
+                    className="technician-stat-value"
+                  >
+                    {acceptedRequests.length}
+                  </strong>
+
+                  <span style={styles.statDescription}>
+                    Requests you've accepted
                   </span>
                 </div>
               </div>
@@ -775,38 +732,6 @@ function TechnicianDashboard() {
                 <div
                   style={{
                     ...styles.statIcon,
-                    background: "#eaf9f0",
-                    color: "#159447",
-                  }}
-                >
-                  <CalendarDays size={21} />
-                </div>
-
-                <div>
-                  <span style={styles.statLabel}>
-                    Availability
-                  </span>
-
-                  <strong
-                    style={styles.statValue}
-                    className="technician-stat-value"
-                  >
-                    Not Set
-                  </strong>
-
-                  <span style={styles.statDescription}>
-                    Set your working hours
-                  </span>
-                </div>
-              </div>
-
-              <div
-                style={styles.statCard}
-                className="technician-stat-card"
-              >
-                <div
-                  style={{
-                    ...styles.statIcon,
                     background: "#f2edff",
                     color: "#7048c8",
                   }}
@@ -833,11 +758,13 @@ function TechnicianDashboard() {
               </div>
             </div>
 
+            {/* Service requests and profile completion */}
             <div
               style={styles.dashboardGrid}
               className="technician-dashboard-grid"
             >
               <div
+                id="service-requests"
                 style={styles.panel}
                 className="technician-panel"
               >
@@ -850,41 +777,263 @@ function TechnicianDashboard() {
                       style={styles.panelTitle}
                       className="technician-panel-title"
                     >
-                      Recent Service Requests
+                      Service Requests
                     </h2>
 
                     <p style={styles.panelSubtitle}>
-                      Requests from clients
+                      Review and respond to client requests
                     </p>
                   </div>
 
                   <button
+                    type="button"
                     style={styles.textButton}
-                    className="technician-text-button"
+                    onClick={() => {
+                      setRequestMessage("");
+                      setRequestError("");
+                      setLoadingRequests(true);
+
+                      axios
+                        .get(
+                          `${API}/service-requests/technician/${technicianProfile?.technician_id}`,
+                          {
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                            },
+                          }
+                        )
+                        .then((response) => {
+                          setServiceRequests(
+                            Array.isArray(response.data)
+                              ? response.data
+                              : []
+                          );
+                        })
+                        .catch((error) => {
+                          console.error(error);
+                          setRequestError(
+                            "Unable to refresh requests."
+                          );
+                        })
+                        .finally(() => {
+                          setLoadingRequests(false);
+                        });
+                    }}
                   >
-                    View All
-                    <ArrowRight size={16} />
+                    <RefreshCw size={15} />
+                    Refresh
                   </button>
                 </div>
 
-                <div
-                  style={styles.emptyState}
-                  className="technician-empty-state"
-                >
-                  <div style={styles.emptyIcon}>
-                    <ClipboardList size={25} />
+                {requestMessage && (
+                  <div style={styles.successMessage}>
+                    <CheckCircle size={17} />
+                    {requestMessage}
                   </div>
+                )}
 
-                  <h3>No service requests yet</h3>
+                {requestError && (
+                  <div style={styles.errorMessage}>
+                    <AlertCircle size={17} />
+                    {requestError}
+                  </div>
+                )}
 
-                  <p>
-                    Client service requests will appear
-                    here once your profile becomes
-                    available to clients.
-                  </p>
-                </div>
+                {loadingRequests ? (
+                  <div
+                    style={styles.emptyState}
+                    className="technician-empty-state"
+                  >
+                    <Clock3 size={25} color="#8090a5" />
+                    <p>Loading service requests...</p>
+                  </div>
+                ) : serviceRequests.length === 0 ? (
+                  <div
+                    style={styles.emptyState}
+                    className="technician-empty-state"
+                  >
+                    <div style={styles.emptyIcon}>
+                      <ClipboardList size={25} />
+                    </div>
+
+                    <h3>No service requests yet</h3>
+
+                    <p>
+                      Client service requests will appear
+                      here once clients request your services.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={styles.requestList}
+                   className="technician-request-list"
+                  >
+                    {serviceRequests.map((request) => {
+                      const isPending =
+                        request.request_status === "pending";
+
+                      const isUpdating =
+                        updatingRequestId ===
+                        request.request_id;
+
+                      return (
+                        <div
+                          key={request.request_id}
+                          style={styles.requestCard}
+                        >
+                          <div
+                            style={styles.requestCardHeader}
+                          >
+                            <div>
+                              <h3
+                                style={styles.requestTitle}
+                              >
+                                Service Request #
+                                {request.request_id}
+                              </h3>
+
+                              <p
+                                style={
+                                  styles.requestDescription
+                                }
+                              >
+                                {request.service_description}
+                              </p>
+                            </div>
+
+                            <span
+                              style={{
+                                ...styles.statusBadge,
+                                ...(isPending
+                                  ? styles.statusPending
+                                  : request.request_status ===
+                                    "accepted"
+                                  ? styles.statusAccepted
+                                  : request.request_status ===
+                                    "rejected"
+                                  ? styles.statusRejected
+                                  : styles.statusOther),
+                              }}
+                            >
+                              {request.request_status}
+                            </span>
+                          </div>
+
+                          <div
+                            style={styles.requestDetails}
+                          >
+                            <p>
+                              <strong>Client:</strong>{" "}
+                              {request.client_name ||
+                                "Name unavailable"}
+                            </p>
+
+                            {request.request_status === "accepted" && (
+                              <>
+                                <p>
+                                  <strong>Phone:</strong>{" "}
+                                  {request.client_phone ||
+                                    "Not provided"}
+                                </p>
+
+                                <p>
+                                  <strong>Email:</strong>{" "}
+                                  {request.client_email ||
+                                    "Not provided"}
+                                </p>
+                              </>
+                            )}
+
+                            <p>
+                              <MapPin
+                                size={14}
+                                style={{
+                                  verticalAlign: "middle",
+                                  marginRight: "4px",
+                                }}
+                              />
+                              <strong>Address:</strong>{" "}
+                              {request.service_address ||
+                                "Not specified"}
+                            </p>
+
+                            <p>
+                              <CalendarDays
+                                size={14}
+                                style={{
+                                  verticalAlign: "middle",
+                                  marginRight: "4px",
+                                }}
+                              />
+                              <strong>Service date:</strong>{" "}
+                              {formatDate(
+                                request.service_date
+                              )}
+                            </p>
+
+                            {request.request_date && (
+                              <p>
+                                <strong>Requested on:</strong>{" "}
+                                {formatDate(
+                                  request.request_date
+                                )}
+                              </p>
+                            )}
+                          </div>
+
+                          {isPending && (
+                            <div
+                              style={styles.requestActions}
+                            >
+                              <button
+                                type="button"
+                                className="request-action-button request-accept-button"
+                                disabled={isUpdating}
+                                onClick={() =>
+                                  handleRequestDecision(
+                                    request.request_id,
+                                    "accepted"
+                                  )
+                                }
+                              >
+                                {isUpdating
+                                  ? "Processing..."
+                                  : "Accept Request"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="request-action-button request-reject-button"
+                                disabled={isUpdating}
+                                onClick={() =>
+                                  handleRequestDecision(
+                                    request.request_id,
+                                    "rejected"
+                                  )
+                                }
+                              >
+                                {isUpdating
+                                  ? "Processing..."
+                                  : "Reject Request"}
+                              </button>
+                            </div>
+                          )}
+
+                          {!isPending && (
+                            <p
+                              style={styles.processedText}
+                            >
+                              This request has been{" "}
+                              {request.request_status}.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
+              {/* Profile completion */}
               <div
                 style={styles.panel}
                 className="technician-panel"
@@ -928,7 +1077,7 @@ function TechnicianDashboard() {
                         ...styles.progressBar,
                         width: `${profileCompletion}%`,
                       }}
-                    ></div>
+                    />
                   </div>
                 </div>
 
@@ -938,7 +1087,6 @@ function TechnicianDashboard() {
                       size={18}
                       color="#1b9a50"
                     />
-
                     <span>Account created</span>
                   </div>
 
@@ -947,7 +1095,6 @@ function TechnicianDashboard() {
                       size={18}
                       color="#1b9a50"
                     />
-
                     <span>Email registered</span>
                   </div>
 
@@ -1006,6 +1153,7 @@ function TechnicianDashboard() {
               </div>
             </div>
 
+            {/* Quick actions */}
             <div style={styles.quickSection}>
               <div>
                 <h2 style={styles.quickTitle}>
@@ -1029,14 +1177,10 @@ function TechnicianDashboard() {
                     navigate("/technician/profile")
                   }
                 >
-                  <User
-                    size={22}
-                    color="#1769e0"
-                  />
+                  <User size={22} color="#1769e0" />
 
                   <div>
                     <strong>Edit Profile</strong>
-
                     <span>
                       Update your professional information
                     </span>
@@ -1049,7 +1193,7 @@ function TechnicianDashboard() {
                   style={styles.quickCard}
                   className="technician-quick-card"
                   onClick={() =>
-                    navigate("/technician")
+                    navigate("/technician/availability")
                   }
                 >
                   <CalendarDays
@@ -1059,7 +1203,6 @@ function TechnicianDashboard() {
 
                   <div>
                     <strong>Set Availability</strong>
-
                     <span>
                       Manage your working hours
                     </span>
@@ -1082,7 +1225,6 @@ function TechnicianDashboard() {
 
                   <div>
                     <strong>Manage Portfolio</strong>
-
                     <span>
                       Showcase your previous work
                     </span>
@@ -1105,7 +1247,6 @@ function TechnicianDashboard() {
 
                   <div>
                     <strong>Manage Subscription</strong>
-
                     <span>
                       View your subscription plan
                     </span>
@@ -1209,13 +1350,39 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "13px",
-    padding: "12px 12px",
+    padding: "12px",
     borderRadius: "9px",
     textDecoration: "none",
     color: "#697386",
     fontSize: "14px",
     fontWeight: "500",
     transition: "0.2s",
+  },
+
+  navButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+    padding: "12px",
+    borderRadius: "9px",
+    border: "none",
+    background: "transparent",
+    color: "#697386",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
+    textAlign: "left",
+    width: "100%",
+  },
+
+  navCount: {
+    marginLeft: "auto",
+    background: "#1769e0",
+    color: "#fff",
+    borderRadius: "20px",
+    padding: "2px 7px",
+    fontSize: "11px",
+    fontWeight: "700",
   },
 
   activeNavItem: {
@@ -1360,7 +1527,7 @@ const styles = {
   },
 
   heading: {
-    margin: "0",
+    margin: 0,
     fontSize: "30px",
     lineHeight: "1.2",
     color: "#172033",
@@ -1466,8 +1633,7 @@ const styles = {
 
   statsGrid: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(4, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: "17px",
     marginBottom: "25px",
   },
@@ -1480,8 +1646,7 @@ const styles = {
     display: "flex",
     gap: "14px",
     alignItems: "center",
-    boxShadow:
-      "0 2px 7px rgba(20, 40, 70, 0.025)",
+    boxShadow: "0 2px 7px rgba(20, 40, 70, 0.025)",
     minWidth: 0,
   },
 
@@ -1572,6 +1737,7 @@ const styles = {
     flexDirection: "column",
     textAlign: "center",
     padding: "25px",
+    color: "#7a8496",
   },
 
   emptyIcon: {
@@ -1584,6 +1750,123 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     marginBottom: "11px",
+  },
+
+  requestList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    marginTop: "18px",
+
+    // Keep the requests inside their own scrollable section
+    maxHeight: "600px",
+    overflowY: "auto",
+    overflowX: "hidden",
+    paddingRight: "8px",
+    minHeight: 0,
+  },
+
+  requestCard: {
+    border: "1px solid #e7ebf2",
+    borderRadius: "10px",
+    padding: "17px",
+    background: "#ffffff",
+  },
+
+  requestCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+
+  requestTitle: {
+    margin: "0 0 8px",
+    fontSize: "15px",
+    color: "#172033",
+  },
+
+  requestDescription: {
+    margin: "0 0 8px",
+    fontSize: "13px",
+    color: "#596579",
+    lineHeight: 1.6,
+    overflowWrap: "anywhere",
+  },
+
+  statusBadge: {
+    padding: "5px 10px",
+    borderRadius: "20px",
+    fontSize: "11px",
+    fontWeight: "700",
+    textTransform: "capitalize",
+    whiteSpace: "nowrap",
+  },
+
+  statusPending: {
+    background: "#fff5dc",
+    color: "#a87300",
+  },
+
+  statusAccepted: {
+    background: "#eaf9f0",
+    color: "#159447",
+  },
+
+  statusRejected: {
+    background: "#fff0f0",
+    color: "#d94b4b",
+  },
+
+  statusOther: {
+    background: "#f1f5fa",
+    color: "#596579",
+  },
+
+  requestDetails: {
+    marginTop: "12px",
+    fontSize: "12px",
+    color: "#7a8496",
+    lineHeight: "1.8",
+    overflowWrap: "anywhere",
+  },
+
+  requestActions: {
+    display: "flex",
+    gap: "10px",
+    marginTop: "16px",
+    flexWrap: "wrap",
+  },
+
+  processedText: {
+    margin: "15px 0 0",
+    fontSize: "12px",
+    color: "#7a8496",
+  },
+
+  successMessage: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "12px",
+    marginTop: "15px",
+    background: "#eaf9f0",
+    color: "#159447",
+    borderRadius: "8px",
+    fontSize: "13px",
+  },
+
+  errorMessage: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "12px",
+    marginTop: "15px",
+    background: "#fff0f0",
+    color: "#d94b4b",
+    borderRadius: "8px",
+    fontSize: "13px",
   },
 
   progressContainer: {
@@ -1650,7 +1933,7 @@ const styles = {
   },
 
   quickTitle: {
-    margin: "0",
+    margin: 0,
     fontSize: "18px",
     color: "#172033",
   },
@@ -1663,8 +1946,7 @@ const styles = {
 
   quickGrid: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(4, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: "14px",
   },
 

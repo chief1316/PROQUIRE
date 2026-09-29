@@ -1,0 +1,308 @@
+* {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          overflow-x: hidden;
+        }
+
+        .technician-dashboard-page {
+          width: 100%;
+          min-height: 100vh;
+        }
+
+        .technician-sidebar {
+          transform: translateX(0);
+          transition: transform 0.25s ease;
+        }
+
+        .technician-main {
+          transition: margin-left 0.25s ease;
+        }
+
+        .technician-mobile-menu {
+          display: none;
+        }
+
+        .mobile-overlay {
+          display: none;
+        }
+
+        .topbar-logout-button {
+          border: 1px solid #e4e8ef;
+          background: #ffffff;
+          color: #d94b4b;
+          padding: 9px 13px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .topbar-logout-button:hover {
+          background: #fff5f5;
+          border-color: #f0caca;
+        }
+
+        .request-action-button {
+          flex: 1;
+          min-width: 110px;
+          border-radius: 8px;
+          padding: 11px;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: 0.2s ease;
+        }
+
+        .request-action-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .request-accept-button {
+          border: none;
+          background: #159447;
+          color: #ffffff;
+        }
+
+        .request-accept-button:hover:not(:disabled) {
+          background: #117a3a;
+        }
+
+        .request-reject-button {
+          border: 1px solid #f0caca;
+          background: #fff5f5;
+          color: #d94b4b;
+        }
+
+        .request-reject-button:hover:not(:disabled) {
+          background: #ffe8e8;
+        }
+
+        @media (max-width: 1100px) {
+          .technician-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .technician-quick-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .technician-dashboard-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .technician-sidebar {
+            width: 250px !important;
+            transform: translateX(-100%);
+            box-shadow: 8px 0 30px rgba(20, 40, 70, 0.15);
+          }
+
+          .technician-sidebar.mobile-open {
+            transform: translateX(0);
+          }
+
+          .technician-main {
+            margin-left: 0 !important;
+            width: 100% !important;
+          }
+
+          .technician-topbar {
+            height: 64px !important;
+            padding: 0 16px !important;
+          }
+
+          .technician-mobile-menu {
+            display: flex !important;
+          }
+
+          .technician-content {
+            padding: 22px 16px !important;
+          }
+
+          .technician-welcome-row {
+            align-items: flex-start !important;
+            flex-direction: column !important;
+            gap: 18px !important;
+          }
+
+          .technician-heading {
+            font-size: 26px !important;
+          }
+
+          .technician-primary-button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+
+          .technician-verification-banner {
+            align-items: flex-start !important;
+            flex-wrap: wrap !important;
+            padding: 17px !important;
+          }
+
+          .technician-verification-text {
+            min-width: 0;
+            width: calc(100% - 70px);
+          }
+
+          .technician-outline-button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+
+          .technician-stats-grid {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+
+          .technician-dashboard-grid {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+          }
+
+          .technician-panel {
+            padding: 17px !important;
+            min-height: auto !important;
+          }
+
+          .technician-panel-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+
+          .technician-quick-grid {
+            grid-template-columns: 1fr !important;
+            gap: 10px !important;
+          }
+
+          .technician-quick-card {
+            width: 100% !important;
+          }
+
+          .technician-footer {
+            padding: 17px 16px !important;
+            flex-direction: column !important;
+            gap: 6px !important;
+          }
+
+          .technician-profile-mini-text {
+            display: none !important;
+          }
+
+          .technician-topbar-right {
+            gap: 8px !important;
+          }
+
+          .technician-profile-avatar {
+            width: 38px !important;
+            height: 38px !important;
+          }
+
+          .topbar-logout-button {
+            padding: 9px !important;
+          }
+
+          .topbar-logout-text {
+            display: none;
+          }
+
+          .mobile-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.35);
+            z-index: 15;
+          }
+
+          .mobile-overlay.visible {
+            display: block;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .technician-content {
+            padding: 18px 12px !important;
+          }
+
+          .technician-heading {
+            font-size: 23px !important;
+            line-height: 1.25 !important;
+          }
+
+          .technician-subheading {
+            font-size: 13px !important;
+            line-height: 1.5 !important;
+          }
+
+          .technician-verification-banner {
+            gap: 12px !important;
+          }
+
+          .technician-verification-icon {
+            width: 44px !important;
+            height: 44px !important;
+          }
+
+          .technician-stat-card {
+            padding: 15px !important;
+          }
+
+          .technician-stat-value {
+            font-size: 19px !important;
+          }
+
+          .technician-panel-title {
+            font-size: 15px !important;
+          }
+
+          .technician-empty-state {
+            padding: 20px 10px !important;
+          }
+
+          .technician-topbar {
+            padding: 0 12px !important;
+          }
+
+          .topbar-logout-button {
+            width: 38px;
+            height: 38px;
+            padding: 0 !important;
+          }
+        }
+
+        /* Scrollable service requests section */
+.technician-request-list {
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #b8c5d6 #f1f5fa;
+}
+
+.technician-request-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.technician-request-list::-webkit-scrollbar-track {
+  background: #f1f5fa;
+  border-radius: 10px;
+}
+
+.technician-request-list::-webkit-scrollbar-thumb {
+  background: #b8c5d6;
+  border-radius: 10px;
+}
+
+.technician-request-list::-webkit-scrollbar-thumb:hover {
+  background: #8798ae;
+}

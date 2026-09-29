@@ -12,7 +12,9 @@ const {
 
     service_address,
 
-    service_date
+    service_date,
+
+    service_time
 
 } = req.body;
 
@@ -23,10 +25,11 @@ const {
             technician_id,
             service_description,
             service_address,
-            service_date
+            service_date,
+            service_time
         )
 
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     db.query(
@@ -39,7 +42,8 @@ const {
             technician_id,
             service_description,
             service_address,
-            service_date
+            service_date,
+            service_time
 
         ],
 
@@ -206,90 +210,196 @@ exports.getClientRequests = (req, res) => {
 
 };
 
-exports.getTechnicianRequests = (req, res) => {
 
+exports.getTechnicianRequests = (req, res) => {
     const { technicianId } = req.params;
 
     const sql = `
+        SELECT
+            sr.request_id,
+            sr.client_id,
+            client.full_name AS client_name,
 
-        SELECT *
+            CASE
+                WHEN sr.request_status = 'accepted'
+                THEN client.phone
+                ELSE NULL
+            END AS client_phone,
 
-        FROM service_requests
+            CASE
+                WHEN sr.request_status = 'accepted'
+                THEN client.email
+                ELSE NULL
+            END AS client_email,
 
-        WHERE technician_id = ?
+            sr.technician_id,
+            sr.service_description,
+            sr.service_address,
+            sr.service_date,
+            sr.service_time,
+            sr.request_status,
+            sr.request_date
 
-        ORDER BY request_id DESC
+        FROM service_requests sr
 
+        JOIN users client
+            ON sr.client_id = client.user_id
+
+        WHERE sr.technician_id = ?
+
+        ORDER BY sr.request_id DESC
     `;
 
     db.query(sql, [technicianId], (err, results) => {
-
         if (err) {
+            console.error("Error fetching technician requests:", err);
 
             return res.status(500).json({
-
-                message: "Error fetching requests",
-                error: err
-
+                message: "Error fetching service requests"
             });
-
         }
 
-        res.status(200).json(results);
-
+        return res.status(200).json(results);
     });
-
 };
 
+// Accept or reject a service request assigned to the logged-in technician
 exports.updateRequestStatus = (req, res) => {
-
     const { id } = req.params;
-
     const { request_status } = req.body;
 
-    const sql = `
+    const user_id = req.user.user_id;
 
-        UPDATE service_requests
+    // Only allow accepting or rejecting requests
+    const allowedStatuses = ["accepted", "rejected"];
 
-        SET request_status = ?
+    if (!allowedStatuses.includes(request_status)) {
+        return res.status(400).json({
+            message: "Invalid request status"
+        });
+    }
 
-        WHERE request_id = ?
-
+    // Find the technician profile belonging to the logged-in user
+    const technicianSql = `
+        SELECT technician_id
+        FROM technician_profiles
+        WHERE user_id = ?
     `;
 
-    db.query(
+    db.query(technicianSql, [user_id], (err, results) => {
+        if (err) {
+            console.error(err);
 
-        sql,
-
-        [
-
-            request_status,
-
-            id
-
-        ],
-
-        (err, result) => {
-
-            if (err) {
-
-                return res.status(500).json({
-
-                    message: "Error updating request",
-                    error: err
-
-                });
-
-            }
-
-            res.status(200).json({
-
-                message: "Request updated successfully"
-
+            return res.status(500).json({
+                message: "Error finding technician profile"
             });
-
         }
 
-    );
+        if (results.length === 0) {
+            return res.status(403).json({
+                message: "Only technicians can update requests"
+            });
+        }
 
+        const technician_id = results[0].technician_id;
+
+        // Update only requests assigned to this technician
+        // that are still pending
+        const updateSql = `
+            UPDATE service_requests
+            SET request_status = ?
+            WHERE request_id = ?
+            AND technician_id = ?
+            AND request_status = 'pending'
+        `;
+
+        db.query(
+            updateSql,
+            [
+                request_status,
+                id,
+                technician_id
+            ],
+            (updateErr, result) => {
+                if (updateErr) {
+                    console.error(updateErr);
+
+                    return res.status(500).json({
+                        message: "Error updating service request"
+                    });
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json({
+                        message:
+                            "Request not found, already processed, or not assigned to you"
+                    });
+                }
+
+                return res.status(200).json({
+                    message: `Service request ${request_status} successfully`,
+                    request_id: id,
+                    request_status
+                });
+            }
+        );
+    });
+};
+
+// Get service requests for the logged-in client only
+
+exports.getMyRequests = (req, res) => {
+    const clientId = req.user.user_id;
+
+    const sql = `
+        SELECT
+            sr.request_id,
+            sr.client_id,
+            sr.technician_id,
+
+            technician.full_name AS technician_name,
+
+            CASE
+                WHEN sr.request_status = 'accepted'
+                THEN technician.phone
+                ELSE NULL
+            END AS technician_phone,
+
+            CASE
+                WHEN sr.request_status = 'accepted'
+                THEN technician.email
+                ELSE NULL
+            END AS technician_email,
+
+            sr.service_description,
+            sr.service_address,
+            sr.service_date,
+            sr.service_time,
+            sr.request_status,
+            sr.request_date
+
+        FROM service_requests sr
+
+        JOIN technician_profiles tp
+            ON sr.technician_id = tp.technician_id
+
+        JOIN users technician
+            ON tp.user_id = technician.user_id
+
+        WHERE sr.client_id = ?
+
+        ORDER BY sr.request_id DESC
+    `;
+
+    db.query(sql, [clientId], (err, results) => {
+        if (err) {
+            console.error("Error fetching client requests:", err);
+
+            return res.status(500).json({
+                message: "Error fetching your service requests"
+            });
+        }
+
+        return res.status(200).json(results);
+    });
 };

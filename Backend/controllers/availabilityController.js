@@ -1,14 +1,122 @@
+
 const db = require("../config/db");
 
+const allowedDays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+];
+
+// Resolve the technician profile belonging to the logged-in user.
+const getTechnicianProfile = (userId, callback) => {
+    const sql = `
+        SELECT technician_id
+        FROM technician_profiles
+        WHERE user_id = ?
+    `;
+
+    db.query(sql, [userId], (err, results) => {
+        if (err) {
+            return callback(err);
+        }
+
+        if (results.length === 0) {
+            return callback(null, null);
+        }
+
+        callback(null, results[0].technician_id);
+    });
+};
+
+// Validate the submitted availability fields.
+const validateAvailability = (req, res) => {
+    const {
+        available_day,
+        available_from,
+        available_to
+    } = req.body;
+
+    if (!allowedDays.includes(available_day)) {
+        res.status(400).json({
+            message: "Select a valid day from Monday to Sunday."
+        });
+        return false;
+    }
+
+    const timePattern = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+
+    if (
+        !timePattern.test(available_from || "") ||
+        !timePattern.test(available_to || "")
+    ) {
+        res.status(400).json({
+            message: "Enter valid starting and ending times."
+        });
+        return false;
+    }
+
+    if (available_from >= available_to) {
+        res.status(400).json({
+            message: "Ending time must be later than starting time."
+        });
+        return false;
+    }
+
+    return true;
+};
+
+// Check for overlapping availability periods.
+const checkOverlap = (
+    technicianId,
+    day,
+    from,
+    to,
+    excludeId,
+    callback
+) => {
+    let sql = `
+        SELECT availability_id
+        FROM availability
+        WHERE technician_id = ?
+        AND available_day = ?
+        AND available_from < ?
+        AND available_to > ?
+    `;
+
+    const params = [
+        technicianId,
+        day,
+        to,
+        from
+    ];
+
+    if (excludeId) {
+        sql += " AND availability_id != ?";
+        params.push(excludeId);
+    }
+
+    db.query(sql, params, (err, results) => {
+        if (err) {
+            return callback(err);
+        }
+
+        callback(null, results.length > 0);
+    });
+};
 
 // =====================================================
 // Create Availability
-// Technician creates their availability
+// POST /api/availability/create
 // =====================================================
 
 exports.createAvailability = (req, res) => {
-
-    const technician_id = req.user.user_id;
+    if (!validateAvailability(req, res)) {
+        return;
+    }
 
     const {
         available_day,
@@ -16,139 +124,47 @@ exports.createAvailability = (req, res) => {
         available_to
     } = req.body;
 
-
-    // Check required fields
-    if (!available_day) {
-        return res.status(400).json({
-            message: "available_day is required."
-        });
-    }
-
-    if (!available_from) {
-        return res.status(400).json({
-            message: "available_from is required."
-        });
-    }
-
-    if (!available_to) {
-        return res.status(400).json({
-            message: "available_to is required."
-        });
-    }
-
-
-    // Validate day
-    const allowedDays = [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday"
-    ];
-
-    if (!allowedDays.includes(available_day)) {
-        return res.status(400).json({
-            message:
-                "Invalid available_day. Use Monday to Sunday."
-        });
-    }
-
-
-    // Make sure ending time is after starting time
-    if (available_from >= available_to) {
-        return res.status(400).json({
-            message:
-                "available_to must be later than available_from."
-        });
-    }
-
-
-    // Check whether technician exists
-    const checkUserSql = `
-        SELECT
-            user_id,
-            full_name,
-            role
-        FROM users
-        WHERE user_id = ?
-    `;
-
-    db.query(
-        checkUserSql,
-        [technician_id],
-        (err, users) => {
-
+    getTechnicianProfile(
+        req.user.user_id,
+        (err, technicianId) => {
             if (err) {
-                console.error(
-                    "Error checking technician:",
-                    err
-                );
+                console.error(err);
 
                 return res.status(500).json({
-                    message:
-                        "Failed to check technician.",
-                    error: err
+                    message: "Failed to find technician profile."
                 });
             }
 
-
-            if (users.length === 0) {
-                return res.status(404).json({
-                    message:
-                        "Technician account not found."
+            if (!technicianId) {
+                return res.status(403).json({
+                    message: "Only technicians can manage availability."
                 });
             }
 
-
-            // Check for overlapping availability
-            const overlapSql = `
-                SELECT
-                    availability_id
-                FROM availability
-                WHERE technician_id = ?
-                AND available_day = ?
-                AND available_from < ?
-                AND available_to > ?
-            `;
-
-            db.query(
-                overlapSql,
-                [
-                    technician_id,
-                    available_day,
-                    available_to,
-                    available_from
-                ],
-                (err, existing) => {
-
-                    if (err) {
-                        console.error(
-                            "Error checking availability:",
-                            err
-                        );
+            checkOverlap(
+                technicianId,
+                available_day,
+                available_from,
+                available_to,
+                null,
+                (overlapErr, hasOverlap) => {
+                    if (overlapErr) {
+                        console.error(overlapErr);
 
                         return res.status(500).json({
-                            message:
-                                "Failed to check existing availability.",
-                            error: err
+                            message: "Failed to check existing availability."
                         });
                     }
 
-
-                    if (existing.length > 0) {
+                    if (hasOverlap) {
                         return res.status(409).json({
                             message:
-                                "This availability period overlaps with an existing schedule."
+                                "This time overlaps with an existing schedule."
                         });
                     }
 
-
-                    // Insert availability
-                    const insertSql = `
-                        INSERT INTO availability
-                        (
+                    const sql = `
+                        INSERT INTO availability (
                             technician_id,
                             available_day,
                             available_from,
@@ -158,136 +174,110 @@ exports.createAvailability = (req, res) => {
                     `;
 
                     db.query(
-                        insertSql,
+                        sql,
                         [
-                            technician_id,
+                            technicianId,
                             available_day,
                             available_from,
                             available_to
                         ],
-                        (err, result) => {
-
-                            if (err) {
-                                console.error(
-                                    "Error creating availability:",
-                                    err
-                                );
+                        (insertErr, result) => {
+                            if (insertErr) {
+                                console.error(insertErr);
 
                                 return res.status(500).json({
-                                    message:
-                                        "Failed to create availability.",
-                                    error: err
+                                    message: "Failed to create availability."
                                 });
                             }
 
-
-                            res.status(201).json({
-                                message:
-                                    "Availability created successfully.",
-
+                            return res.status(201).json({
+                                message: "Availability created successfully.",
                                 availability: {
-                                    availability_id:
-                                        result.insertId,
-
-                                    technician_id:
-                                        technician_id,
-
-                                    technician_name:
-                                        users[0].full_name,
-
-                                    available_day:
-                                        available_day,
-
-                                    available_from:
-                                        available_from,
-
-                                    available_to:
-                                        available_to
+                                    availability_id: result.insertId,
+                                    technician_id: technicianId,
+                                    available_day,
+                                    available_from,
+                                    available_to
                                 }
                             });
-
                         }
                     );
-
                 }
             );
-
         }
     );
 };
-
 
 // =====================================================
 // Get My Availability
-// Technician views their own availability
+// GET /api/availability/my-availability
 // =====================================================
 
 exports.getMyAvailability = (req, res) => {
-
-    const technician_id = req.user.user_id;
-
-
-    const sql = `
-        SELECT
-            availability_id,
-            technician_id,
-            available_day,
-            available_from,
-            available_to
-        FROM availability
-        WHERE technician_id = ?
-        ORDER BY
-            FIELD(
-                available_day,
-                'Monday',
-                'Tuesday',
-                'Wednesday',
-                'Thursday',
-                'Friday',
-                'Saturday',
-                'Sunday'
-            ),
-            available_from
-    `;
-
-
-    db.query(
-        sql,
-        [technician_id],
-        (err, results) => {
-
+    getTechnicianProfile(
+        req.user.user_id,
+        (err, technicianId) => {
             if (err) {
-                console.error(
-                    "Error fetching availability:",
-                    err
-                );
+                console.error(err);
 
                 return res.status(500).json({
-                    message:
-                        "Failed to fetch your availability.",
-                    error: err
+                    message: "Failed to find technician profile."
                 });
             }
 
+            if (!technicianId) {
+                return res.status(403).json({
+                    message: "Only technicians can view availability."
+                });
+            }
 
-            res.status(200).json(results);
+            const sql = `
+                SELECT
+                    availability_id,
+                    technician_id,
+                    available_day,
+                    TIME_FORMAT(available_from, '%H:%i') AS available_from,
+                    TIME_FORMAT(available_to, '%H:%i') AS available_to
+                FROM availability
+                WHERE technician_id = ?
+                ORDER BY
+                    FIELD(
+                        available_day,
+                        'Monday',
+                        'Tuesday',
+                        'Wednesday',
+                        'Thursday',
+                        'Friday',
+                        'Saturday',
+                        'Sunday'
+                    ),
+                    available_from
+            `;
 
+            db.query(sql, [technicianId], (queryErr, results) => {
+                if (queryErr) {
+                    console.error(queryErr);
+
+                    return res.status(500).json({
+                        message: "Failed to fetch your availability."
+                    });
+                }
+
+                return res.status(200).json(results);
+            });
         }
     );
 };
 
-
 // =====================================================
 // Get Technician Availability
+// GET /api/availability/technician/:technicianId
 // Public
+// technicianId is the technician PROFILE ID.
 // =====================================================
 
 exports.getTechnicianAvailability = (req, res) => {
-
-    const {
-        technicianId
-    } = req.params;
-
+    const { technicianId } = req.params;
 
     const sql = `
         SELECT
@@ -295,11 +285,13 @@ exports.getTechnicianAvailability = (req, res) => {
             a.technician_id,
             u.full_name AS technician_name,
             a.available_day,
-            a.available_from,
-            a.available_to
+            TIME_FORMAT(a.available_from, '%H:%i') AS available_from,
+            TIME_FORMAT(a.available_to, '%H:%i') AS available_to
         FROM availability a
+        JOIN technician_profiles tp
+            ON a.technician_id = tp.technician_id
         JOIN users u
-            ON a.technician_id = u.user_id
+            ON tp.user_id = u.user_id
         WHERE a.technician_id = ?
         ORDER BY
             FIELD(
@@ -315,53 +307,30 @@ exports.getTechnicianAvailability = (req, res) => {
             a.available_from
     `;
 
+    db.query(sql, [technicianId], (err, results) => {
+        if (err) {
+            console.error(err);
 
-    db.query(
-        sql,
-        [technicianId],
-        (err, results) => {
-
-            if (err) {
-                console.error(
-                    "Error fetching technician availability:",
-                    err
-                );
-
-                return res.status(500).json({
-                    message:
-                        "Failed to fetch technician availability.",
-                    error: err
-                });
-            }
-
-
-            if (results.length === 0) {
-                return res.status(404).json({
-                    message:
-                        "No availability found for this technician."
-                });
-            }
-
-
-            res.status(200).json(results);
-
+            return res.status(500).json({
+                message: "Failed to fetch technician availability."
+            });
         }
-    );
-};
 
+        return res.status(200).json(results);
+    });
+};
 
 // =====================================================
 // Update Availability
-// Technician updates their own availability
+// PATCH /api/availability/:availabilityId
 // =====================================================
 
 exports.updateAvailability = (req, res) => {
+    if (!validateAvailability(req, res)) {
+        return;
+    }
 
-    const technician_id = req.user.user_id;
-
-    const {
-        availabilityId
-    } = req.params;
+    const { availabilityId } = req.params;
 
     const {
         available_day,
@@ -369,311 +338,186 @@ exports.updateAvailability = (req, res) => {
         available_to
     } = req.body;
 
-
-    // Check required fields
-    if (!available_day) {
-        return res.status(400).json({
-            message: "available_day is required."
-        });
-    }
-
-    if (!available_from) {
-        return res.status(400).json({
-            message: "available_from is required."
-        });
-    }
-
-    if (!available_to) {
-        return res.status(400).json({
-            message: "available_to is required."
-        });
-    }
-
-
-    // Validate day
-    const allowedDays = [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday"
-    ];
-
-    if (!allowedDays.includes(available_day)) {
-        return res.status(400).json({
-            message:
-                "Invalid available_day. Use Monday to Sunday."
-        });
-    }
-
-
-    // Validate time
-    if (available_from >= available_to) {
-        return res.status(400).json({
-            message:
-                "available_to must be later than available_from."
-        });
-    }
-
-
-    // Make sure the availability belongs to this technician
-    const findSql = `
-        SELECT
-            availability_id,
-            technician_id,
-            available_day,
-            available_from,
-            available_to
-        FROM availability
-        WHERE availability_id = ?
-        AND technician_id = ?
-    `;
-
-
-    db.query(
-        findSql,
-        [
-            availabilityId,
-            technician_id
-        ],
-        (err, results) => {
-
+    getTechnicianProfile(
+        req.user.user_id,
+        (err, technicianId) => {
             if (err) {
-                console.error(
-                    "Error finding availability:",
-                    err
-                );
+                console.error(err);
 
                 return res.status(500).json({
-                    message:
-                        "Failed to find availability.",
-                    error: err
+                    message: "Failed to find technician profile."
                 });
             }
 
-
-            if (results.length === 0) {
-                return res.status(404).json({
-                    message:
-                        "Availability not found or does not belong to you."
+            if (!technicianId) {
+                return res.status(403).json({
+                    message: "Only technicians can update availability."
                 });
             }
 
-
-            // Check for overlapping schedules
-            const overlapSql = `
-                SELECT
-                    availability_id
+            const findSql = `
+                SELECT availability_id
                 FROM availability
-                WHERE technician_id = ?
-                AND available_day = ?
-                AND available_from < ?
-                AND available_to > ?
-                AND availability_id != ?
+                WHERE availability_id = ?
+                AND technician_id = ?
             `;
 
-
             db.query(
-                overlapSql,
-                [
-                    technician_id,
-                    available_day,
-                    available_to,
-                    available_from,
-                    availabilityId
-                ],
-                (err, existing) => {
-
-                    if (err) {
-                        console.error(
-                            "Error checking overlapping availability:",
-                            err
-                        );
+                findSql,
+                [availabilityId, technicianId],
+                (findErr, results) => {
+                    if (findErr) {
+                        console.error(findErr);
 
                         return res.status(500).json({
-                            message:
-                                "Failed to check overlapping availability.",
-                            error: err
+                            message: "Failed to find availability."
                         });
                     }
 
-
-                    if (existing.length > 0) {
-                        return res.status(409).json({
+                    if (results.length === 0) {
+                        return res.status(404).json({
                             message:
-                                "This availability period overlaps with an existing schedule."
+                                "Availability not found or does not belong to you."
                         });
                     }
 
-
-                    const updateSql = `
-                        UPDATE availability
-                        SET
-                            available_day = ?,
-                            available_from = ?,
-                            available_to = ?
-                        WHERE availability_id = ?
-                        AND technician_id = ?
-                    `;
-
-
-                    db.query(
-                        updateSql,
-                        [
-                            available_day,
-                            available_from,
-                            available_to,
-                            availabilityId,
-                            technician_id
-                        ],
-                        (err, result) => {
-
-                            if (err) {
-                                console.error(
-                                    "Error updating availability:",
-                                    err
-                                );
+                    checkOverlap(
+                        technicianId,
+                        available_day,
+                        available_from,
+                        available_to,
+                        availabilityId,
+                        (overlapErr, hasOverlap) => {
+                            if (overlapErr) {
+                                console.error(overlapErr);
 
                                 return res.status(500).json({
                                     message:
-                                        "Failed to update availability.",
-                                    error: err
+                                        "Failed to check overlapping availability."
                                 });
                             }
 
+                            if (hasOverlap) {
+                                return res.status(409).json({
+                                    message:
+                                        "This time overlaps with an existing schedule."
+                                });
+                            }
 
-                            res.status(200).json({
-                                message:
-                                    "Availability updated successfully.",
+                            const updateSql = `
+                                UPDATE availability
+                                SET
+                                    available_day = ?,
+                                    available_from = ?,
+                                    available_to = ?
+                                WHERE availability_id = ?
+                                AND technician_id = ?
+                            `;
 
-                                availability: {
-                                    availability_id:
-                                        Number(availabilityId),
+                            db.query(
+                                updateSql,
+                                [
+                                    available_day,
+                                    available_from,
+                                    available_to,
+                                    availabilityId,
+                                    technicianId
+                                ],
+                                (updateErr, result) => {
+                                    if (updateErr) {
+                                        console.error(updateErr);
 
-                                    technician_id:
-                                        technician_id,
+                                        return res.status(500).json({
+                                            message:
+                                                "Failed to update availability."
+                                        });
+                                    }
 
-                                    available_day:
-                                        available_day,
+                                    if (result.affectedRows === 0) {
+                                        return res.status(404).json({
+                                            message:
+                                                "Availability was not updated."
+                                        });
+                                    }
 
-                                    available_from:
-                                        available_from,
-
-                                    available_to:
-                                        available_to
+                                    return res.status(200).json({
+                                        message:
+                                            "Availability updated successfully.",
+                                        availability: {
+                                            availability_id:
+                                                Number(availabilityId),
+                                            technician_id: technicianId,
+                                            available_day,
+                                            available_from,
+                                            available_to
+                                        }
+                                    });
                                 }
-                            });
-
+                            );
                         }
                     );
-
                 }
             );
-
         }
     );
 };
 
-
 // =====================================================
 // Delete Availability
-// Technician deletes their own availability
+// DELETE /api/availability/:availabilityId
 // =====================================================
 
 exports.deleteAvailability = (req, res) => {
+    const { availabilityId } = req.params;
 
-    const technician_id = req.user.user_id;
-
-    const {
-        availabilityId
-    } = req.params;
-
-
-    const findSql = `
-        SELECT
-            availability_id,
-            technician_id,
-            available_day,
-            available_from,
-            available_to
-        FROM availability
-        WHERE availability_id = ?
-        AND technician_id = ?
-    `;
-
-
-    db.query(
-        findSql,
-        [
-            availabilityId,
-            technician_id
-        ],
-        (err, results) => {
-
+    getTechnicianProfile(
+        req.user.user_id,
+        (err, technicianId) => {
             if (err) {
-                console.error(
-                    "Error finding availability:",
-                    err
-                );
+                console.error(err);
 
                 return res.status(500).json({
-                    message:
-                        "Failed to find availability.",
-                    error: err
+                    message: "Failed to find technician profile."
                 });
             }
 
-
-            if (results.length === 0) {
-                return res.status(404).json({
-                    message:
-                        "Availability not found or does not belong to you."
+            if (!technicianId) {
+                return res.status(403).json({
+                    message: "Only technicians can delete availability."
                 });
             }
 
-
-            const deleteSql = `
+            const sql = `
                 DELETE FROM availability
                 WHERE availability_id = ?
                 AND technician_id = ?
             `;
 
-
             db.query(
-                deleteSql,
-                [
-                    availabilityId,
-                    technician_id
-                ],
-                (err, result) => {
-
-                    if (err) {
-                        console.error(
-                            "Error deleting availability:",
-                            err
-                        );
+                sql,
+                [availabilityId, technicianId],
+                (deleteErr, result) => {
+                    if (deleteErr) {
+                        console.error(deleteErr);
 
                         return res.status(500).json({
-                            message:
-                                "Failed to delete availability.",
-                            error: err
+                            message: "Failed to delete availability."
                         });
                     }
 
+                    if (result.affectedRows === 0) {
+                        return res.status(404).json({
+                            message:
+                                "Availability not found or does not belong to you."
+                        });
+                    }
 
-                    res.status(200).json({
-                        message:
-                            "Availability deleted successfully.",
-
-                        availability_id:
-                            Number(availabilityId)
+                    return res.status(200).json({
+                        message: "Availability deleted successfully.",
+                        availability_id: Number(availabilityId)
                     });
-
                 }
             );
-
         }
     );
 };

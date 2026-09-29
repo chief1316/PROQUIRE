@@ -262,3 +262,180 @@
   }
 
 }
+
+/* =========================================
+   SAVED TECHNICIAN PROFILE CARD
+========================================= */
+
+.saved-profile-view {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 30px;
+  padding: 30px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(15, 23, 42, 0.06);
+}
+
+.saved-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.saved-profile-avatar {
+  width: 70px;
+  height: 70px;
+  min-width: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.saved-profile-title h2 {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.saved-profile-title p {
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 16px;
+}
+
+.profile-status {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.saved-profile-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 25px 0;
+}
+
+.saved-profile-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 25px;
+}
+
+.saved-profile-field {
+  min-width: 0;
+}
+
+.saved-profile-field h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.saved-profile-field p {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.edit-profile-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* =========================================
+   EDIT FORM ACTIONS
+========================================= */
+
+.profile-form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 25px;
+}
+
+.profile-form-actions .profile-submit {
+  width: 100%;
+  margin-top: 0;
+}
+
+.profile-cancel-button {
+  width: 100%;
+  min-height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.profile-cancel-button:hover {
+  background: #f1f5f9;
+}
+
+.profile-cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   RESPONSIVE PROFILE CARD
+========================================= */
+
+@media (max-width: 600px) {
+
+  .saved-profile-view {
+    padding: 20px;
+  }
+
+  .saved-profile-header {
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .saved-profile-avatar {
+    width: 55px;
+    height: 55px;
+    min-width: 55px;
+  }
+
+  .saved-profile-title h2 {
+    font-size: 20px;
+  }
+
+  .saved-profile-details {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+}

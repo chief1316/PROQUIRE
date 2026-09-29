@@ -1042,3 +1042,266 @@ exports.reviewVerificationDocument = (req, res) => {
     );
 
 };
+
+ // ======================================================
+// Update My Technician Profile
+// Logged-in Technician Only
+// ======================================================
+
+exports.updateMyProfile = (req, res) => {
+    const user_id = req.user.user_id;
+
+    const {
+        category_id,
+        bio,
+        years_experience,
+        location,
+        employment_type,
+        agency_id
+    } = req.body;
+
+    // ---------------------------------------------
+    // Validate required fields
+    // ---------------------------------------------
+
+    if (
+        !category_id ||
+        typeof bio !== "string" ||
+        !bio.trim() ||
+        years_experience === undefined ||
+        years_experience === null ||
+        typeof location !== "string" ||
+        !location.trim() ||
+        !employment_type
+    ) {
+        return res.status(400).json({
+            message: "Please provide all required profile fields."
+        });
+    }
+
+    // ---------------------------------------------
+    // Validate category and experience
+    // ---------------------------------------------
+
+    if (
+        !Number.isInteger(Number(category_id)) ||
+        Number(category_id) <= 0 ||
+        !Number.isFinite(Number(years_experience)) ||
+        Number(years_experience) < 0
+    ) {
+        return res.status(400).json({
+            message:
+                "Please provide a valid category and years of experience."
+        });
+    }
+
+    // ---------------------------------------------
+    // Validate employment type
+    // ---------------------------------------------
+
+    if (
+        !["Independent", "Agency"].includes(employment_type)
+    ) {
+        return res.status(400).json({
+            message:
+                "Employment type must be Independent or Agency."
+        });
+    }
+
+    // ---------------------------------------------
+    // Validate agency selection
+    // ---------------------------------------------
+
+    if (
+        employment_type === "Agency" &&
+        (
+            !agency_id ||
+            !Number.isInteger(Number(agency_id)) ||
+            Number(agency_id) <= 0
+        )
+    ) {
+        return res.status(400).json({
+            message: "Please select a valid agency."
+        });
+    }
+
+    // ---------------------------------------------
+    // Check whether the technician profile exists
+    // IMPORTANT: Do this before the UPDATE.
+    // ---------------------------------------------
+
+    const checkProfileSql = `
+        SELECT technician_id
+        FROM technician_profiles
+        WHERE user_id = ?
+    `;
+
+    db.query(
+        checkProfileSql,
+        [user_id],
+        (profileErr, profileResults) => {
+
+            if (profileErr) {
+                console.error(
+                    "Profile existence check error:",
+                    profileErr
+                );
+
+                return res.status(500).json({
+                    message:
+                        "Error checking technician profile."
+                });
+            }
+
+            if (profileResults.length === 0) {
+                return res.status(404).json({
+                    message:
+                        "Technician profile not found. Please create your profile first."
+                });
+            }
+
+            // -----------------------------------------
+            // Validate category exists
+            // -----------------------------------------
+
+            const categorySql = `
+                SELECT category_id
+                FROM categories
+                WHERE category_id = ?
+            `;
+
+            db.query(
+                categorySql,
+                [Number(category_id)],
+                (categoryErr, categoryResults) => {
+
+                    if (categoryErr) {
+                        console.error(
+                            "Category validation error:",
+                            categoryErr
+                        );
+
+                        return res.status(500).json({
+                            message:
+                                "Error validating technician category."
+                        });
+                    }
+
+                    if (categoryResults.length === 0) {
+                        return res.status(400).json({
+                            message:
+                                "The selected category does not exist."
+                        });
+                    }
+
+                    // ---------------------------------
+                    // Perform the profile update
+                    // ---------------------------------
+
+                    const updateProfile = () => {
+
+                        const updateSql = `
+                            UPDATE technician_profiles
+                            SET
+                                category_id = ?,
+                                bio = ?,
+                                years_experience = ?,
+                                location = ?,
+                                employment_type = ?,
+                                agency_id = ?
+                            WHERE user_id = ?
+                        `;
+
+                        const values = [
+                            Number(category_id),
+                            bio.trim(),
+                            Number(years_experience),
+                            location.trim(),
+                            employment_type,
+                            employment_type === "Agency"
+                                ? Number(agency_id)
+                                : null,
+                            user_id
+                        ];
+
+                        db.query(
+                            updateSql,
+                            values,
+                            (updateErr, result) => {
+
+                                if (updateErr) {
+                                    console.error(
+                                        "Profile update error:",
+                                        updateErr
+                                    );
+
+                                    return res.status(500).json({
+                                        message:
+                                            "Error updating technician profile."
+                                    });
+                                }
+
+                                // Do not use affectedRows === 0
+                                // to determine profile existence.
+                                // The profile was checked above.
+
+                                return res.status(200).json({
+                                    message:
+                                        "Professional profile updated successfully.",
+                                    technician_id:
+                                        profileResults[0].technician_id
+                                });
+                            }
+                        );
+                    };
+
+                    // ---------------------------------
+                    // Independent technician
+                    // ---------------------------------
+
+                    if (employment_type === "Independent") {
+                        return updateProfile();
+                    }
+
+                    // ---------------------------------
+                    // Validate selected agency
+                    // ---------------------------------
+
+                    const agencySql = `
+                        SELECT agency_id
+                        FROM agency_profiles
+                        WHERE agency_id = ?
+                    `;
+
+                    db.query(
+                        agencySql,
+                        [Number(agency_id)],
+                        (agencyErr, agencyResults) => {
+
+                            if (agencyErr) {
+                                console.error(
+                                    "Agency validation error:",
+                                    agencyErr
+                                );
+
+                                return res.status(500).json({
+                                    message:
+                                        "Error validating selected agency."
+                                });
+                            }
+
+                            if (agencyResults.length === 0) {
+                                return res.status(400).json({
+                                    message:
+                                        "The selected agency does not exist."
+                                });
+                            }
+
+                            updateProfile();
+                        }
+                    );
+                }
+            );
+        }
+    );
+};
