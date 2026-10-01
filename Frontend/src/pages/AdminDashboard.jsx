@@ -25,8 +25,10 @@ function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [pendingTechnicians, setPendingTechnicians] = useState([]);
   const [selectedTechnician, setSelectedTechnician] = useState(null);
+  const [selectedDocument, setSelectedDocument] = useState(null);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
+  const [reviewingDocument, setReviewingDocument] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -231,6 +233,54 @@ function AdminDashboard() {
       setVerifying(false);
     }
   };
+
+  /*
+ * ==========================================
+ * REVIEW VERIFICATION DOCUMENT
+ * ==========================================
+ */
+
+const handleReviewDocument = async (decision) => {
+  if (!selectedDocument?.document_id) {
+    return;
+  }
+
+  try {
+    setReviewingDocument(true);
+    setError("");
+    setSuccess("");
+
+    const response = await axios.patch(
+      `http://localhost:5000/api/technicians/verification/review/${selectedDocument.document_id}`,
+      {
+        decision,
+      },
+      getAuthHeaders()
+    );
+
+    setSuccess(
+      response.data?.message ||
+        `Verification document ${decision} successfully.`
+    );
+
+    setSelectedDocument(null);
+    setSelectedTechnician(null);
+
+    await loadDashboardData();
+  } catch (err) {
+    console.error(
+      "Verification document review error:",
+      err
+    );
+
+    setError(
+      err.response?.data?.message ||
+        "Unable to review verification document."
+    );
+  } finally {
+    setReviewingDocument(false);
+  }
+};
 
   /*
    * ==========================================
@@ -1704,8 +1754,33 @@ function AdminDashboard() {
                                       "Not available"}
                                   </p>
                                 </div>
-                              )}
+                                                            )}
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDocument(document);
+                            }}
+                            style={{
+                              border:
+                                "1px solid #2563eb",
+                              background: "#eff6ff",
+                              color: "#2563eb",
+                              padding: "7px 10px",
+                              borderRadius: "7px",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <Eye size={14} />
+                            Review Document
+                          </button>
                         </div>
                       )
                     )}
@@ -1784,6 +1859,322 @@ function AdminDashboard() {
                 {verifying
                   ? "Verifying..."
                   : "Approve & Verify"}
+              </button>
+            </div>
+          </div>
+        </div>
+            )}
+
+      {/* ======================================
+          DOCUMENT REVIEW MODAL
+      ====================================== */}
+
+      {selectedDocument && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background:
+              "rgba(15, 23, 42, 0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "900px",
+              maxHeight: "90vh",
+              background: "#ffffff",
+              borderRadius: "14px",
+              overflow: "hidden",
+              boxShadow:
+                "0 25px 60px rgba(15, 23, 42, 0.25)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Document Review Header */}
+
+            <div
+              style={{
+                padding: "18px 24px",
+                borderBottom:
+                  "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "12px",
+                    color: "#64748b",
+                  }}
+                >
+                  Document Review
+                </p>
+
+                <h3
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: "18px",
+                    color: "#0f172a",
+                  }}
+                >
+                  {selectedDocument.document_type ||
+                    "Verification Document"}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedDocument(null)
+                }
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  color: "#475569",
+                  width: "35px",
+                  height: "35px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "20px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Document Content */}
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "20px",
+                background: "#f8fafc",
+              }}
+            >
+              {/* Uploaded Document */}
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  border:
+                    "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  minHeight: "420px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                }}
+              >
+                {selectedDocument.document_path ? (
+                  /\.(jpg|jpeg|png|gif|webp)$/i.test(
+                    selectedDocument.document_path
+                  ) ? (
+                    <img
+                      src={`http://localhost:5000/${
+                        selectedDocument.document_path
+                          ?.replace(/^\/+/, "")
+                          .replace(/^documents\//, "uploads/documents/")
+                       }`}
+                      alt={
+                        selectedDocument.document_type ||
+                        "Verification document"
+                      }
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "500px",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <iframe
+                      src={`http://localhost:5000/${
+                        selectedDocument.document_path
+                          ?.replace(/^\/+/, "")
+                           .replace(/^documents\//, "uploads/documents/")
+                        }`}
+                      title="Verification Document"
+                      style={{
+                        width: "100%",
+                        height: "500px",
+                        border: "none",
+                      }}
+                    />
+                  )
+                ) : (
+                  <div
+                    style={{
+                      padding: "40px",
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Document file is not available.
+                  </div>
+                )}
+              </div>
+
+              {/* AI Verification Analysis */}
+
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "15px",
+                  background: "#ffffff",
+                  border:
+                    "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                    color: "#334155",
+                  }}
+                >
+                  AI Verification Analysis
+                </p>
+
+                <p
+                  style={{
+                    margin: "5px 0",
+                    fontSize: "13px",
+                    color: "#475569",
+                  }}
+                >
+                  <strong>
+                    Confidence Score:
+                  </strong>{" "}
+                  {selectedDocument.confidence_score !==
+                    null &&
+                  selectedDocument.confidence_score !==
+                    undefined
+                    ? `${Number(
+                        selectedDocument.confidence_score
+                      ).toFixed(1)}%`
+                    : "Not available"}
+                </p>
+
+                <p
+                  style={{
+                    margin: "5px 0",
+                    fontSize: "13px",
+                    color: "#475569",
+                  }}
+                >
+                  <strong>AI Result:</strong>{" "}
+                  {selectedDocument.verification_result ||
+                    "Not available"}
+                </p>
+
+                <p
+                  style={{
+                    margin: "5px 0",
+                    fontSize: "13px",
+                    color: "#475569",
+                    lineHeight: "1.5",
+                  }}
+                >
+                  <strong>Remarks:</strong>{" "}
+                  {selectedDocument.remarks ||
+                    "No remarks provided"}
+                </p>
+              </div>
+            </div>
+
+            {/* Document Review Footer */}
+
+            <div
+              style={{
+    padding: "18px 24px",
+    borderTop: "1px solid #e2e8f0",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+  }}
+>
+  <button
+    type="button"
+    onClick={() => setSelectedDocument(null)}
+    disabled={reviewingDocument}
+    style={{
+      border: "1px solid #cbd5e1",
+      background: "#ffffff",
+      color: "#334155",
+      padding: "9px 16px",
+      borderRadius: "8px",
+      fontSize: "13px",
+      fontWeight: "600",
+      cursor: reviewingDocument
+        ? "not-allowed"
+        : "pointer",
+    }}
+  >
+    Close
+  </button>
+
+  <button
+    type="button"
+    onClick={() =>
+      handleReviewDocument("rejected")
+    }
+    disabled={reviewingDocument}
+    style={{
+      border: "1px solid #dc2626",
+      background: "#fef2f2",
+      color: "#dc2626",
+      padding: "9px 16px",
+      borderRadius: "8px",
+      fontSize: "13px",
+      fontWeight: "600",
+      cursor: reviewingDocument
+        ? "not-allowed"
+        : "pointer",
+    }}
+  >
+    {reviewingDocument
+      ? "Processing..."
+      : "Reject Document"}
+  </button>
+
+  <button
+    type="button"
+    onClick={() =>
+      handleReviewDocument("approved")
+    }
+    disabled={reviewingDocument}
+    style={{
+      border: "1px solid #16a34a",
+      background: "#16a34a",
+      color: "#ffffff",
+      padding: "9px 16px",
+      borderRadius: "8px",
+      fontSize: "13px",
+      fontWeight: "600",
+      cursor: reviewingDocument
+        ? "not-allowed"
+        : "pointer",
+    }}
+  >
+    {reviewingDocument
+      ? "Processing..."
+      : "Approve Document"}
               </button>
             </div>
           </div>

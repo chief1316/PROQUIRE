@@ -285,6 +285,12 @@ exports.verifyTechnician = (req, res) => {
 // ======================================================
 
 exports.uploadVerificationDocument = (req, res) => {
+        if (req.user.role !== "technician") {
+        return res.status(403).json({
+            message:
+                "Only technician accounts can upload verification documents."
+        });
+    }
 
     const {
         technician_id,
@@ -395,7 +401,7 @@ exports.uploadVerificationDocument = (req, res) => {
             // -----------------------------------------
 
             const document_path =
-                `documents/${req.file.filename}`;
+              `uploads/documents/${req.file.filename}`;
 
 
             // -----------------------------------------
@@ -685,6 +691,15 @@ exports.getPendingTechnicians = (req, res) => {
 
 exports.createProfile = (req, res) => {
 
+    if (req.user.role !== "technician") {
+
+        return res.status(403).json({
+            message:
+                "Only technician accounts can create technician profiles."
+        });
+
+    }
+
     const user_id = req.user.user_id;
 
     const {
@@ -886,13 +901,14 @@ exports.reviewVerificationDocument = (req, res) => {
     // Validate admin decision
     // ---------------------------------------------
 
-    if (!decision || !["approved", "rejected"].includes(decision)) {
-
+    if (
+        !decision ||
+        !["approved", "rejected"].includes(decision)
+    ) {
         return res.status(400).json({
             message:
                 "Decision must be either 'approved' or 'rejected'."
         });
-
     }
 
     // ---------------------------------------------
@@ -922,7 +938,6 @@ exports.reviewVerificationDocument = (req, res) => {
                         "Error finding verification document.",
                     error: err
                 });
-
             }
 
             if (results.length === 0) {
@@ -931,15 +946,13 @@ exports.reviewVerificationDocument = (req, res) => {
                     message:
                         "Verification document not found."
                 });
-
             }
 
             const technicianId =
                 results[0].technician_id;
 
-
             // -----------------------------------------
-            // Update verification document
+            // Update the selected document
             // -----------------------------------------
 
             const updateDocumentSql = `
@@ -968,79 +981,147 @@ exports.reviewVerificationDocument = (req, res) => {
                                 "Error updating verification document.",
                             error: updateErr
                         });
-
                     }
 
-
                     // ---------------------------------
-                    // Update technician verification
+                    // Check ALL technician documents
                     // ---------------------------------
 
-                    const verifiedValue =
-                        decision === "approved" ? 1 : 0;
+                    const checkDocumentsSql = `
+                        SELECT
+                            SUM(
+                                verification_status = 'approved'
+                            ) AS approved_count,
 
-                    const updateTechnicianSql = `
-                        UPDATE technician_profiles
-                        SET is_verified = ?
+                            SUM(
+                                verification_status = 'pending'
+                            ) AS pending_count,
+
+                            COUNT(*) AS total_count
+
+                        FROM verification_documents
                         WHERE technician_id = ?
                     `;
 
                     db.query(
-                        updateTechnicianSql,
-                        [
-                            verifiedValue,
-                            technicianId
-                        ],
-                        (technicianErr) => {
+                        checkDocumentsSql,
+                        [technicianId],
+                        (checkErr, documentResults) => {
 
-                            if (technicianErr) {
+                            if (checkErr) {
 
                                 console.error(
-                                    "Error updating technician verification:",
-                                    technicianErr
+                                    "Error checking technician documents:",
+                                    checkErr
                                 );
 
                                 return res.status(500).json({
                                     message:
-                                        "Document reviewed, but technician verification update failed.",
-                                    error: technicianErr
+                                        "Document reviewed, but technician verification status could not be determined.",
+                                    error: checkErr
                                 });
-
                             }
 
+                            const documentSummary =
+                                documentResults[0];
+
+                            const approvedCount =
+                                Number(
+                                    documentSummary.approved_count || 0
+                                );
+
+                            const pendingCount =
+                                Number(
+                                    documentSummary.pending_count || 0
+                                );
 
                             // ---------------------------------
-                            // Successful final review
+                            // Determine overall technician status
+                            // ---------------------------------
+                            //
+                            // Verified when:
+                            // 1. At least one document is approved
+                            // 2. No documents remain pending
+                            //
+                            // Rejected documents do NOT cancel
+                            // an already-approved document.
                             // ---------------------------------
 
-                            res.status(200).json({
+                            const technicianIsVerified =
+                                approvedCount > 0 &&
+                                pendingCount === 0;
 
-                                message:
-                                    `Verification document ${decision} successfully.`,
+                            const verifiedValue =
+                                technicianIsVerified ? 1 : 0;
 
-                                document_id:
-                                    Number(documentId),
+                            // ---------------------------------
+                            // Update technician verification
+                            // ---------------------------------
 
-                                technician_id:
-                                    technicianId,
+                            const updateTechnicianSql = `
+                                UPDATE technician_profiles
+                                SET is_verified = ?
+                                WHERE technician_id = ?
+                            `;
 
-                                decision:
-                                    decision,
+                            db.query(
+                                updateTechnicianSql,
+                                [
+                                    verifiedValue,
+                                    technicianId
+                                ],
+                                (technicianErr) => {
 
-                                technician_verified:
-                                    verifiedValue === 1
+                                    if (technicianErr) {
 
-                            });
+                                        console.error(
+                                            "Error updating technician verification:",
+                                            technicianErr
+                                        );
 
+                                        return res.status(500).json({
+                                            message:
+                                                "Document reviewed, but technician verification update failed.",
+                                            error: technicianErr
+                                        });
+                                    }
+
+                                    // ---------------------------------
+                                    // Successful review
+                                    // ---------------------------------
+
+                                    return res.status(200).json({
+
+                                        message:
+                                            `Verification document ${decision} successfully.`,
+
+                                        document_id:
+                                            Number(documentId),
+
+                                        technician_id:
+                                            technicianId,
+
+                                        decision:
+                                            decision,
+
+                                        approved_documents:
+                                            approvedCount,
+
+                                        pending_documents:
+                                            pendingCount,
+
+                                        technician_verified:
+                                            technicianIsVerified
+
+                                    });
+                                }
+                            );
                         }
                     );
-
                 }
             );
-
         }
     );
-
 };
 
  // ======================================================

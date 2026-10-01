@@ -382,7 +382,7 @@ function TechnicianDashboard() {
               </Link>
 
               <Link
-                to="/technician"
+                to="/technician/portfolio"
                 style={styles.navItem}
                 onClick={closeMobileMenu}
               >
@@ -612,7 +612,11 @@ function TechnicianDashboard() {
                   style={styles.outlineButton}
                   className="technician-outline-button"
                   onClick={() =>
-                    navigate("/technician/profile")
+                    navigate(
+                      isProfileComplete
+                        ? "/technician/verification"
+                        : "/technician/profile"
+                    )
                   }
                 >
                   {isProfileComplete
@@ -1140,13 +1144,13 @@ function TechnicianDashboard() {
 
                 <button
                   style={styles.fullButton}
-                  onClick={() =>
-                    navigate("/technician/profile")
-                  }
-                >
-                  {isProfileComplete
-                    ? "View Profile"
-                    : "Complete Profile"}
+                      onClick={() =>
+                        navigate("/technician/profile")
+                        }
+                     >
+                        {isProfileComplete
+                          ? "View Profile"
+                          : "Complete Profile"}
 
                   <ArrowRight size={17} />
                 </button>
@@ -1215,7 +1219,7 @@ function TechnicianDashboard() {
                   style={styles.quickCard}
                   className="technician-quick-card"
                   onClick={() =>
-                    navigate("/technician")
+                    navigate("/technician/portfolio")
                   }
                 >
                   <BriefcaseBusiness

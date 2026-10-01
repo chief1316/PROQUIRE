@@ -26,6 +26,8 @@ import AgencyTechnicians from "./pages/AgencyTechnicians";
 import AgencyTechnicianDetails from "./pages/AgencyTechnicianDetails";
 import ClientDashboard from "./pages/ClientDashboard";
 import Availability from "./pages/technician/Availability";
+import TechnicianPortfolio from "./pages/technician/TechnicianPortfolio";
+import TechnicianVerification from "./pages/technician/TechnicianVerification";
 
 import "./App.css";
 
@@ -727,6 +729,11 @@ function App() {
           element={<TechnicianProfile />}
         />
 
+        <Route
+          path="/technician/portfolio"
+          element={<TechnicianPortfolio />}
+        />
+
 
         {/* Agency Registration */}
         <Route
@@ -769,8 +776,13 @@ function App() {
           element={<Availability />}
         />
 
-      </Routes>
+        <Route
+          path="/technician/verification"
+          element={<TechnicianVerification />}
+        />
 
+        </Routes>
+        
     </BrowserRouter>
   );
 }
