@@ -26,10 +26,19 @@ function AdminDashboard() {
   const [pendingTechnicians, setPendingTechnicians] = useState([]);
   const [selectedTechnician, setSelectedTechnician] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
+
   const [loading, setLoading] = useState(true);
+
   const [verifying, setVerifying] = useState(false);
+
   const [reviewingDocument, setReviewingDocument] = useState(false);
+
+  const [showRejectionForm, setShowRejectionForm] = useState(false);
+
+  const [rejectionReason, setRejectionReason] = useState("");
+
   const [error, setError] = useState("");
+
   const [success, setSuccess] = useState("");
 
   const token = localStorage.getItem("token");
@@ -56,26 +65,20 @@ function AdminDashboard() {
         return;
       }
 
-      const storedUser = JSON.parse(
-        localStorage.getItem("user") || "{}"
-      );
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
       if (storedUser.role !== "admin") {
         navigate("/admin-login");
         return;
       }
 
-      const [usersResponse, pendingResponse] =
-        await Promise.all([
-          axios.get(
-            "http://localhost:5000/api/admin/users",
-            getAuthHeaders()
-          ),
-          axios.get(
-            "http://localhost:5000/api/technicians/pending/list",
-            getAuthHeaders()
-          ),
-        ]);
+      const [usersResponse, pendingResponse] = await Promise.all([
+        axios.get("http://localhost:5000/api/admin/users", getAuthHeaders()),
+        axios.get(
+          "http://localhost:5000/api/technicians/pending/list",
+          getAuthHeaders(),
+        ),
+      ]);
 
       setUsers(usersResponse.data || []);
 
@@ -89,53 +92,40 @@ function AdminDashboard() {
 
       const groupedTechnicians = {};
 
-      (pendingResponse.data || []).forEach(
-        (technician) => {
-          const id = technician.technician_id;
+      (pendingResponse.data || []).forEach((technician) => {
+        const id = technician.technician_id;
 
-          if (!groupedTechnicians[id]) {
-            groupedTechnicians[id] = {
-              technician_id: id,
-              full_name: technician.full_name,
-              bio: technician.bio,
-              location: technician.location,
-              documents: [],
-            };
-          }
-
-          groupedTechnicians[id].documents.push({
-            document_id: technician.document_id,
-            document_type: technician.document_type,
-            document_path: technician.document_path,
-            verification_status:
-              technician.verification_status,
-
-            confidence_score:
-              technician.confidence_score,
-
-            verification_result:
-              technician.verification_result,
-
-            remarks:
-              technician.remarks,
-
-            verification_date:
-              technician.verification_date,
-
-            verified_by:
-              technician.verified_by,
-          });
+        if (!groupedTechnicians[id]) {
+          groupedTechnicians[id] = {
+            technician_id: id,
+            full_name: technician.full_name,
+            bio: technician.bio,
+            location: technician.location,
+            documents: [],
+          };
         }
-      );
 
-      setPendingTechnicians(
-        Object.values(groupedTechnicians)
-      );
+        groupedTechnicians[id].documents.push({
+          document_id: technician.document_id,
+          document_type: technician.document_type,
+          document_path: technician.document_path,
+          verification_status: technician.verification_status,
+
+          confidence_score: technician.confidence_score,
+
+          verification_result: technician.verification_result,
+
+          remarks: technician.remarks,
+
+          verification_date: technician.verification_date,
+
+          verified_by: technician.verified_by,
+        });
+      });
+
+      setPendingTechnicians(Object.values(groupedTechnicians));
     } catch (err) {
-      console.error(
-        "Admin dashboard error:",
-        err
-      );
+      console.error("Admin dashboard error:", err);
 
       if (err.response?.status === 401) {
         localStorage.removeItem("token");
@@ -145,14 +135,12 @@ function AdminDashboard() {
       }
 
       if (err.response?.status === 403) {
-        setError(
-          "Access denied. Administrator privileges are required."
-        );
+        setError("Access denied. Administrator privileges are required.");
         return;
       }
 
       setError(
-        "Unable to load dashboard data. Make sure the backend is running."
+        "Unable to load dashboard data. Make sure the backend is running.",
       );
     } finally {
       setLoading(false);
@@ -192,8 +180,7 @@ function AdminDashboard() {
       return;
     }
 
-    const technicianId =
-      selectedTechnician.technician_id;
+    const technicianId = selectedTechnician.technician_id;
 
     try {
       setVerifying(true);
@@ -203,13 +190,10 @@ function AdminDashboard() {
       const response = await axios.patch(
         `http://localhost:5000/api/admin/verify-technician/${technicianId}`,
         {},
-        getAuthHeaders()
+        getAuthHeaders(),
       );
 
-      setSuccess(
-        response.data?.message ||
-          "Technician verified successfully."
-      );
+      setSuccess(response.data?.message || "Technician verified successfully.");
 
       setSelectedTechnician(null);
 
@@ -220,67 +204,62 @@ function AdminDashboard() {
 
       await loadDashboardData();
     } catch (err) {
-      console.error(
-        "Technician verification error:",
-        err
-      );
+      console.error("Technician verification error:", err);
 
-      setError(
-        err.response?.data?.message ||
-          "Unable to verify technician."
-      );
+      setError(err.response?.data?.message || "Unable to verify technician.");
     } finally {
       setVerifying(false);
     }
   };
 
   /*
- * ==========================================
- * REVIEW VERIFICATION DOCUMENT
- * ==========================================
- */
+   * ==========================================
+   * REVIEW VERIFICATION DOCUMENT
+   * ==========================================
+   */
 
-const handleReviewDocument = async (decision) => {
-  if (!selectedDocument?.document_id) {
-    return;
-  }
+  const handleReviewDocument = async (decision) => {
+    if (!selectedDocument?.document_id) {
+      return;
+    }
 
-  try {
-    setReviewingDocument(true);
-    setError("");
-    setSuccess("");
+    try {
+      setReviewingDocument(true);
+      setError("");
+      setSuccess("");
 
-    const response = await axios.patch(
-      `http://localhost:5000/api/technicians/verification/review/${selectedDocument.document_id}`,
-      {
-        decision,
-      },
-      getAuthHeaders()
-    );
+      const response = await axios.patch(
+        `http://localhost:5000/api/technicians/verification/review/${selectedDocument.document_id}`,
+        {
+          decision,
+          rejection_reason:
+            decision === "rejected" ? rejectionReason.trim() : null,
+        },
+        getAuthHeaders(),
+      );
 
-    setSuccess(
-      response.data?.message ||
-        `Verification document ${decision} successfully.`
-    );
+      setSuccess(
+        response.data?.message ||
+          `Verification document ${decision} successfully.`,
+      );
 
-    setSelectedDocument(null);
-    setSelectedTechnician(null);
+      setRejectionReason("");
+      setShowRejectionForm(false);
+      setSelectedDocument(null);
+      setSelectedTechnician(null);
 
-    await loadDashboardData();
-  } catch (err) {
-    console.error(
-      "Verification document review error:",
-      err
-    );
+      await loadDashboardData();
+    } catch (err) {
+      console.error("Verification document review error:", err);
 
-    setError(
-      err.response?.data?.message ||
-        "Unable to review verification document."
-    );
-  } finally {
-    setReviewingDocument(false);
-  }
-};
+      setError(
+        err.response?.data?.message ||
+          "Unable to review verification document.",
+      );
+    } finally {
+      setReviewingDocument(false);
+    }
+  };
 
   /*
    * ==========================================
@@ -290,35 +269,26 @@ const handleReviewDocument = async (decision) => {
 
   const totalUsers = users.length;
 
-  const totalClients = users.filter(
-    (user) => user.role === "client"
-  ).length;
+  const totalClients = users.filter((user) => user.role === "client").length;
 
   const totalTechnicians = users.filter(
-    (user) => user.role === "technician"
+    (user) => user.role === "technician",
   ).length;
 
-  const totalAgencies = users.filter(
-    (user) => user.role === "agency"
-  ).length;
+  const totalAgencies = users.filter((user) => user.role === "agency").length;
 
-  const totalAdmins = users.filter(
-    (user) => user.role === "admin"
-  ).length;
+  const totalAdmins = users.filter((user) => user.role === "admin").length;
 
   const formatDate = (date) => {
     if (!date) {
       return "—";
     }
 
-    return new Date(date).toLocaleDateString(
-      "en-KE",
-      {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }
-    );
+    return new Date(date).toLocaleDateString("en-KE", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   const getRoleLabel = (role) => {
@@ -326,10 +296,7 @@ const handleReviewDocument = async (decision) => {
       return "Unknown";
     }
 
-    return (
-      role.charAt(0).toUpperCase() +
-      role.slice(1)
-    );
+    return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
   const getRoleStyle = (role) => {
@@ -429,8 +396,7 @@ const handleReviewDocument = async (decision) => {
             display: "flex",
             alignItems: "center",
             padding: "0 24px",
-            borderBottom:
-              "1px solid #e2e8f0",
+            borderBottom: "1px solid #e2e8f0",
           }}
         >
           <img
@@ -563,6 +529,14 @@ const handleReviewDocument = async (decision) => {
           {/* Verification */}
 
           <button
+            onClick={() =>
+              document
+                .getElementById("pending-verification-section")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+            }
             style={{
               width: "100%",
               border: "none",
@@ -627,8 +601,7 @@ const handleReviewDocument = async (decision) => {
           style={{
             height: "80px",
             background: "#ffffff",
-            borderBottom:
-              "1px solid #e2e8f0",
+            borderBottom: "1px solid #e2e8f0",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -729,8 +702,7 @@ const handleReviewDocument = async (decision) => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(190px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
               gap: "18px",
               marginBottom: "30px",
             }}
@@ -998,8 +970,7 @@ const handleReviewDocument = async (decision) => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "minmax(0, 1.5fr) minmax(300px, 1fr)",
+              gridTemplateColumns: "minmax(0, 1.5fr) minmax(300px, 1fr)",
               gap: "22px",
             }}
           >
@@ -1016,8 +987,7 @@ const handleReviewDocument = async (decision) => {
               <div
                 style={{
                   padding: "18px 20px",
-                  borderBottom:
-                    "1px solid #e2e8f0",
+                  borderBottom: "1px solid #e2e8f0",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -1133,76 +1103,64 @@ const handleReviewDocument = async (decision) => {
                     </thead>
 
                     <tbody>
-                      {users
-                        .slice(0, 8)
-                        .map((user) => (
-                          <tr key={user.user_id}>
-                            <td
+                      {users.slice(0, 8).map((user) => (
+                        <tr key={user.user_id}>
+                          <td
+                            style={{
+                              padding: "14px 20px",
+                              borderTop: "1px solid #f1f5f9",
+                              fontSize: "13px",
+                              fontWeight: "600",
+                              color: "#0f172a",
+                            }}
+                          >
+                            {user.full_name}
+                          </td>
+
+                          <td
+                            style={{
+                              padding: "14px 20px",
+                              borderTop: "1px solid #f1f5f9",
+                              fontSize: "13px",
+                              color: "#475569",
+                            }}
+                          >
+                            {user.email}
+                          </td>
+
+                          <td
+                            style={{
+                              padding: "14px 20px",
+                              borderTop: "1px solid #f1f5f9",
+                              fontSize: "13px",
+                            }}
+                          >
+                            <span
                               style={{
-                                padding: "14px 20px",
-                                borderTop:
-                                  "1px solid #f1f5f9",
-                                fontSize: "13px",
+                                display: "inline-flex",
+                                padding: "5px 9px",
+                                borderRadius: "999px",
+                                fontSize: "11px",
                                 fontWeight: "600",
-                                color: "#0f172a",
+                                ...getRoleStyle(user.role),
                               }}
                             >
-                              {user.full_name}
-                            </td>
+                              {getRoleLabel(user.role)}
+                            </span>
+                          </td>
 
-                            <td
-                              style={{
-                                padding: "14px 20px",
-                                borderTop:
-                                  "1px solid #f1f5f9",
-                                fontSize: "13px",
-                                color: "#475569",
-                              }}
-                            >
-                              {user.email}
-                            </td>
-
-                            <td
-                              style={{
-                                padding: "14px 20px",
-                                borderTop:
-                                  "1px solid #f1f5f9",
-                                fontSize: "13px",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  padding: "5px 9px",
-                                  borderRadius: "999px",
-                                  fontSize: "11px",
-                                  fontWeight: "600",
-                                  ...getRoleStyle(
-                                    user.role
-                                  ),
-                                }}
-                              >
-                                {getRoleLabel(
-                                  user.role
-                                )}
-                              </span>
-                            </td>
-
-                            <td
-                              style={{
-                                padding: "14px 20px",
-                                borderTop:
-                                  "1px solid #f1f5f9",
-                                fontSize: "13px",
-                                color: "#475569",
-                              }}
-                            >
-                              {formatDate(
-                                user.created_at
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                          <td
+                            style={{
+                              padding: "14px 20px",
+                              borderTop: "1px solid #f1f5f9",
+                              fontSize: "13px",
+                              color: "#475569",
+                            }}
+                          >
+                            {formatDate(user.created_at)}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -1212,6 +1170,7 @@ const handleReviewDocument = async (decision) => {
             {/* Pending Verification */}
 
             <div
+              id="pending-verification-section"
               style={{
                 background: "#ffffff",
                 border: "1px solid #e2e8f0",
@@ -1222,8 +1181,7 @@ const handleReviewDocument = async (decision) => {
               <div
                 style={{
                   padding: "18px 20px",
-                  borderBottom:
-                    "1px solid #e2e8f0",
+                  borderBottom: "1px solid #e2e8f0",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -1271,80 +1229,72 @@ const handleReviewDocument = async (decision) => {
                   />
 
                   <div>
-                    No technicians are currently
-                    waiting for verification.
+                    No technicians are currently waiting for verification.
                   </div>
                 </div>
               ) : (
                 <div>
-                  {pendingTechnicians
-                    .slice(0, 6)
-                    .map((technician) => (
-                      <div
-                        key={technician.technician_id}
-                        style={{
-                          padding: "16px 20px",
-                          borderBottom:
-                            "1px solid #f1f5f9",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent:
-                            "space-between",
-                          gap: "15px",
-                        }}
-                      >
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: "14px",
-                              fontWeight: "600",
-                              color: "#0f172a",
-                            }}
-                          >
-                            {technician.full_name}
-                          </p>
-
-                          <p
-                            style={{
-                              margin: "4px 0 0",
-                              fontSize: "12px",
-                              color: "#64748b",
-                            }}
-                          >
-                            {technician.location ||
-                              "Location not provided"}
-                          </p>
-                        </div>
-
-                        <button
-                          onClick={() => {
-                            setError("");
-                            setSuccess("");
-                            setSelectedTechnician(
-                              technician
-                            );
-                          }}
+                  {pendingTechnicians.slice(0, 6).map((technician) => (
+                    <div
+                      key={technician.technician_id}
+                      style={{
+                        padding: "16px 20px",
+                        borderBottom: "1px solid #f1f5f9",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "15px",
+                      }}
+                    >
+                      <div>
+                        <p
                           style={{
-                            border: "none",
-                            background: "#2563eb",
-                            color: "#ffffff",
-                            padding: "8px 11px",
-                            borderRadius: "7px",
-                            fontSize: "12px",
+                            margin: 0,
+                            fontSize: "14px",
                             fontWeight: "600",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            whiteSpace: "nowrap",
+                            color: "#0f172a",
                           }}
                         >
-                          <Eye size={14} />
-                          Review
-                        </button>
+                          {technician.full_name}
+                        </p>
+
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            fontSize: "12px",
+                            color: "#64748b",
+                          }}
+                        >
+                          {technician.location || "Location not provided"}
+                        </p>
                       </div>
-                    ))}
+
+                      <button
+                        onClick={() => {
+                          setError("");
+                          setSuccess("");
+                          setSelectedTechnician(technician);
+                        }}
+                        style={{
+                          border: "none",
+                          background: "#2563eb",
+                          color: "#ffffff",
+                          padding: "8px 11px",
+                          borderRadius: "7px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Eye size={14} />
+                        Review
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1366,10 +1316,7 @@ const handleReviewDocument = async (decision) => {
               gap: "12px",
             }}
           >
-            <ShieldCheck
-              size={20}
-              color="#2563eb"
-            />
+            <ShieldCheck size={20} color="#2563eb" />
 
             <div>
               <p
@@ -1390,8 +1337,7 @@ const handleReviewDocument = async (decision) => {
                 }}
               >
                 {totalAdmins} administrator account
-                {totalAdmins === 1 ? "" : "s"} currently
-                registered.
+                {totalAdmins === 1 ? "" : "s"} currently registered.
               </p>
             </div>
           </div>
@@ -1407,8 +1353,7 @@ const handleReviewDocument = async (decision) => {
           style={{
             position: "fixed",
             inset: 0,
-            background:
-              "rgba(15, 23, 42, 0.55)",
+            background: "rgba(15, 23, 42, 0.55)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1424,8 +1369,7 @@ const handleReviewDocument = async (decision) => {
               overflowY: "auto",
               background: "#ffffff",
               borderRadius: "16px",
-              boxShadow:
-                "0 20px 60px rgba(15, 23, 42, 0.2)",
+              boxShadow: "0 20px 60px rgba(15, 23, 42, 0.2)",
             }}
           >
             {/* Modal header */}
@@ -1433,8 +1377,7 @@ const handleReviewDocument = async (decision) => {
             <div
               style={{
                 padding: "20px 24px",
-                borderBottom:
-                  "1px solid #e2e8f0",
+                borderBottom: "1px solid #e2e8f0",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1458,15 +1401,13 @@ const handleReviewDocument = async (decision) => {
                     color: "#64748b",
                   }}
                 >
-                  Review the technician's submitted
-                  information before verification.
+                  Review the technician's submitted information before
+                  verification.
                 </p>
               </div>
 
               <button
-                onClick={() =>
-                  setSelectedTechnician(null)
-                }
+                onClick={() => setSelectedTechnician(null)}
                 style={{
                   border: "none",
                   background: "#f1f5f9",
@@ -1533,10 +1474,7 @@ const handleReviewDocument = async (decision) => {
                   borderRadius: "10px",
                 }}
               >
-                <MapPin
-                  size={18}
-                  color="#2563eb"
-                />
+                <MapPin size={18} color="#2563eb" />
 
                 <div>
                   <p
@@ -1556,8 +1494,7 @@ const handleReviewDocument = async (decision) => {
                       fontWeight: "600",
                     }}
                   >
-                    {selectedTechnician.location ||
-                      "Not provided"}
+                    {selectedTechnician.location || "Not provided"}
                   </p>
                 </div>
               </div>
@@ -1590,8 +1527,7 @@ const handleReviewDocument = async (decision) => {
                     lineHeight: "1.6",
                   }}
                 >
-                  {selectedTechnician.bio ||
-                    "No biography provided."}
+                  {selectedTechnician.bio || "No biography provided."}
                 </div>
               </div>
 
@@ -1609,8 +1545,7 @@ const handleReviewDocument = async (decision) => {
                   Submitted Documents
                 </p>
 
-                {selectedTechnician.documents?.length >
-                0 ? (
+                {selectedTechnician.documents?.length > 0 ? (
                   <div
                     style={{
                       display: "flex",
@@ -1618,172 +1553,143 @@ const handleReviewDocument = async (decision) => {
                       gap: "10px",
                     }}
                   >
-                    {selectedTechnician.documents.map(
-                      (document, index) => (
+                    {selectedTechnician.documents.map((document, index) => (
+                      <div
+                        key={document.document_id || index}
+                        style={{
+                          padding: "14px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "10px",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: "12px",
+                        }}
+                      >
+                        <FileText size={20} color="#2563eb" />
+
                         <div
-                          key={
-                            document.document_id ||
-                            index
-                          }
                           style={{
-                            padding: "14px",
-                            border:
-                              "1px solid #e2e8f0",
-                            borderRadius: "10px",
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: "12px",
+                            flex: 1,
                           }}
                         >
-                          <FileText
-                            size={20}
-                            color="#2563eb"
-                          />
-
-                          <div
+                          <p
                             style={{
-                              flex: 1,
+                              margin: 0,
+                              fontSize: "14px",
+                              fontWeight: "600",
                             }}
                           >
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: "14px",
-                                fontWeight: "600",
-                              }}
-                            >
-                              {document.document_type ||
-                                "Verification Document"}
-                            </p>
+                            {document.document_type || "Verification Document"}
+                          </p>
 
-                            <p
-                              style={{
-                                margin: "4px 0 0",
-                                fontSize: "12px",
-                                color: "#64748b",
-                              }}
-                            >
-                              Status:{" "}
-                              {document.verification_status ||
-                                "pending"}
-                            </p>
+                          <p
+                            style={{
+                              margin: "4px 0 0",
+                              fontSize: "12px",
+                              color: "#64748b",
+                            }}
+                          >
+                            Status: {document.verification_status || "pending"}
+                          </p>
 
-                            {/* AI Verification Analysis */}
+                          {/* AI Verification Analysis */}
 
-                            {document.confidence_score !==
-                              null &&
-                              document.confidence_score !==
-                                undefined && (
-                                <div
+                          {document.confidence_score !== null &&
+                            document.confidence_score !== undefined && (
+                              <div
+                                style={{
+                                  marginTop: "10px",
+                                  padding: "10px",
+                                  background: "#f8fafc",
+                                  borderRadius: "8px",
+                                  border: "1px solid #e2e8f0",
+                                }}
+                              >
+                                <p
                                   style={{
-                                    marginTop: "10px",
-                                    padding: "10px",
-                                    background: "#f8fafc",
-                                    borderRadius: "8px",
-                                    border:
-                                      "1px solid #e2e8f0",
+                                    margin: "0 0 6px",
+                                    fontSize: "12px",
+                                    fontWeight: "700",
+                                    color: "#334155",
                                   }}
                                 >
-                                  <p
-                                    style={{
-                                      margin:
-                                        "0 0 6px",
-                                      fontSize: "12px",
-                                      fontWeight: "700",
-                                      color: "#334155",
-                                    }}
-                                  >
-                                    AI Verification Analysis
-                                  </p>
+                                  AI Verification Analysis
+                                </p>
 
-                                  <p
-                                    style={{
-                                      margin: "3px 0",
-                                      fontSize: "12px",
-                                      color: "#475569",
-                                    }}
-                                  >
-                                    <strong>
-                                      Confidence Score:
-                                    </strong>{" "}
-                                    {Number(
-                                      document.confidence_score
-                                    ).toFixed(1)}
-                                    %
-                                  </p>
+                                <p
+                                  style={{
+                                    margin: "3px 0",
+                                    fontSize: "12px",
+                                    color: "#475569",
+                                  }}
+                                >
+                                  <strong>Confidence Score:</strong>{" "}
+                                  {Number(document.confidence_score).toFixed(1)}
+                                  %
+                                </p>
 
-                                  <p
-                                    style={{
-                                      margin: "3px 0",
-                                      fontSize: "12px",
-                                      color: "#475569",
-                                    }}
-                                  >
-                                    <strong>
-                                      Result:
-                                    </strong>{" "}
-                                    {document.verification_result ||
-                                      "Not available"}
-                                  </p>
+                                <p
+                                  style={{
+                                    margin: "3px 0",
+                                    fontSize: "12px",
+                                    color: "#475569",
+                                  }}
+                                >
+                                  <strong>Result:</strong>{" "}
+                                  {document.verification_result ||
+                                    "Not available"}
+                                </p>
 
-                                  <p
-                                    style={{
-                                      margin: "3px 0",
-                                      fontSize: "12px",
-                                      color: "#475569",
-                                    }}
-                                  >
-                                    <strong>
-                                      Remarks:
-                                    </strong>{" "}
-                                    {document.remarks ||
-                                      "No remarks provided"}
-                                  </p>
+                                <p
+                                  style={{
+                                    margin: "3px 0",
+                                    fontSize: "12px",
+                                    color: "#475569",
+                                  }}
+                                >
+                                  <strong>Remarks:</strong>{" "}
+                                  {document.remarks || "No remarks provided"}
+                                </p>
 
-                                  <p
-                                    style={{
-                                      margin: "3px 0",
-                                      fontSize: "12px",
-                                      color: "#64748b",
-                                    }}
-                                  >
-                                    <strong>
-                                      Verified by:
-                                    </strong>{" "}
-                                    {document.verified_by ||
-                                      "Not available"}
-                                  </p>
-                                </div>
-                                                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedDocument(document);
-                            }}
-                            style={{
-                              border:
-                                "1px solid #2563eb",
-                              background: "#eff6ff",
-                              color: "#2563eb",
-                              padding: "7px 10px",
-                              borderRadius: "7px",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            <Eye size={14} />
-                            Review Document
-                          </button>
+                                <p
+                                  style={{
+                                    margin: "3px 0",
+                                    fontSize: "12px",
+                                    color: "#64748b",
+                                  }}
+                                >
+                                  <strong>Verified by:</strong>{" "}
+                                  {document.verified_by || "Not available"}
+                                </p>
+                              </div>
+                            )}
                         </div>
-                      )
-                    )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDocument(document);
+                          }}
+                          style={{
+                            border: "1px solid #2563eb",
+                            background: "#eff6ff",
+                            color: "#2563eb",
+                            padding: "7px 10px",
+                            borderRadius: "7px",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <Eye size={14} />
+                          Review Document
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div
@@ -1806,22 +1712,18 @@ const handleReviewDocument = async (decision) => {
             <div
               style={{
                 padding: "18px 24px",
-                borderTop:
-                  "1px solid #e2e8f0",
+                borderTop: "1px solid #e2e8f0",
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "10px",
               }}
             >
               <button
-                onClick={() =>
-                  setSelectedTechnician(null)
-                }
+                onClick={() => setSelectedTechnician(null)}
                 disabled={verifying}
                 style={{
                   padding: "10px 16px",
-                  border:
-                    "1px solid #cbd5e1",
+                  border: "1px solid #cbd5e1",
                   background: "#ffffff",
                   color: "#475569",
                   borderRadius: "8px",
@@ -1839,16 +1741,12 @@ const handleReviewDocument = async (decision) => {
                 style={{
                   padding: "10px 17px",
                   border: "none",
-                  background: verifying
-                    ? "#93c5fd"
-                    : "#16a34a",
+                  background: verifying ? "#93c5fd" : "#16a34a",
                   color: "#ffffff",
                   borderRadius: "8px",
                   fontSize: "13px",
                   fontWeight: "600",
-                  cursor: verifying
-                    ? "not-allowed"
-                    : "pointer",
+                  cursor: verifying ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: "7px",
@@ -1856,14 +1754,12 @@ const handleReviewDocument = async (decision) => {
               >
                 <CheckCircle size={16} />
 
-                {verifying
-                  ? "Verifying..."
-                  : "Approve & Verify"}
+                {verifying ? "Verifying..." : "Approve & Verify"}
               </button>
             </div>
           </div>
         </div>
-            )}
+      )}
 
       {/* ======================================
           DOCUMENT REVIEW MODAL
@@ -1874,43 +1770,46 @@ const handleReviewDocument = async (decision) => {
           style={{
             position: "fixed",
             inset: 0,
-            background:
-              "rgba(15, 23, 42, 0.65)",
+            background: "rgba(15, 23, 42, 0.65)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "20px",
+            padding: "12px",
             zIndex: 1000,
+            boxSizing: "border-box",
           }}
         >
           <div
             style={{
-              width: "100%",
+              width: "min(900px, 100%)",
               maxWidth: "900px",
-              maxHeight: "90vh",
+              maxHeight: "94vh",
               background: "#ffffff",
               borderRadius: "14px",
               overflow: "hidden",
-              boxShadow:
-                "0 25px 60px rgba(15, 23, 42, 0.25)",
+              boxShadow: "0 25px 60px rgba(15, 23, 42, 0.25)",
               display: "flex",
               flexDirection: "column",
+              boxSizing: "border-box",
             }}
           >
             {/* Document Review Header */}
-
             <div
               style={{
-                padding: "18px 24px",
-                borderBottom:
-                  "1px solid #e2e8f0",
+                padding: "16px 20px",
+                borderBottom: "1px solid #e2e8f0",
                 display: "flex",
                 alignItems: "center",
-                justifyContent:
-                  "space-between",
+                justifyContent: "space-between",
+                gap: "12px",
+                flexShrink: 0,
               }}
             >
-              <div>
+              <div
+                style={{
+                  minWidth: 0,
+                }}
+              >
                 <p
                   style={{
                     margin: 0,
@@ -1926,27 +1825,32 @@ const handleReviewDocument = async (decision) => {
                     margin: "4px 0 0",
                     fontSize: "18px",
                     color: "#0f172a",
+                    wordBreak: "break-word",
                   }}
                 >
-                  {selectedDocument.document_type ||
-                    "Verification Document"}
+                  {selectedDocument.document_type || "Verification Document"}
                 </h3>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setSelectedDocument(null)
-                }
+                onClick={() => {
+                  setShowRejectionForm(false);
+                  setRejectionReason("");
+                  setSelectedDocument(null);
+                }}
+                disabled={reviewingDocument}
                 style={{
                   border: "none",
                   background: "#f1f5f9",
                   color: "#475569",
                   width: "35px",
                   height: "35px",
+                  minWidth: "35px",
                   borderRadius: "8px",
-                  cursor: "pointer",
+                  cursor: reviewingDocument ? "not-allowed" : "pointer",
                   fontSize: "20px",
+                  flexShrink: 0,
                 }}
               >
                 ×
@@ -1954,70 +1858,73 @@ const handleReviewDocument = async (decision) => {
             </div>
 
             {/* Document Content */}
-
             <div
               style={{
                 flex: 1,
                 overflowY: "auto",
-                padding: "20px",
+                overflowX: "hidden",
+                padding: "16px",
                 background: "#f8fafc",
+                boxSizing: "border-box",
               }}
             >
               {/* Uploaded Document */}
-
               <div
                 style={{
+                  width: "100%",
                   background: "#ffffff",
-                  border:
-                    "1px solid #e2e8f0",
+                  border: "1px solid #e2e8f0",
                   borderRadius: "10px",
-                  minHeight: "420px",
+                  minHeight: "min(420px, 55vh)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   overflow: "hidden",
+                  boxSizing: "border-box",
                 }}
               >
                 {selectedDocument.document_path ? (
                   /\.(jpg|jpeg|png|gif|webp)$/i.test(
-                    selectedDocument.document_path
+                    selectedDocument.document_path,
                   ) ? (
                     <img
-                      src={`http://localhost:5000/${
-                        selectedDocument.document_path
-                          ?.replace(/^\/+/, "")
-                          .replace(/^documents\//, "uploads/documents/")
-                       }`}
+                      src={`http://localhost:5000/uploads/documents/${selectedDocument.document_path
+                        .replace(/^\/+/, "")
+                        .replace(/^(?:uploads\/)+/i, "")
+                        .replace(/^documents\//i, "")}`}
                       alt={
                         selectedDocument.document_type ||
                         "Verification document"
                       }
                       style={{
                         maxWidth: "100%",
-                        maxHeight: "500px",
+                        maxHeight: "55vh",
+                        width: "auto",
+                        height: "auto",
                         objectFit: "contain",
                         display: "block",
                       }}
                     />
                   ) : (
                     <iframe
-                      src={`http://localhost:5000/${
-                        selectedDocument.document_path
-                          ?.replace(/^\/+/, "")
-                           .replace(/^documents\//, "uploads/documents/")
-                        }`}
+                      src={`http://localhost:5000/uploads/documents/${selectedDocument.document_path
+                        .replace(/^\/+/, "")
+                        .replace(/^(?:uploads\/)+/i, "")
+                        .replace(/^documents\//i, "")}`}
                       title="Verification Document"
                       style={{
                         width: "100%",
-                        height: "500px",
+                        height: "55vh",
+                        minHeight: "350px",
                         border: "none",
+                        display: "block",
                       }}
                     />
                   )
                 ) : (
                   <div
                     style={{
-                      padding: "40px",
+                      padding: "40px 20px",
                       textAlign: "center",
                       color: "#64748b",
                       fontSize: "13px",
@@ -2029,15 +1936,14 @@ const handleReviewDocument = async (decision) => {
               </div>
 
               {/* AI Verification Analysis */}
-
               <div
                 style={{
                   marginTop: "16px",
                   padding: "15px",
                   background: "#ffffff",
-                  border:
-                    "1px solid #e2e8f0",
+                  border: "1px solid #e2e8f0",
                   borderRadius: "10px",
+                  boxSizing: "border-box",
                 }}
               >
                 <p
@@ -2056,18 +1962,13 @@ const handleReviewDocument = async (decision) => {
                     margin: "5px 0",
                     fontSize: "13px",
                     color: "#475569",
+                    overflowWrap: "anywhere",
                   }}
                 >
-                  <strong>
-                    Confidence Score:
-                  </strong>{" "}
-                  {selectedDocument.confidence_score !==
-                    null &&
-                  selectedDocument.confidence_score !==
-                    undefined
-                    ? `${Number(
-                        selectedDocument.confidence_score
-                      ).toFixed(1)}%`
+                  <strong>Confidence Score:</strong>{" "}
+                  {selectedDocument.confidence_score !== null &&
+                  selectedDocument.confidence_score !== undefined
+                    ? `${Number(selectedDocument.confidence_score).toFixed(1)}%`
                     : "Not available"}
                 </p>
 
@@ -2076,11 +1977,11 @@ const handleReviewDocument = async (decision) => {
                     margin: "5px 0",
                     fontSize: "13px",
                     color: "#475569",
+                    overflowWrap: "anywhere",
                   }}
                 >
                   <strong>AI Result:</strong>{" "}
-                  {selectedDocument.verification_result ||
-                    "Not available"}
+                  {selectedDocument.verification_result || "Not available"}
                 </p>
 
                 <p
@@ -2089,93 +1990,207 @@ const handleReviewDocument = async (decision) => {
                     fontSize: "13px",
                     color: "#475569",
                     lineHeight: "1.5",
+                    overflowWrap: "anywhere",
                   }}
                 >
                   <strong>Remarks:</strong>{" "}
-                  {selectedDocument.remarks ||
-                    "No remarks provided"}
+                  {selectedDocument.remarks || "No remarks provided"}
                 </p>
               </div>
             </div>
 
             {/* Document Review Footer */}
-
             <div
               style={{
-    padding: "18px 24px",
-    borderTop: "1px solid #e2e8f0",
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "10px",
-  }}
->
-  <button
-    type="button"
-    onClick={() => setSelectedDocument(null)}
-    disabled={reviewingDocument}
-    style={{
-      border: "1px solid #cbd5e1",
-      background: "#ffffff",
-      color: "#334155",
-      padding: "9px 16px",
-      borderRadius: "8px",
-      fontSize: "13px",
-      fontWeight: "600",
-      cursor: reviewingDocument
-        ? "not-allowed"
-        : "pointer",
-    }}
-  >
-    Close
-  </button>
+                padding: "16px 20px",
+                borderTop: "1px solid #e2e8f0",
+                background: "#ffffff",
+                boxSizing: "border-box",
+                flexShrink: 0,
+              }}
+            >
+              {/* Rejection Form */}
+              {showRejectionForm && (
+                <div
+                  style={{
+                    marginBottom: "14px",
+                    padding: "14px",
+                    background: "#fff7f7",
+                    border: "1px solid #fecaca",
+                    borderRadius: "10px",
+                    boxSizing: "border-box",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "700",
+                      color: "#991b1b",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Reason for rejection
+                  </div>
 
-  <button
-    type="button"
-    onClick={() =>
-      handleReviewDocument("rejected")
-    }
-    disabled={reviewingDocument}
-    style={{
-      border: "1px solid #dc2626",
-      background: "#fef2f2",
-      color: "#dc2626",
-      padding: "9px 16px",
-      borderRadius: "8px",
-      fontSize: "13px",
-      fontWeight: "600",
-      cursor: reviewingDocument
-        ? "not-allowed"
-        : "pointer",
-    }}
-  >
-    {reviewingDocument
-      ? "Processing..."
-      : "Reject Document"}
-  </button>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Explain why this document is being rejected..."
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      maxWidth: "100%",
+                      padding: "12px",
+                      border: "1px solid #fecaca",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      resize: "vertical",
+                      boxSizing: "border-box",
+                      outline: "none",
+                      display: "block",
+                    }}
+                  />
 
-  <button
-    type="button"
-    onClick={() =>
-      handleReviewDocument("approved")
-    }
-    disabled={reviewingDocument}
-    style={{
-      border: "1px solid #16a34a",
-      background: "#16a34a",
-      color: "#ffffff",
-      padding: "9px 16px",
-      borderRadius: "8px",
-      fontSize: "13px",
-      fontWeight: "600",
-      cursor: reviewingDocument
-        ? "not-allowed"
-        : "pointer",
-    }}
-  >
-    {reviewingDocument
-      ? "Processing..."
-      : "Approve Document"}
-              </button>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      flexWrap: "wrap",
+                      gap: "10px",
+                      marginTop: "12px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRejectionForm(false);
+                        setRejectionReason("");
+                        setError("");
+                      }}
+                      disabled={reviewingDocument}
+                      style={{
+                        padding: "9px 16px",
+                        borderRadius: "7px",
+                        border: "1px solid #cbd5e1",
+                        background: "#ffffff",
+                        color: "#475569",
+                        cursor: reviewingDocument ? "not-allowed" : "pointer",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!rejectionReason.trim()) {
+                          setError(
+                            "Please provide a reason for rejecting this document.",
+                          );
+                          return;
+                        }
+
+                        setError("");
+
+                        handleReviewDocument("rejected");
+                      }}
+                      disabled={reviewingDocument}
+                      style={{
+                        padding: "9px 16px",
+                        borderRadius: "7px",
+                        border: "none",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        cursor: reviewingDocument ? "not-allowed" : "pointer",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {reviewingDocument
+                        ? "Processing..."
+                        : "Confirm Rejection"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Actions */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRejectionForm(false);
+                    setRejectionReason("");
+                    setError("");
+                    setSelectedDocument(null);
+                  }}
+                  disabled={reviewingDocument}
+                  style={{
+                    border: "1px solid #cbd5e1",
+                    background: "#ffffff",
+                    color: "#334155",
+                    padding: "9px 16px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    cursor: reviewingDocument ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Close
+                </button>
+
+                {!showRejectionForm && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRejectionReason("");
+                      setShowRejectionForm(true);
+                      setError("");
+                    }}
+                    disabled={reviewingDocument}
+                    style={{
+                      border: "1px solid #dc2626",
+                      background: "#fef2f2",
+                      color: "#dc2626",
+                      padding: "9px 16px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      cursor: reviewingDocument ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Reject Document
+                  </button>
+                )}
+
+                {!showRejectionForm && (
+                  <button
+                    type="button"
+                    onClick={() => handleReviewDocument("approved")}
+                    disabled={reviewingDocument}
+                    style={{
+                      border: "1px solid #16a34a",
+                      background: "#16a34a",
+                      color: "#ffffff",
+                      padding: "9px 16px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      cursor: reviewingDocument ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {reviewingDocument ? "Processing..." : "Approve Document"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

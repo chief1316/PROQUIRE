@@ -20,6 +20,7 @@ const documentRoutes = require("./routes/documentRoutes");
 const agencyTechnicianRoutes =
 require("./routes/agencyTechnicianRoutes");
 const userRoutes = require("./routes/userRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 
 // Subscription routes
@@ -69,6 +70,7 @@ app.use(
 
 app.use("/api/agencies", agencyRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/categories", categoryRoutes);
 
 

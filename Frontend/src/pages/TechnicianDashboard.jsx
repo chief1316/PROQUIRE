@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./TechnicianDashboard.css";
+import TechnicianNotifications from "./technician/TechnicianNotifications";
 import {
   LayoutDashboard,
   User,
@@ -35,6 +36,8 @@ function TechnicianDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [serviceRequests, setServiceRequests] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [updatingRequestId, setUpdatingRequestId] = useState(null);
   const [requestMessage, setRequestMessage] = useState("");
@@ -49,14 +52,10 @@ function TechnicianDashboard() {
   }, []);
 
   const technicianName =
-    user.full_name ||
-    user.name ||
-    technicianProfile?.full_name ||
-    "Technician";
+    user.full_name || user.name || technicianProfile?.full_name || "Technician";
 
   const token =
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token");
+    localStorage.getItem("token") || sessionStorage.getItem("token");
 
   // Fetch technician profile
   useEffect(() => {
@@ -67,21 +66,15 @@ function TechnicianDashboard() {
       }
 
       try {
-        const response = await axios.get(
-          `${API}/technicians/my-profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await axios.get(`${API}/technicians/my-profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         setTechnicianProfile(response.data);
       } catch (error) {
-        console.error(
-          "Error fetching technician profile:",
-          error
-        );
+        console.error("Error fetching technician profile:", error);
 
         if (error.response?.status === 401) {
           localStorage.removeItem("token");
@@ -119,23 +112,15 @@ function TechnicianDashboard() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
-        setServiceRequests(
-          Array.isArray(response.data)
-            ? response.data
-            : []
-        );
+        setServiceRequests(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
-        console.error(
-          "Error fetching service requests:",
-          error
-        );
+        console.error("Error fetching service requests:", error);
 
         setRequestError(
-          error.response?.data?.message ||
-            "Unable to load service requests."
+          error.response?.data?.message || "Unable to load service requests.",
         );
       } finally {
         setLoadingRequests(false);
@@ -144,6 +129,46 @@ function TechnicianDashboard() {
 
     fetchServiceRequests();
   }, [technicianProfile, loadingProfile, token]);
+
+  // Fetch technician notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await axios.get(`${API}/notifications`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        console.log("TECHNICIAN NOTIFICATIONS API RESPONSE:", response.data);
+
+        const databaseNotifications = Array.isArray(response.data)
+          ? response.data.map((notification) => ({
+              notification_id: notification.notification_id,
+              technician_id: notification.technician_id,
+              document_id: notification.document_id,
+              type: notification.notification_type,
+              title: notification.title,
+              message: notification.message,
+              is_read: notification.is_read,
+              time: notification.created_at
+                ? new Date(notification.created_at).toLocaleString()
+                : "",
+            }))
+          : [];
+
+        setNotifications(databaseNotifications);
+      } catch (error) {
+        console.error("Error fetching technician notifications:", error);
+      }
+    };
+
+    fetchNotifications();
+  }, [token]);
 
   // Profile completion
   const profileCompletion = useMemo(() => {
@@ -166,34 +191,32 @@ function TechnicianDashboard() {
 
     const completed = requirements.filter(Boolean).length;
 
-    return Math.round(
-      (completed / requirements.length) * 100
-    );
+    return Math.round((completed / requirements.length) * 100);
   }, [technicianProfile]);
 
   const isProfileComplete = profileCompletion === 100;
 
-  const isVerified =
-    technicianProfile?.is_verified === 1 ||
-    technicianProfile?.is_verified === true;
+  const verificationStatus =
+    technicianProfile?.verification_status || "pending";
+
+  const rejectionReason = technicianProfile?.rejection_reason || "";
+
+  const isVerified = verificationStatus === "approved";
 
   const pendingRequests = serviceRequests.filter(
-    (request) => request.request_status === "pending"
+    (request) => request.request_status === "pending",
   );
 
   const acceptedRequests = serviceRequests.filter(
-    (request) => request.request_status === "accepted"
+    (request) => request.request_status === "accepted",
   );
 
   // Accept or reject a request
-  const handleRequestDecision = async (
-    requestId,
-    status
-  ) => {
+  const handleRequestDecision = async (requestId, status) => {
     const action = status === "accepted" ? "accept" : "reject";
 
     const confirmed = window.confirm(
-      `Are you sure you want to ${action} this service request?`
+      `Are you sure you want to ${action} this service request?`,
     );
 
     if (!confirmed) return;
@@ -212,7 +235,7 @@ function TechnicianDashboard() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       // Update the request status immediately.
@@ -221,11 +244,10 @@ function TechnicianDashboard() {
           request.request_id === requestId
             ? {
                 ...request,
-                request_status:
-                  response.data.request_status,
+                request_status: response.data.request_status,
               }
-            : request
-        )
+            : request,
+        ),
       );
 
       // Reload requests so the accepted request receives the
@@ -237,28 +259,21 @@ function TechnicianDashboard() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         setServiceRequests(
-          Array.isArray(refreshedRequests.data)
-            ? refreshedRequests.data
-            : []
+          Array.isArray(refreshedRequests.data) ? refreshedRequests.data : [],
         );
       }
 
-      setRequestMessage(
-        `Request ${status} successfully.`
-      );
+      setRequestMessage(`Request ${status} successfully.`);
     } catch (error) {
-      console.error(
-        "Error updating service request:",
-        error
-      );
+      console.error("Error updating service request:", error);
 
       setRequestError(
         error.response?.data?.message ||
-          "Unable to update the request. Please try again."
+          "Unable to update the request. Please try again.",
       );
     } finally {
       setUpdatingRequestId(null);
@@ -294,14 +309,9 @@ function TechnicianDashboard() {
     <>
       {/* Dashboard styles are imported from TechnicianDashboard.css. */}
 
-      <div
-        style={styles.page}
-        className="technician-dashboard-page"
-      >
+      <div style={styles.page} className="technician-dashboard-page">
         <div
-          className={`mobile-overlay ${
-            mobileMenuOpen ? "visible" : ""
-          }`}
+          className={`mobile-overlay ${mobileMenuOpen ? "visible" : ""}`}
           onClick={closeMobileMenu}
         />
 
@@ -313,11 +323,7 @@ function TechnicianDashboard() {
           }`}
         >
           <div style={styles.sidebarTop}>
-            <Link
-              to="/"
-              style={styles.logo}
-              onClick={closeMobileMenu}
-            >
+            <Link to="/" style={styles.logo} onClick={closeMobileMenu}>
               <div style={styles.logoIcon}>
                 <Wrench size={21} />
               </div>
@@ -355,20 +361,16 @@ function TechnicianDashboard() {
                 type="button"
                 style={styles.navButton}
                 onClick={() => {
-                  document
-                    .getElementById("service-requests")
-                    ?.scrollIntoView({
-                      behavior: "smooth",
-                    });
+                  document.getElementById("service-requests")?.scrollIntoView({
+                    behavior: "smooth",
+                  });
                   closeMobileMenu();
                 }}
               >
                 <ClipboardList size={19} />
                 Service Requests
                 {pendingRequests.length > 0 && (
-                  <span style={styles.navCount}>
-                    {pendingRequests.length}
-                  </span>
+                  <span style={styles.navCount}>{pendingRequests.length}</span>
                 )}
               </button>
 
@@ -438,56 +440,35 @@ function TechnicianDashboard() {
               </div>
             </div>
 
-            <button
-              onClick={handleLogout}
-              style={styles.logoutButton}
-            >
+            <button onClick={handleLogout} style={styles.logoutButton}>
               <LogOut size={18} />
               Logout
             </button>
           </div>
         </aside>
+        {mobileMenuOpen && (
+          <div
+            className="technician-mobile-overlay"
+            onClick={closeMobileMenu}
+          />
+        )}
 
         {/* Main dashboard */}
-        <main
-          style={styles.main}
-          className="technician-main"
-        >
-          <header
-            style={styles.topbar}
-            className="technician-topbar"
-          >
+        <main style={styles.main} className="technician-main">
+          <header style={styles.topbar} className="technician-topbar">
             <div>
               <button
                 style={styles.mobileMenu}
                 className="technician-mobile-menu"
-                onClick={() =>
-                  setMobileMenuOpen(!mobileMenuOpen)
-                }
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Open navigation menu"
               >
-                {mobileMenuOpen ? (
-                  <X size={22} />
-                ) : (
-                  <Menu size={22} />
-                )}
+                {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
             </div>
 
-            <div
-              style={styles.topbarRight}
-              className="technician-topbar-right"
-            >
-              <button
-                style={styles.iconButton}
-                type="button"
-                title="Notifications"
-              >
-                <Bell size={20} />
-                {pendingRequests.length > 0 && (
-                  <span style={styles.notificationDot} />
-                )}
-              </button>
+            <div style={styles.topbarRight} className="technician-topbar-right">
+              <TechnicianNotifications notifications={notifications} />
 
               <div style={styles.profileMini}>
                 <div
@@ -512,50 +493,31 @@ function TechnicianDashboard() {
                 title="Logout"
               >
                 <LogOut size={17} />
-                <span className="topbar-logout-text">
-                  Logout
-                </span>
+                <span className="topbar-logout-text">Logout</span>
               </button>
             </div>
           </header>
 
-          <section
-            style={styles.content}
-            className="technician-content"
-          >
+          <section style={styles.content} className="technician-content">
             {/* Welcome */}
-            <div
-              style={styles.welcomeRow}
-              className="technician-welcome-row"
-            >
+            <div style={styles.welcomeRow} className="technician-welcome-row">
               <div>
-                <p style={styles.pageLabel}>
-                  TECHNICIAN DASHBOARD
-                </p>
+                <p style={styles.pageLabel}>TECHNICIAN DASHBOARD</p>
 
-                <h1
-                  style={styles.heading}
-                  className="technician-heading"
-                >
-                  Welcome back,{" "}
-                  {technicianName.split(" ")[0]}!
+                <h1 style={styles.heading} className="technician-heading">
+                  Welcome back, {technicianName.split(" ")[0]}!
                 </h1>
 
-                <p
-                  style={styles.subheading}
-                  className="technician-subheading"
-                >
-                  Manage your professional profile,
-                  requests and services from one place.
+                <p style={styles.subheading} className="technician-subheading">
+                  Manage your professional profile, requests and services from
+                  one place.
                 </p>
               </div>
 
               <button
                 style={styles.primaryButton}
                 className="technician-primary-button"
-                onClick={() =>
-                  navigate("/technician/profile")
-                }
+                onClick={() => navigate("/technician/profile")}
               >
                 <User size={18} />
                 View Profile
@@ -591,23 +553,48 @@ function TechnicianDashboard() {
 
                   <span
                     style={
-                      isVerified
+                      verificationStatus === "approved"
                         ? styles.verifiedBadge
-                        : styles.pendingBadge
+                        : verificationStatus === "rejected"
+                          ? styles.rejectedBadge
+                          : styles.pendingBadge
                     }
                   >
-                    {isVerified ? "Verified" : "Pending"}
+                    {verificationStatus === "approved"
+                      ? "Verified"
+                      : verificationStatus === "rejected"
+                        ? "Rejected"
+                        : "Pending"}
                   </span>
                 </div>
 
                 <p>
-                  {isVerified
+                  {verificationStatus === "approved"
                     ? "Your professional profile has been verified and is ready to build trust with clients."
-                    : "Complete your professional profile and submit your documents for verification to build trust with potential clients."}
+                    : verificationStatus === "rejected"
+                      ? "Your verification documents were rejected. Please review the reason below and submit clearer or corrected documents."
+                      : "Complete your professional profile and submit your documents for verification to build trust with potential clients."}
                 </p>
+
+                {verificationStatus === "rejected" && rejectionReason && (
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      padding: "12px 14px",
+                      background: "#fff7f7",
+                      border: "1px solid #fecaca",
+                      borderRadius: "8px",
+                      color: "#991b1b",
+                      fontSize: "13px",
+                      lineHeight: "1.5",
+                    }}
+                  >
+                    <strong>Reason for rejection:</strong> {rejectionReason}
+                  </div>
+                )}
               </div>
 
-              {!isVerified && (
+              {verificationStatus !== "approved" && (
                 <button
                   style={styles.outlineButton}
                   className="technician-outline-button"
@@ -615,13 +602,11 @@ function TechnicianDashboard() {
                     navigate(
                       isProfileComplete
                         ? "/technician/verification"
-                        : "/technician/profile"
+                        : "/technician/profile",
                     )
                   }
                 >
-                  {isProfileComplete
-                    ? "Submit Documents"
-                    : "Complete Profile"}
+                  {isProfileComplete ? "Submit Documents" : "Complete Profile"}
 
                   <ArrowRight size={17} />
                 </button>
@@ -629,14 +614,8 @@ function TechnicianDashboard() {
             </div>
 
             {/* Statistics */}
-            <div
-              style={styles.statsGrid}
-              className="technician-stats-grid"
-            >
-              <div
-                style={styles.statCard}
-                className="technician-stat-card"
-              >
+            <div style={styles.statsGrid} className="technician-stats-grid">
+              <div style={styles.statCard} className="technician-stat-card">
                 <div
                   style={{
                     ...styles.statIcon,
@@ -648,9 +627,7 @@ function TechnicianDashboard() {
                 </div>
 
                 <div>
-                  <span style={styles.statLabel}>
-                    Pending Requests
-                  </span>
+                  <span style={styles.statLabel}>Pending Requests</span>
 
                   <strong
                     style={styles.statValue}
@@ -665,10 +642,7 @@ function TechnicianDashboard() {
                 </div>
               </div>
 
-              <div
-                style={styles.statCard}
-                className="technician-stat-card"
-              >
+              <div style={styles.statCard} className="technician-stat-card">
                 <div
                   style={{
                     ...styles.statIcon,
@@ -680,9 +654,7 @@ function TechnicianDashboard() {
                 </div>
 
                 <div>
-                  <span style={styles.statLabel}>
-                    Accepted Requests
-                  </span>
+                  <span style={styles.statLabel}>Accepted Requests</span>
 
                   <strong
                     style={styles.statValue}
@@ -697,10 +669,7 @@ function TechnicianDashboard() {
                 </div>
               </div>
 
-              <div
-                style={styles.statCard}
-                className="technician-stat-card"
-              >
+              <div style={styles.statCard} className="technician-stat-card">
                 <div
                   style={{
                     ...styles.statIcon,
@@ -712,9 +681,7 @@ function TechnicianDashboard() {
                 </div>
 
                 <div>
-                  <span style={styles.statLabel}>
-                    Average Rating
-                  </span>
+                  <span style={styles.statLabel}>Average Rating</span>
 
                   <strong
                     style={styles.statValue}
@@ -723,16 +690,11 @@ function TechnicianDashboard() {
                     —
                   </strong>
 
-                  <span style={styles.statDescription}>
-                    No reviews yet
-                  </span>
+                  <span style={styles.statDescription}>No reviews yet</span>
                 </div>
               </div>
 
-              <div
-                style={styles.statCard}
-                className="technician-stat-card"
-              >
+              <div style={styles.statCard} className="technician-stat-card">
                 <div
                   style={{
                     ...styles.statIcon,
@@ -744,9 +706,7 @@ function TechnicianDashboard() {
                 </div>
 
                 <div>
-                  <span style={styles.statLabel}>
-                    Subscription
-                  </span>
+                  <span style={styles.statLabel}>Subscription</span>
 
                   <strong
                     style={styles.statValue}
@@ -755,9 +715,7 @@ function TechnicianDashboard() {
                     Basic
                   </strong>
 
-                  <span style={styles.statDescription}>
-                    Manage your plan
-                  </span>
+                  <span style={styles.statDescription}>Manage your plan</span>
                 </div>
               </div>
             </div>
@@ -804,20 +762,16 @@ function TechnicianDashboard() {
                             headers: {
                               Authorization: `Bearer ${token}`,
                             },
-                          }
+                          },
                         )
                         .then((response) => {
                           setServiceRequests(
-                            Array.isArray(response.data)
-                              ? response.data
-                              : []
+                            Array.isArray(response.data) ? response.data : [],
                           );
                         })
                         .catch((error) => {
                           console.error(error);
-                          setRequestError(
-                            "Unable to refresh requests."
-                          );
+                          setRequestError("Unable to refresh requests.");
                         })
                         .finally(() => {
                           setLoadingRequests(false);
@@ -863,43 +817,33 @@ function TechnicianDashboard() {
                     <h3>No service requests yet</h3>
 
                     <p>
-                      Client service requests will appear
-                      here once clients request your services.
+                      Client service requests will appear here once clients
+                      request your services.
                     </p>
                   </div>
                 ) : (
-                  <div style={styles.requestList}
-                   className="technician-request-list"
+                  <div
+                    style={styles.requestList}
+                    className="technician-request-list"
                   >
                     {serviceRequests.map((request) => {
-                      const isPending =
-                        request.request_status === "pending";
+                      const isPending = request.request_status === "pending";
 
                       const isUpdating =
-                        updatingRequestId ===
-                        request.request_id;
+                        updatingRequestId === request.request_id;
 
                       return (
                         <div
                           key={request.request_id}
                           style={styles.requestCard}
                         >
-                          <div
-                            style={styles.requestCardHeader}
-                          >
+                          <div style={styles.requestCardHeader}>
                             <div>
-                              <h3
-                                style={styles.requestTitle}
-                              >
-                                Service Request #
-                                {request.request_id}
+                              <h3 style={styles.requestTitle}>
+                                Service Request #{request.request_id}
                               </h3>
 
-                              <p
-                                style={
-                                  styles.requestDescription
-                                }
-                              >
+                              <p style={styles.requestDescription}>
                                 {request.service_description}
                               </p>
                             </div>
@@ -909,40 +853,33 @@ function TechnicianDashboard() {
                                 ...styles.statusBadge,
                                 ...(isPending
                                   ? styles.statusPending
-                                  : request.request_status ===
-                                    "accepted"
-                                  ? styles.statusAccepted
-                                  : request.request_status ===
-                                    "rejected"
-                                  ? styles.statusRejected
-                                  : styles.statusOther),
+                                  : request.request_status === "accepted"
+                                    ? styles.statusAccepted
+                                    : request.request_status === "rejected"
+                                      ? styles.statusRejected
+                                      : styles.statusOther),
                               }}
                             >
                               {request.request_status}
                             </span>
                           </div>
 
-                          <div
-                            style={styles.requestDetails}
-                          >
+                          <div style={styles.requestDetails}>
                             <p>
                               <strong>Client:</strong>{" "}
-                              {request.client_name ||
-                                "Name unavailable"}
+                              {request.client_name || "Name unavailable"}
                             </p>
 
                             {request.request_status === "accepted" && (
                               <>
                                 <p>
                                   <strong>Phone:</strong>{" "}
-                                  {request.client_phone ||
-                                    "Not provided"}
+                                  {request.client_phone || "Not provided"}
                                 </p>
 
                                 <p>
                                   <strong>Email:</strong>{" "}
-                                  {request.client_email ||
-                                    "Not provided"}
+                                  {request.client_email || "Not provided"}
                                 </p>
                               </>
                             )}
@@ -956,8 +893,7 @@ function TechnicianDashboard() {
                                 }}
                               />
                               <strong>Address:</strong>{" "}
-                              {request.service_address ||
-                                "Not specified"}
+                              {request.service_address || "Not specified"}
                             </p>
 
                             <p>
@@ -969,25 +905,19 @@ function TechnicianDashboard() {
                                 }}
                               />
                               <strong>Service date:</strong>{" "}
-                              {formatDate(
-                                request.service_date
-                              )}
+                              {formatDate(request.service_date)}
                             </p>
 
                             {request.request_date && (
                               <p>
                                 <strong>Requested on:</strong>{" "}
-                                {formatDate(
-                                  request.request_date
-                                )}
+                                {formatDate(request.request_date)}
                               </p>
                             )}
                           </div>
 
                           {isPending && (
-                            <div
-                              style={styles.requestActions}
-                            >
+                            <div style={styles.requestActions}>
                               <button
                                 type="button"
                                 className="request-action-button request-accept-button"
@@ -995,7 +925,7 @@ function TechnicianDashboard() {
                                 onClick={() =>
                                   handleRequestDecision(
                                     request.request_id,
-                                    "accepted"
+                                    "accepted",
                                   )
                                 }
                               >
@@ -1011,7 +941,7 @@ function TechnicianDashboard() {
                                 onClick={() =>
                                   handleRequestDecision(
                                     request.request_id,
-                                    "rejected"
+                                    "rejected",
                                   )
                                 }
                               >
@@ -1023,11 +953,8 @@ function TechnicianDashboard() {
                           )}
 
                           {!isPending && (
-                            <p
-                              style={styles.processedText}
-                            >
-                              This request has been{" "}
-                              {request.request_status}.
+                            <p style={styles.processedText}>
+                              This request has been {request.request_status}.
                             </p>
                           )}
                         </div>
@@ -1038,10 +965,7 @@ function TechnicianDashboard() {
               </div>
 
               {/* Profile completion */}
-              <div
-                style={styles.panel}
-                className="technician-panel"
-              >
+              <div style={styles.panel} className="technician-panel">
                 <div
                   style={styles.panelHeader}
                   className="technician-panel-header"
@@ -1069,9 +993,7 @@ function TechnicianDashboard() {
                     </span>
 
                     <strong>
-                      {loadingProfile
-                        ? "—"
-                        : `${profileCompletion}%`}
+                      {loadingProfile ? "—" : `${profileCompletion}%`}
                     </strong>
                   </div>
 
@@ -1087,51 +1009,30 @@ function TechnicianDashboard() {
 
                 <div style={styles.checkList}>
                   <div style={styles.checkItem}>
-                    <CheckCircle
-                      size={18}
-                      color="#1b9a50"
-                    />
+                    <CheckCircle size={18} color="#1b9a50" />
                     <span>Account created</span>
                   </div>
 
                   <div style={styles.checkItem}>
-                    <CheckCircle
-                      size={18}
-                      color="#1b9a50"
-                    />
+                    <CheckCircle size={18} color="#1b9a50" />
                     <span>Email registered</span>
                   </div>
 
                   <div style={styles.checkItem}>
-                    {technicianProfile &&
-                    profileCompletion === 100 ? (
-                      <CheckCircle
-                        size={18}
-                        color="#1b9a50"
-                      />
+                    {technicianProfile && profileCompletion === 100 ? (
+                      <CheckCircle size={18} color="#1b9a50" />
                     ) : (
-                      <Clock3
-                        size={18}
-                        color="#d18b00"
-                      />
+                      <Clock3 size={18} color="#d18b00" />
                     )}
 
-                    <span>
-                      Complete professional profile
-                    </span>
+                    <span>Complete professional profile</span>
                   </div>
 
                   <div style={styles.checkItem}>
                     {isVerified ? (
-                      <CheckCircle
-                        size={18}
-                        color="#1b9a50"
-                      />
+                      <CheckCircle size={18} color="#1b9a50" />
                     ) : (
-                      <AlertCircle
-                        size={18}
-                        color="#e05252"
-                      />
+                      <AlertCircle size={18} color="#e05252" />
                     )}
 
                     <span>
@@ -1144,13 +1045,9 @@ function TechnicianDashboard() {
 
                 <button
                   style={styles.fullButton}
-                      onClick={() =>
-                        navigate("/technician/profile")
-                        }
-                     >
-                        {isProfileComplete
-                          ? "View Profile"
-                          : "Complete Profile"}
+                  onClick={() => navigate("/technician/profile")}
+                >
+                  {isProfileComplete ? "View Profile" : "Complete Profile"}
 
                   <ArrowRight size={17} />
                 </button>
@@ -1160,34 +1057,24 @@ function TechnicianDashboard() {
             {/* Quick actions */}
             <div style={styles.quickSection}>
               <div>
-                <h2 style={styles.quickTitle}>
-                  Quick Actions
-                </h2>
+                <h2 style={styles.quickTitle}>Quick Actions</h2>
 
                 <p style={styles.quickSubtitle}>
-                  Manage the most important parts of
-                  your professional account.
+                  Manage the most important parts of your professional account.
                 </p>
               </div>
 
-              <div
-                style={styles.quickGrid}
-                className="technician-quick-grid"
-              >
+              <div style={styles.quickGrid} className="technician-quick-grid">
                 <button
                   style={styles.quickCard}
                   className="technician-quick-card"
-                  onClick={() =>
-                    navigate("/technician/profile")
-                  }
+                  onClick={() => navigate("/technician/profile")}
                 >
                   <User size={22} color="#1769e0" />
 
                   <div>
                     <strong>Edit Profile</strong>
-                    <span>
-                      Update your professional information
-                    </span>
+                    <span>Update your professional information</span>
                   </div>
 
                   <ArrowRight size={17} />
@@ -1196,20 +1083,13 @@ function TechnicianDashboard() {
                 <button
                   style={styles.quickCard}
                   className="technician-quick-card"
-                  onClick={() =>
-                    navigate("/technician/availability")
-                  }
+                  onClick={() => navigate("/technician/availability")}
                 >
-                  <CalendarDays
-                    size={22}
-                    color="#159447"
-                  />
+                  <CalendarDays size={22} color="#159447" />
 
                   <div>
                     <strong>Set Availability</strong>
-                    <span>
-                      Manage your working hours
-                    </span>
+                    <span>Manage your working hours</span>
                   </div>
 
                   <ArrowRight size={17} />
@@ -1218,20 +1098,13 @@ function TechnicianDashboard() {
                 <button
                   style={styles.quickCard}
                   className="technician-quick-card"
-                  onClick={() =>
-                    navigate("/technician/portfolio")
-                  }
+                  onClick={() => navigate("/technician/portfolio")}
                 >
-                  <BriefcaseBusiness
-                    size={22}
-                    color="#7048c8"
-                  />
+                  <BriefcaseBusiness size={22} color="#7048c8" />
 
                   <div>
                     <strong>Manage Portfolio</strong>
-                    <span>
-                      Showcase your previous work
-                    </span>
+                    <span>Showcase your previous work</span>
                   </div>
 
                   <ArrowRight size={17} />
@@ -1240,20 +1113,13 @@ function TechnicianDashboard() {
                 <button
                   style={styles.quickCard}
                   className="technician-quick-card"
-                  onClick={() =>
-                    navigate("/technician")
-                  }
+                  onClick={() => navigate("/technician")}
                 >
-                  <CreditCard
-                    size={22}
-                    color="#c58a00"
-                  />
+                  <CreditCard size={22} color="#c58a00" />
 
                   <div>
                     <strong>Manage Subscription</strong>
-                    <span>
-                      View your subscription plan
-                    </span>
+                    <span>View your subscription plan</span>
                   </div>
 
                   <ArrowRight size={17} />
@@ -1262,17 +1128,10 @@ function TechnicianDashboard() {
             </div>
           </section>
 
-          <footer
-            style={styles.footer}
-            className="technician-footer"
-          >
-            <span>
-              © {new Date().getFullYear()} ProQuire
-            </span>
+          <footer style={styles.footer} className="technician-footer">
+            <span>© {new Date().getFullYear()} ProQuire</span>
 
-            <span>
-              Professional Service Marketplace
-            </span>
+            <span>Professional Service Marketplace</span>
           </footer>
         </main>
       </div>
@@ -1457,31 +1316,6 @@ const styles = {
     gap: "20px",
   },
 
-  iconButton: {
-    width: "40px",
-    height: "40px",
-    border: "1px solid #e6eaf0",
-    borderRadius: "50%",
-    background: "#ffffff",
-    color: "#596579",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    cursor: "pointer",
-  },
-
-  notificationDot: {
-    position: "absolute",
-    top: "8px",
-    right: "8px",
-    width: "7px",
-    height: "7px",
-    background: "#e05252",
-    borderRadius: "50%",
-    border: "2px solid #ffffff",
-  },
-
   profileMini: {
     display: "flex",
     alignItems: "center",
@@ -1599,6 +1433,16 @@ const styles = {
     margin: 0,
   },
 
+  verifiedBadge: {
+    background: "#e8f8ee",
+    color: "#1f8f4d",
+    fontSize: "11px",
+    fontWeight: "700",
+    padding: "4px 8px",
+    borderRadius: "20px",
+    whiteSpace: "nowrap",
+  },
+
   pendingBadge: {
     background: "#fff5dc",
     color: "#a87300",
@@ -1609,9 +1453,9 @@ const styles = {
     whiteSpace: "nowrap",
   },
 
-  verifiedBadge: {
-    background: "#eaf9f0",
-    color: "#159447",
+  rejectedBadge: {
+    background: "#fee2e2",
+    color: "#b91c1c",
     fontSize: "11px",
     fontWeight: "700",
     padding: "4px 8px",

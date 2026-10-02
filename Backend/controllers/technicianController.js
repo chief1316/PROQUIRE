@@ -116,39 +116,86 @@ exports.getMyProfile = (req, res) => {
     const user_id = req.user.user_id;
 
     const sql = `
-        SELECT
-            tp.technician_id,
-            tp.user_id,
-            u.full_name,
-            u.email,
-            u.phone,
-            c.category_name,
-            tp.category_id,
-            tp.bio,
-            tp.years_experience,
-            tp.location,
-            tp.employment_type,
-            tp.agency_id,
-            ap.company_name AS agency_name,
-            tp.is_verified
+    SELECT
+        tp.technician_id,
+        tp.user_id,
+        u.full_name,
+        u.email,
+        u.phone,
+        c.category_name,
+        tp.category_id,
+        tp.bio,
+        tp.years_experience,
+        tp.location,
+        tp.employment_type,
+        tp.agency_id,
+        ap.company_name AS agency_name,
+        tp.is_verified,
 
-        FROM technician_profiles tp
+(
+    SELECT vd_reason.rejection_reason
+    FROM verification_documents vd_reason
+    WHERE vd_reason.technician_id = tp.technician_id
+      AND vd_reason.verification_status = 'rejected'
+      AND vd_reason.rejection_reason IS NOT NULL
+      AND TRIM(vd_reason.rejection_reason) <> ''
+    ORDER BY vd_reason.uploaded_at DESC, vd_reason.document_id DESC
+    LIMIT 1
+) AS rejection_reason,
 
-        JOIN users u
-            ON tp.user_id = u.user_id
+CASE
+    WHEN tp.is_verified = 1 THEN 'approved'
 
-        JOIN categories c
-            ON tp.category_id = c.category_id
+            WHEN EXISTS (
+                SELECT 1
+                FROM verification_documents vd_pending
+                WHERE vd_pending.technician_id = tp.technician_id
+                AND vd_pending.verification_status = 'pending'
+            ) THEN 'pending'
 
-        LEFT JOIN agency_profiles ap
-            ON tp.agency_id = ap.agency_id
+            WHEN EXISTS (
+                SELECT 1
+                FROM verification_documents vd_rejected
+                WHERE vd_rejected.technician_id = tp.technician_id
+                AND vd_rejected.verification_status = 'rejected'
+            ) THEN 'rejected'
 
-        WHERE tp.user_id = ?
-    `;
+            ELSE 'pending'
+        END AS verification_status,
+
+        (
+            SELECT vd_reason.rejection_reason
+            FROM verification_documents vd_reason
+            WHERE vd_reason.technician_id = tp.technician_id
+            AND vd_reason.verification_status = 'rejected'
+            AND vd_reason.rejection_reason IS NOT NULL
+            AND TRIM(vd_reason.rejection_reason) <> ''
+            ORDER BY vd_reason.uploaded_at DESC
+            LIMIT 1
+        ) AS rejection_reason
+
+    FROM technician_profiles tp
+
+    JOIN users u
+        ON tp.user_id = u.user_id
+
+    JOIN categories c
+        ON tp.category_id = c.category_id
+
+    LEFT JOIN agency_profiles ap
+        ON tp.agency_id = ap.agency_id
+
+    WHERE tp.user_id = ?
+`;
 
     db.query(sql, [user_id], (err, results) => {
 
         if (err) {
+
+            console.error(
+                "Error fetching technician profile:",
+                err
+            );
 
             return res.status(500).json({
                 message: "Error fetching your technician profile",
@@ -893,21 +940,31 @@ exports.getAIVerificationResults = (req, res) => {
 // ======================================================
 
 exports.reviewVerificationDocument = (req, res) => {
-
     const { documentId } = req.params;
-    const { decision } = req.body;
+    const { decision, rejection_reason } = req.body;
 
     // ---------------------------------------------
     // Validate admin decision
     // ---------------------------------------------
 
+    if (!decision || !["approved", "rejected"].includes(decision)) {
+        return res.status(400).json({
+            message:
+                "Decision must be either 'approved' or 'rejected.'"
+        });
+    }
+
+    // ---------------------------------------------
+    // Validate rejection reason
+    // ---------------------------------------------
+
     if (
-        !decision ||
-        !["approved", "rejected"].includes(decision)
+        decision === "rejected" &&
+        (!rejection_reason || !rejection_reason.trim())
     ) {
         return res.status(400).json({
             message:
-                "Decision must be either 'approved' or 'rejected'."
+                "A rejection reason is required when rejecting a document."
         });
     }
 
@@ -925,9 +982,7 @@ exports.reviewVerificationDocument = (req, res) => {
         getDocumentSql,
         [documentId],
         (err, results) => {
-
             if (err) {
-
                 console.error(
                     "Error finding verification document:",
                     err
@@ -941,7 +996,6 @@ exports.reviewVerificationDocument = (req, res) => {
             }
 
             if (results.length === 0) {
-
                 return res.status(404).json({
                     message:
                         "Verification document not found."
@@ -952,12 +1006,23 @@ exports.reviewVerificationDocument = (req, res) => {
                 results[0].technician_id;
 
             // -----------------------------------------
-            // Update the selected document
+            // Prepare rejection reason
+            // -----------------------------------------
+
+            const finalRejectionReason =
+                decision === "rejected"
+                    ? rejection_reason.trim()
+                    : null;
+
+            // -----------------------------------------
+            // Update verification document
             // -----------------------------------------
 
             const updateDocumentSql = `
                 UPDATE verification_documents
-                SET verification_status = ?
+                SET
+                    verification_status = ?,
+                    rejection_reason = ?
                 WHERE document_id = ?
             `;
 
@@ -965,12 +1030,11 @@ exports.reviewVerificationDocument = (req, res) => {
                 updateDocumentSql,
                 [
                     decision,
+                    finalRejectionReason,
                     documentId
                 ],
                 (updateErr) => {
-
                     if (updateErr) {
-
                         console.error(
                             "Error updating verification document:",
                             updateErr
@@ -984,79 +1048,45 @@ exports.reviewVerificationDocument = (req, res) => {
                     }
 
                     // ---------------------------------
-                    // Check ALL technician documents
+                    // Check remaining approved documents
                     // ---------------------------------
 
-                    const checkDocumentsSql = `
-                        SELECT
-                            SUM(
-                                verification_status = 'approved'
-                            ) AS approved_count,
-
-                            SUM(
-                                verification_status = 'pending'
-                            ) AS pending_count,
-
-                            COUNT(*) AS total_count
-
+                    const countApprovedSql = `
+                        SELECT COUNT(*) AS approved_count
                         FROM verification_documents
                         WHERE technician_id = ?
+                        AND verification_status = 'approved'
                     `;
 
                     db.query(
-                        checkDocumentsSql,
+                        countApprovedSql,
                         [technicianId],
-                        (checkErr, documentResults) => {
-
-                            if (checkErr) {
-
+                        (countErr, countResults) => {
+                            if (countErr) {
                                 console.error(
-                                    "Error checking technician documents:",
-                                    checkErr
+                                    "Error checking approved documents:",
+                                    countErr
                                 );
 
                                 return res.status(500).json({
                                     message:
-                                        "Document reviewed, but technician verification status could not be determined.",
-                                    error: checkErr
+                                        "Document reviewed, but approved document count could not be checked.",
+                                    error: countErr
                                 });
                             }
 
-                            const documentSummary =
-                                documentResults[0];
-
                             const approvedCount =
                                 Number(
-                                    documentSummary.approved_count || 0
-                                );
-
-                            const pendingCount =
-                                Number(
-                                    documentSummary.pending_count || 0
+                                    countResults[0]?.approved_count || 0
                                 );
 
                             // ---------------------------------
-                            // Determine overall technician status
+                            // Technician is verified only when
+                            // at least one document is approved
                             // ---------------------------------
-                            //
-                            // Verified when:
-                            // 1. At least one document is approved
-                            // 2. No documents remain pending
-                            //
-                            // Rejected documents do NOT cancel
-                            // an already-approved document.
-                            // ---------------------------------
-
-                            const technicianIsVerified =
-                                approvedCount > 0 &&
-                                pendingCount === 0;
 
                             const verifiedValue =
-                                technicianIsVerified ? 1 : 0;
-
-                            // ---------------------------------
-                            // Update technician verification
-                            // ---------------------------------
+                                approvedCount > 0 ? 1 : 0;
 
                             const updateTechnicianSql = `
                                 UPDATE technician_profiles
@@ -1071,9 +1101,7 @@ exports.reviewVerificationDocument = (req, res) => {
                                     technicianId
                                 ],
                                 (technicianErr) => {
-
                                     if (technicianErr) {
-
                                         console.error(
                                             "Error updating technician verification:",
                                             technicianErr
@@ -1087,33 +1115,87 @@ exports.reviewVerificationDocument = (req, res) => {
                                     }
 
                                     // ---------------------------------
-                                    // Successful review
+                                    // Create notification
                                     // ---------------------------------
 
-                                    return res.status(200).json({
+                                    const notificationType =
+                                        decision === "rejected"
+                                            ? "verification_rejected"
+                                            : "verification_approved";
 
-                                        message:
-                                            `Verification document ${decision} successfully.`,
+                                    const notificationTitle =
+                                        decision === "rejected"
+                                            ? "Verification document rejected"
+                                            : "Verification document approved";
 
-                                        document_id:
-                                            Number(documentId),
+                                    const notificationMessage =
+                                        decision === "rejected"
+                                            ? `Your verification document was rejected. Reason: ${finalRejectionReason}`
+                                            : "Your verification document has been approved.";
 
-                                        technician_id:
+                                    const createNotificationSql = `
+                                        INSERT INTO notifications
+                                        (
+                                            technician_id,
+                                            document_id,
+                                            notification_type,
+                                            title,
+                                            message
+                                        )
+                                        VALUES (?, ?, ?, ?, ?)
+                                    `;
+
+                                    db.query(
+                                        createNotificationSql,
+                                        [
                                             technicianId,
+                                            Number(documentId),
+                                            notificationType,
+                                            notificationTitle,
+                                            notificationMessage
+                                        ],
+                                        (notificationErr) => {
+                                            if (notificationErr) {
+                                                console.error(
+                                                    "Error creating notification:",
+                                                    notificationErr
+                                                );
 
-                                        decision:
-                                            decision,
+                                                return res.status(500).json({
+                                                    message:
+                                                        "Document reviewed successfully, but notification could not be created.",
+                                                    error: notificationErr
+                                                });
+                                            }
 
-                                        approved_documents:
-                                            approvedCount,
+                                            // ---------------------------------
+                                            // Successful final review
+                                            // ---------------------------------
 
-                                        pending_documents:
-                                            pendingCount,
+                                            res.status(200).json({
+                                                message:
+                                                    `Verification document ${decision} successfully.`,
 
-                                        technician_verified:
-                                            technicianIsVerified
+                                                document_id:
+                                                    Number(documentId),
 
-                                    });
+                                                technician_id:
+                                                    technicianId,
+
+                                                decision:
+                                                    decision,
+
+                                                rejection_reason:
+                                                    finalRejectionReason,
+
+                                                approved_documents:
+                                                    approvedCount,
+
+                                                technician_verified:
+                                                    verifiedValue === 1
+                                            });
+                                        }
+                                    );
                                 }
                             );
                         }
@@ -1124,12 +1206,13 @@ exports.reviewVerificationDocument = (req, res) => {
     );
 };
 
- // ======================================================
+// ======================================================
 // Update My Technician Profile
 // Logged-in Technician Only
 // ======================================================
 
 exports.updateMyProfile = (req, res) => {
+
     const user_id = req.user.user_id;
 
     const {
@@ -1140,6 +1223,7 @@ exports.updateMyProfile = (req, res) => {
         employment_type,
         agency_id
     } = req.body;
+
 
     // ---------------------------------------------
     // Validate required fields

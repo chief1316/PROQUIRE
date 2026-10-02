@@ -3,7 +3,6 @@ const path = require("path");
 const fs = require("fs");
 
 const storage = multer.diskStorage({
-
     destination: (req, file, cb) => {
 
         let folder = "uploads/";
@@ -48,6 +47,36 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
 
+    /*
+     * Verification documents must be PDF only.
+     */
+    if (file.fieldname === "document") {
+
+        const extension =
+            path.extname(file.originalname).toLowerCase();
+
+        if (
+            file.mimetype === "application/pdf" &&
+            extension === ".pdf"
+        ) {
+
+            return cb(null, true);
+
+        }
+
+        return cb(
+            new Error(
+                "Verification documents must be uploaded as PDF files only."
+            )
+        );
+
+    }
+
+
+    /*
+     * Other uploads can continue using their existing
+     * allowed formats.
+     */
     const allowedMimeTypes = [
 
         // Images
@@ -64,6 +93,7 @@ const fileFilter = (req, file, cb) => {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     ];
+
 
     if (allowedMimeTypes.includes(file.mimetype)) {
 
@@ -95,5 +125,6 @@ const upload = multer({
     }
 
 });
+
 
 module.exports = upload;
