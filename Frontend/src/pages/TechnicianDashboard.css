@@ -382,3 +382,27 @@
     justify-content: center !important;
   }
 }
+
+.technician-reviews-list {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.technician-reviews-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.technician-reviews-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.technician-reviews-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.technician-reviews-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

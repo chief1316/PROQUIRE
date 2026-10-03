@@ -1107,3 +1107,34 @@
 .client-technician-contact a:hover {
   text-decoration: underline;
 }
+
+.client-review-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 9px 13px;
+  border: none;
+  border-radius: 8px;
+  background: #175cd3;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.client-review-button:hover {
+  opacity: 0.92;
+}
+
+.client-review-submitted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 700;
+}

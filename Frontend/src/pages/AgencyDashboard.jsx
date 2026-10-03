@@ -31,9 +31,7 @@ function AgencyDashboard() {
 
   useEffect(() => {
     const fetchAgency = async () => {
-      const token =
-        localStorage.getItem("token") ||
-        sessionStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
 
       if (!token) {
         navigate("/login?role=agency");
@@ -47,7 +45,7 @@ function AgencyDashboard() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         setAgency(response.data);
@@ -60,17 +58,14 @@ function AgencyDashboard() {
         }
 
         if (err.response?.status === 401) {
-          localStorage.removeItem("token");
           sessionStorage.removeItem("token");
-          localStorage.removeItem("user");
+          sessionStorage.removeItem("user");
 
           navigate("/login?role=agency");
           return;
         }
 
-        setError(
-          "Unable to load your agency profile. Please try again."
-        );
+        setError("Unable to load your agency profile. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -80,9 +75,8 @@ function AgencyDashboard() {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
     sessionStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("user");
 
     navigate("/login?role=agency");
   };
@@ -109,9 +103,7 @@ function AgencyDashboard() {
 
           <p>{error}</p>
 
-          <button onClick={() => window.location.reload()}>
-            Try Again
-          </button>
+          <button onClick={() => window.location.reload()}>Try Again</button>
         </div>
       </div>
     );
@@ -119,7 +111,6 @@ function AgencyDashboard() {
 
   return (
     <div className="agency-dashboard">
-
       {/* MOBILE OVERLAY */}
 
       {sidebarOpen && (
@@ -132,16 +123,11 @@ function AgencyDashboard() {
       {/* SIDEBAR */}
 
       <aside
-        className={`agency-sidebar ${
-          sidebarOpen ? "agency-sidebar-open" : ""
-        }`}
+        className={`agency-sidebar ${sidebarOpen ? "agency-sidebar-open" : ""}`}
       >
         <div className="agency-sidebar-top">
           <div className="agency-sidebar-logo">
-            <img
-              src={logo}
-              alt="ProQuire Logo"
-            />
+            <img src={logo} alt="ProQuire Logo" />
           </div>
 
           <button
@@ -160,20 +146,15 @@ function AgencyDashboard() {
           </div>
 
           <div className="agency-sidebar-profile-info">
-            <strong>
-              {agency?.company_name || "Your Agency"}
-            </strong>
+            <strong>{agency?.company_name || "Your Agency"}</strong>
 
-            <span>
-              Agency Account
-            </span>
+            <span>Agency Account</span>
           </div>
         </div>
 
         {/* Navigation */}
 
         <nav className="agency-sidebar-nav">
-
           <button
             className="agency-nav-item active"
             onClick={() => navigate("/agency")}
@@ -192,10 +173,7 @@ function AgencyDashboard() {
 
           {/* TECHNICIANS */}
 
-          <button
-            className="agency-nav-item"
-            onClick={goToTechnicians}
-          >
+          <button className="agency-nav-item" onClick={goToTechnicians}>
             <Users size={19} />
             <span>Technicians</span>
           </button>
@@ -219,11 +197,9 @@ function AgencyDashboard() {
             <Bell size={19} />
             <span>Notifications</span>
           </button>
-
         </nav>
 
         <div className="agency-sidebar-bottom">
-
           <button className="agency-nav-item">
             <Settings size={19} />
             <span>Settings</span>
@@ -231,25 +207,19 @@ function AgencyDashboard() {
 
           {/* LOG OUT */}
 
-          <button
-            className="agency-nav-item"
-            onClick={handleLogout}
-          >
+          <button className="agency-nav-item" onClick={handleLogout}>
             <LogOut size={19} />
             <span>Log Out</span>
           </button>
-
         </div>
       </aside>
 
       {/* MAIN AREA */}
 
       <main className="agency-main">
-
         {/* Header */}
 
         <header className="agency-header">
-
           <button
             className="agency-menu-button"
             onClick={() => setSidebarOpen(true)}
@@ -258,311 +228,191 @@ function AgencyDashboard() {
           </button>
 
           <div className="agency-header-title">
-            <h1>
-              Agency Dashboard
-            </h1>
+            <h1>Agency Dashboard</h1>
 
-            <p>
-              Manage your agency and professional team.
-            </p>
+            <p>Manage your agency and professional team.</p>
           </div>
 
           <div className="agency-header-actions">
-
             <button className="agency-notification-button">
               <Bell size={21} />
               <span className="agency-notification-dot"></span>
             </button>
 
             <div className="agency-header-user">
-
               <div className="agency-header-avatar">
                 <Building2 size={20} />
               </div>
 
               <div>
-                <strong>
-                  {agency?.company_name || "Agency"}
-                </strong>
+                <strong>{agency?.company_name || "Agency"}</strong>
 
-                <span>
-                  Agency
-                </span>
+                <span>Agency</span>
               </div>
-
             </div>
-
           </div>
-
         </header>
 
         {/* CONTENT */}
 
         <section className="agency-content">
-
           {/* Welcome */}
 
           <div className="agency-welcome-card">
-
             <div>
+              <span className="agency-welcome-label">WELCOME TO PROQUIRE</span>
 
-              <span className="agency-welcome-label">
-                WELCOME TO PROQUIRE
-              </span>
-
-              <h2>
-                Welcome, {agency?.company_name || "Agency"}
-              </h2>
+              <h2>Welcome, {agency?.company_name || "Agency"}</h2>
 
               <p>
-                Manage your agency, technicians and professional
-                services from one place.
+                Manage your agency, technicians and professional services from
+                one place.
               </p>
-
             </div>
 
             <div className="agency-welcome-icon">
               <Building2 size={42} />
             </div>
-
           </div>
 
           {/* Statistics */}
 
           <div className="agency-stat-grid">
-
             <div className="agency-stat-card">
-
               <div className="agency-stat-icon blue">
                 <Users size={22} />
               </div>
 
               <div>
-                <span>
-                  Technicians
-                </span>
+                <span>Technicians</span>
 
-                <strong>
-                  0
-                </strong>
+                <strong>0</strong>
 
-                <small>
-                  Team members
-                </small>
+                <small>Team members</small>
               </div>
-
             </div>
 
             <div className="agency-stat-card">
-
               <div className="agency-stat-icon green">
                 <CheckCircle2 size={22} />
               </div>
 
               <div>
-                <span>
-                  Verified
-                </span>
+                <span>Verified</span>
 
-                <strong>
-                  {agency?.is_verified ? "Yes" : "Pending"}
-                </strong>
+                <strong>{agency?.is_verified ? "Yes" : "Pending"}</strong>
 
-                <small>
-                  Agency verification
-                </small>
+                <small>Agency verification</small>
               </div>
-
             </div>
 
             <div className="agency-stat-card">
-
               <div className="agency-stat-icon orange">
                 <FileText size={22} />
               </div>
 
               <div>
-                <span>
-                  Requests
-                </span>
+                <span>Requests</span>
 
-                <strong>
-                  0
-                </strong>
+                <strong>0</strong>
 
-                <small>
-                  Service requests
-                </small>
+                <small>Service requests</small>
               </div>
-
             </div>
 
             <div className="agency-stat-card">
-
               <div className="agency-stat-icon purple">
                 <CreditCard size={22} />
               </div>
 
               <div>
-                <span>
-                  Subscription
-                </span>
+                <span>Subscription</span>
 
-                <strong>
-                  None
-                </strong>
+                <strong>None</strong>
 
-                <small>
-                  Current plan
-                </small>
+                <small>Current plan</small>
               </div>
-
             </div>
-
           </div>
 
           {/* Main dashboard grid */}
 
           <div className="agency-dashboard-grid">
-
             {/* Agency information */}
 
             <div className="agency-panel">
-
               <div className="agency-panel-header">
-
                 <div>
+                  <h3>Agency Information</h3>
 
-                  <h3>
-                    Agency Information
-                  </h3>
-
-                  <p>
-                    Your registered business details
-                  </p>
-
+                  <p>Your registered business details</p>
                 </div>
 
                 <Building2 size={21} />
-
               </div>
 
               <div className="agency-information-list">
-
                 <div className="agency-information-item">
+                  <span>Company Name</span>
 
-                  <span>
-                    Company Name
-                  </span>
-
-                  <strong>
-                    {agency?.company_name || "—"}
-                  </strong>
-
+                  <strong>{agency?.company_name || "—"}</strong>
                 </div>
 
                 <div className="agency-information-item">
+                  <span>Registration Number</span>
 
-                  <span>
-                    Registration Number
-                  </span>
-
-                  <strong>
-                    {agency?.registration_number || "—"}
-                  </strong>
-
+                  <strong>{agency?.registration_number || "—"}</strong>
                 </div>
 
                 <div className="agency-information-item">
+                  <span>KRA PIN</span>
 
-                  <span>
-                    KRA PIN
-                  </span>
-
-                  <strong>
-                    {agency?.kra_pin || "—"}
-                  </strong>
-
+                  <strong>{agency?.kra_pin || "—"}</strong>
                 </div>
 
                 <div className="agency-information-item">
+                  <span>Business Email</span>
 
-                  <span>
-                    Business Email
-                  </span>
-
-                  <strong>
-                    {agency?.email || "—"}
-                  </strong>
-
+                  <strong>{agency?.email || "—"}</strong>
                 </div>
 
                 <div className="agency-information-item">
+                  <span>Business Phone</span>
 
-                  <span>
-                    Business Phone
-                  </span>
-
-                  <strong>
-                    {agency?.phone || "—"}
-                  </strong>
-
+                  <strong>{agency?.phone || "—"}</strong>
                 </div>
 
                 <div className="agency-information-item">
-
-                  <span>
-                    Location
-                  </span>
+                  <span>Location</span>
 
                   <strong className="agency-location">
-
                     <MapPin size={15} />
 
                     {agency?.county || "—"}
-
                   </strong>
-
                 </div>
-
               </div>
-
             </div>
 
             {/* Verification status */}
 
             <div className="agency-panel">
-
               <div className="agency-panel-header">
-
                 <div>
+                  <h3>Verification Status</h3>
 
-                  <h3>
-                    Verification Status
-                  </h3>
-
-                  <p>
-                    Current agency verification
-                  </p>
-
+                  <p>Current agency verification</p>
                 </div>
 
-                <ShieldStatus
-                  verified={agency?.is_verified}
-                />
-
+                <ShieldStatus verified={agency?.is_verified} />
               </div>
 
               <div className="agency-verification-content">
-
                 <div
                   className={`agency-verification-badge ${
-                    agency?.is_verified
-                      ? "verified"
-                      : "pending"
+                    agency?.is_verified ? "verified" : "pending"
                   }`}
                 >
-
                   {agency?.is_verified ? (
                     <>
                       <CheckCircle2 size={20} />
@@ -574,7 +424,6 @@ function AgencyDashboard() {
                       Verification Pending
                     </>
                   )}
-
                 </div>
 
                 <p>
@@ -582,85 +431,49 @@ function AgencyDashboard() {
                     ? "Your agency has been verified and can operate on the ProQuire platform."
                     : "Your agency profile has been submitted and is awaiting verification by the ProQuire administrator."}
                 </p>
-
               </div>
-
             </div>
-
           </div>
 
           {/* Quick actions */}
 
           <div className="agency-panel agency-quick-actions-panel">
-
             <div className="agency-panel-header">
-
               <div>
+                <h3>Quick Actions</h3>
 
-                <h3>
-                  Quick Actions
-                </h3>
-
-                <p>
-                  Common agency tasks
-                </p>
-
+                <p>Common agency tasks</p>
               </div>
-
             </div>
 
             <div className="agency-quick-actions">
-
-              <button
-                className="agency-quick-action"
-                onClick={goToTechnicians}
-              >
+              <button className="agency-quick-action" onClick={goToTechnicians}>
                 <Users size={22} />
 
-                <span>
-                  Manage Technicians
-                </span>
-
+                <span>Manage Technicians</span>
               </button>
 
               <button className="agency-quick-action">
-
                 <Building2 size={22} />
 
-                <span>
-                  Edit Agency Profile
-                </span>
-
+                <span>Edit Agency Profile</span>
               </button>
 
               <button className="agency-quick-action">
-
                 <CreditCard size={22} />
 
-                <span>
-                  Manage Subscription
-                </span>
-
+                <span>Manage Subscription</span>
               </button>
 
               <button className="agency-quick-action">
-
                 <BarChart3 size={22} />
 
-                <span>
-                  View Reports
-                </span>
-
+                <span>View Reports</span>
               </button>
-
             </div>
-
           </div>
-
         </section>
-
       </main>
-
     </div>
   );
 }
@@ -670,11 +483,7 @@ function AgencyDashboard() {
 ========================================================= */
 
 function ShieldStatus({ verified }) {
-  return verified ? (
-    <CheckCircle2 size={24} />
-  ) : (
-    <Clock3 size={24} />
-  );
+  return verified ? <CheckCircle2 size={24} /> : <Clock3 size={24} />;
 }
 
 export default AgencyDashboard;

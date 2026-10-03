@@ -17,6 +17,7 @@ import {
   ArrowRight,
   House,
   Pencil,
+  Send,
   Save,
   Mail,
   Phone,
@@ -30,10 +31,7 @@ import logo from "../assets/proquire-logo.png";
 const API = "http://localhost:5000/api";
 
 function getToken() {
-  return (
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token")
-  );
+  return sessionStorage.getItem("token");
 }
 
 function generateTimeSlots(availability) {
@@ -42,9 +40,7 @@ function generateTimeSlots(availability) {
   const toMinutes = (time) => {
     if (!time) return null;
 
-    const [hours, minutes] = time
-      .split(":")
-      .map(Number);
+    const [hours, minutes] = time.split(":").map(Number);
 
     return hours * 60 + minutes;
   };
@@ -53,21 +49,13 @@ function generateTimeSlots(availability) {
     const start = toMinutes(item.available_from);
     const end = toMinutes(item.available_to);
 
-    if (
-      start === null ||
-      end === null ||
-      end <= start
-    ) {
+    if (start === null || end === null || end <= start) {
       return;
     }
 
     // Only offer appointment start times that allow
     // a full 30-minute appointment within the window.
-    for (
-      let minutes = start;
-      minutes + 30 <= end;
-      minutes += 30
-    ) {
+    for (let minutes = start; minutes + 30 <= end; minutes += 30) {
       const hours = Math.floor(minutes / 60);
       const mins = minutes % 60;
 
@@ -87,9 +75,7 @@ function generateTimeSlots(availability) {
 function formatTime(time) {
   if (!time) return "";
 
-  const [hours, minutes] = time
-    .split(":")
-    .map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
 
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
@@ -126,26 +112,21 @@ function ClientDashboard() {
 
   const [activeTab, setActiveTab] = useState("find");
 
-  const [selectedTechnician, setSelectedTechnician] =
-    useState(null);
+  const [selectedTechnician, setSelectedTechnician] = useState(null);
 
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
   const [serviceDate, setServiceDate] = useState("");
   const [serviceTime, setServiceTime] = useState("");
 
-  const [technicianAvailability, setTechnicianAvailability] =
-  useState([]);
+  const [technicianAvailability, setTechnicianAvailability] = useState([]);
 
-  const [availabilityLoading, setAvailabilityLoading] =
-  useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
-  const [availabilityError, setAvailabilityError] =
-  useState("");
+  const [availabilityError, setAvailabilityError] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [requestsLoading, setRequestsLoading] =
-    useState(false);
+  const [requestsLoading, setRequestsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [error, setError] = useState("");
@@ -153,24 +134,34 @@ function ClientDashboard() {
   const [success, setSuccess] = useState("");
 
   // --------------------------------------------------
+  // REVIEW STATE
+  // --------------------------------------------------
+
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+
+  const [selectedReviewRequest, setSelectedReviewRequest] = useState(null);
+
+  const [reviewError, setReviewError] = useState("");
+
+  // --------------------------------------------------
   // PROFILE STATE
   // --------------------------------------------------
 
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const [profileLoading, setProfileLoading] =
-    useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  const [profileSaving, setProfileSaving] =
-    useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const [profileError, setProfileError] = useState("");
-  const [profileSuccess, setProfileSuccess] =
-    useState("");
+  const [profileSuccess, setProfileSuccess] = useState("");
 
   // Determines whether the client already has a profile.
-  const [profileExists, setProfileExists] =
-    useState(false);
+  const [profileExists, setProfileExists] = useState(false);
 
   const [profile, setProfile] = useState({
     full_name: "",
@@ -190,7 +181,7 @@ function ClientDashboard() {
     }
 
     try {
-      const savedUser = localStorage.getItem("user");
+      const savedUser = sessionStorage.getItem("user");
 
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
@@ -201,10 +192,7 @@ function ClientDashboard() {
         // the full client profile from the backend.
         setProfile((previous) => ({
           ...previous,
-          full_name:
-            parsedUser.full_name ||
-            parsedUser.name ||
-            "",
+          full_name: parsedUser.full_name || parsedUser.name || "",
           email: parsedUser.email || "",
           phone: parsedUser.phone || "",
           location: parsedUser.location || "",
@@ -219,106 +207,89 @@ function ClientDashboard() {
   }, []);
 
   // --------------------------------------------------
-// LOAD TECHNICIAN AVAILABILITY FOR SELECTED DATE
-// --------------------------------------------------
+  // LOAD TECHNICIAN AVAILABILITY FOR SELECTED DATE
+  // --------------------------------------------------
 
-useEffect(() => {
-  if (!selectedTechnician || !serviceDate) {
-    setTechnicianAvailability([]);
-    setServiceTime("");
-    setAvailabilityError("");
-    return;
-  }
+  useEffect(() => {
+    if (!selectedTechnician || !serviceDate) {
+      setTechnicianAvailability([]);
+      setServiceTime("");
+      setAvailabilityError("");
+      return;
+    }
 
-  let cancelled = false;
+    let cancelled = false;
 
-  const fetchAvailability = async () => {
-    setAvailabilityLoading(true);
-    setAvailabilityError("");
-    setTechnicianAvailability([]);
-    setServiceTime("");
+    const fetchAvailability = async () => {
+      setAvailabilityLoading(true);
+      setAvailabilityError("");
+      setTechnicianAvailability([]);
+      setServiceTime("");
 
-    try {
-      // Parse the date as a calendar date, avoiding
-      // timezone shifts when determining the weekday.
-      const [year, month, day] = serviceDate
-        .split("-")
-        .map(Number);
+      try {
+        // Parse the date as a calendar date, avoiding
+        // timezone shifts when determining the weekday.
+        const [year, month, day] = serviceDate.split("-").map(Number);
 
-      const selectedDay = new Date(
-        Date.UTC(year, month - 1, day)
-      );
+        const selectedDay = new Date(Date.UTC(year, month - 1, day));
 
-      const weekdays = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ];
+        const weekdays = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ];
 
-      const dayName = weekdays[
-        selectedDay.getUTCDay()
-      ];
+        const dayName = weekdays[selectedDay.getUTCDay()];
 
-      const response = await axios.get(
-        `${API}/availability/technician/${
-          selectedTechnician.technician_id
-        }`
-      );
+        const response = await axios.get(
+          `${API}/availability/technician/${selectedTechnician.technician_id}`,
+        );
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      const allAvailability = Array.isArray(
-        response.data
-      )
-        ? response.data
-        : [];
+        const allAvailability = Array.isArray(response.data)
+          ? response.data
+          : [];
 
-      const matchingAvailability =
-        allAvailability.filter((item) => {
+        const matchingAvailability = allAvailability.filter((item) => {
           return (
-            String(item.available_day).toLowerCase() ===
-            dayName.toLowerCase()
+            String(item.available_day).toLowerCase() === dayName.toLowerCase()
           );
         });
 
-      setTechnicianAvailability(
-        matchingAvailability
-      );
+        setTechnicianAvailability(matchingAvailability);
 
-      if (matchingAvailability.length === 0) {
+        if (matchingAvailability.length === 0) {
+          setAvailabilityError(
+            `This technician has no availability saved for ${dayName}. Please select another date.`,
+          );
+        }
+      } catch (err) {
+        if (cancelled) return;
+
+        console.error("Availability loading error:", err);
+
         setAvailabilityError(
-          `This technician has no availability saved for ${dayName}. Please select another date.`
+          err.response?.data?.message ||
+            "Unable to load this technician's availability. Please try again.",
         );
+      } finally {
+        if (!cancelled) {
+          setAvailabilityLoading(false);
+        }
       }
-    } catch (err) {
-      if (cancelled) return;
+    };
 
-      console.error(
-        "Availability loading error:",
-        err
-      );
+    fetchAvailability();
 
-      setAvailabilityError(
-        err.response?.data?.message ||
-          "Unable to load this technician's availability. Please try again."
-      );
-    } finally {
-      if (!cancelled) {
-        setAvailabilityLoading(false);
-      }
-    }
-  };
-
-  fetchAvailability();
-
-  return () => {
-    cancelled = true;
-  };
-}, [selectedTechnician, serviceDate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTechnician, serviceDate]);
 
   // --------------------------------------------------
   // LOAD TECHNICIANS AND CATEGORIES
@@ -329,30 +300,23 @@ useEffect(() => {
     setError("");
 
     try {
-      const [
-        technicianResponse,
-        categoryResponse,
-      ] = await Promise.all([
+      const [technicianResponse, categoryResponse] = await Promise.all([
         axios.get(`${API}/technicians`),
         axios.get(`${API}/categories`),
       ]);
 
       setTechnicians(
-        Array.isArray(technicianResponse.data)
-          ? technicianResponse.data
-          : []
+        Array.isArray(technicianResponse.data) ? technicianResponse.data : [],
       );
 
       setCategories(
-        Array.isArray(categoryResponse.data)
-          ? categoryResponse.data
-          : []
+        Array.isArray(categoryResponse.data) ? categoryResponse.data : [],
       );
     } catch (err) {
       console.error("Dashboard loading error:", err);
 
       setError(
-        "Unable to load professionals. Please check that the backend is running and try again."
+        "Unable to load professionals. Please check that the backend is running and try again.",
       );
     } finally {
       setLoading(false);
@@ -371,10 +335,7 @@ useEffect(() => {
     setProfileSuccess("");
 
     try {
-      const response = await axios.get(
-        `${API}/clients/my-profile`,
-        authConfig
-      );
+      const response = await axios.get(`${API}/clients/my-profile`, authConfig);
 
       const data = response.data;
 
@@ -395,10 +356,7 @@ useEffect(() => {
           ...data,
         };
 
-        localStorage.setItem(
-          "user",
-          JSON.stringify(updatedUser)
-        );
+        sessionStorage.setItem("user", JSON.stringify(updatedUser));
 
         return updatedUser;
       });
@@ -413,19 +371,9 @@ useEffect(() => {
         setProfileExists(false);
 
         setProfile((previous) => ({
-          full_name:
-            previous.full_name ||
-            user?.full_name ||
-            user?.name ||
-            "",
-          email:
-            previous.email ||
-            user?.email ||
-            "",
-          phone:
-            previous.phone ||
-            user?.phone ||
-            "",
+          full_name: previous.full_name || user?.full_name || user?.name || "",
+          email: previous.email || user?.email || "",
+          phone: previous.phone || user?.phone || "",
           location: previous.location || "",
         }));
 
@@ -433,7 +381,7 @@ useEffect(() => {
           setProfileOpen(true);
 
           setProfileError(
-            "Your client profile has not been completed. Fill in the details below to create it."
+            "Your client profile has not been completed. Fill in the details below to create it.",
           );
         }
 
@@ -442,7 +390,7 @@ useEffect(() => {
 
       setProfileError(
         err.response?.data?.message ||
-          "Unable to load your profile. Please try again."
+          "Unable to load your profile. Please try again.",
       );
 
       return false;
@@ -499,15 +447,8 @@ useEffect(() => {
     const phone = profile.phone.trim();
     const clientLocation = profile.location.trim();
 
-    if (
-      !full_name ||
-      !email ||
-      !phone ||
-      !clientLocation
-    ) {
-      setProfileError(
-        "Please complete all profile fields."
-      );
+    if (!full_name || !email || !phone || !clientLocation) {
+      setProfileError("Please complete all profile fields.");
       return;
     }
 
@@ -528,30 +469,25 @@ useEffect(() => {
         response = await axios.patch(
           `${API}/clients/profile`,
           profileData,
-          authConfig
+          authConfig,
         );
       } else {
         // Create a new client profile.
         response = await axios.post(
           `${API}/clients/profile`,
           profileData,
-          authConfig
+          authConfig,
         );
       }
 
       const returnedData =
-        response.data?.profile ||
-        response.data?.client ||
-        response.data ||
-        {};
+        response.data?.profile || response.data?.client || response.data || {};
 
       const updatedProfile = {
-        full_name:
-          returnedData.full_name || full_name,
+        full_name: returnedData.full_name || full_name,
         email: returnedData.email || email,
         phone: returnedData.phone || phone,
-        location:
-          returnedData.location || clientLocation,
+        location: returnedData.location || clientLocation,
       };
 
       setProfile(updatedProfile);
@@ -565,21 +501,14 @@ useEffect(() => {
           ...updatedProfile,
         };
 
-        localStorage.setItem(
-          "user",
-          JSON.stringify(updatedUser)
-        );
+        sessionStorage.setItem("user", JSON.stringify(updatedUser));
 
         return updatedUser;
       });
 
-      setProfileSuccess(
-        "Your profile has been saved successfully."
-      );
+      setProfileSuccess("Your profile has been saved successfully.");
 
-      setSuccess(
-        "Your profile has been saved successfully."
-      );
+      setSuccess("Your profile has been saved successfully.");
 
       // Close the modal after a successful save.
       setProfileOpen(false);
@@ -588,13 +517,11 @@ useEffect(() => {
       console.error("Profile saving error:", err);
 
       if (err.response?.status === 401) {
-        setProfileError(
-          "Your session has expired. Please log in again."
-        );
+        setProfileError("Your session has expired. Please log in again.");
       } else {
         setProfileError(
           err.response?.data?.message ||
-            "Unable to save your profile. Please try again."
+            "Unable to save your profile. Please try again.",
         );
       }
     } finally {
@@ -613,20 +540,16 @@ useEffect(() => {
     try {
       const response = await axios.get(
         `${API}/service-requests/my-requests`,
-        authConfig
+        authConfig,
       );
 
-      setRequests(
-        Array.isArray(response.data)
-          ? response.data
-          : []
-      );
+      setRequests(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.error("Request loading error:", err);
 
       setRequestError(
         err.response?.data?.message ||
-          "Unable to load your requests. Please try again."
+          "Unable to load your requests. Please try again.",
       );
     } finally {
       setRequestsLoading(false);
@@ -640,6 +563,76 @@ useEffect(() => {
   }, [activeTab]);
 
   // --------------------------------------------------
+  // OPEN REVIEW FORM
+  // --------------------------------------------------
+
+  const openReviewForm = (request) => {
+    setSelectedReviewRequest(request);
+    setReviewRating(5);
+    setReviewComment("");
+    setReviewError("");
+    setReviewOpen(true);
+  };
+
+  // --------------------------------------------------
+  // CLOSE REVIEW FORM
+  // --------------------------------------------------
+
+  const closeReviewForm = () => {
+    if (reviewSubmitting) return;
+
+    setReviewOpen(false);
+    setSelectedReviewRequest(null);
+    setReviewError("");
+  };
+
+  // --------------------------------------------------
+  // SUBMIT REVIEW
+  // --------------------------------------------------
+
+  const submitReview = async (event) => {
+    event.preventDefault();
+
+    if (!selectedReviewRequest) return;
+
+    if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+      setReviewError("Please select a rating between 1 and 5 stars.");
+      return;
+    }
+
+    setReviewSubmitting(true);
+    setReviewError("");
+
+    try {
+      await axios.post(
+        `${API}/reviews`,
+        {
+          request_id: selectedReviewRequest.request_id,
+          rating: Number(reviewRating),
+          comment: reviewComment.trim(),
+        },
+        authConfig,
+      );
+
+      setReviewOpen(false);
+      setSelectedReviewRequest(null);
+      setReviewRating(5);
+      setReviewComment("");
+
+      setSuccess("Your review has been submitted successfully.");
+    } catch (err) {
+      console.error("Review submission error:", err);
+
+      setReviewError(
+        err.response?.data?.message ||
+          "Unable to submit your review. Please try again.",
+      );
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  // --------------------------------------------------
   // FILTER TECHNICIANS
   // --------------------------------------------------
 
@@ -647,25 +640,15 @@ useEffect(() => {
     return technicians.filter((technician) => {
       const query = search.toLowerCase().trim();
 
-      const selectedLocation = location
-        .toLowerCase()
-        .trim();
+      const selectedLocation = location.toLowerCase().trim();
 
-      const name = (
-        technician.full_name || ""
-      ).toLowerCase();
+      const name = (technician.full_name || "").toLowerCase();
 
-      const profession = (
-        technician.category_name || ""
-      ).toLowerCase();
+      const profession = (technician.category_name || "").toLowerCase();
 
-      const bio = (
-        technician.bio || ""
-      ).toLowerCase();
+      const bio = (technician.bio || "").toLowerCase();
 
-      const technicianLocation = (
-        technician.location || ""
-      ).toLowerCase();
+      const technicianLocation = (technician.location || "").toLowerCase();
 
       const matchesSearch =
         !query ||
@@ -674,46 +657,35 @@ useEffect(() => {
         bio.includes(query);
 
       const matchesLocation =
-        !selectedLocation ||
-        technicianLocation.includes(selectedLocation);
+        !selectedLocation || technicianLocation.includes(selectedLocation);
 
       const matchesCategory =
         !category ||
-        String(technician.category_id) ===
-          String(category) ||
+        String(technician.category_id) === String(category) ||
         technician.category_name === category;
 
-      return (
-        matchesSearch &&
-        matchesLocation &&
-        matchesCategory
-      );
+      return matchesSearch && matchesLocation && matchesCategory;
     });
-  }, [
-    technicians,
-    search,
-    location,
-    category,
-  ]);
+  }, [technicians, search, location, category]);
 
   // --------------------------------------------------
   // SERVICE REQUEST MODAL
   // --------------------------------------------------
 
   const openRequestForm = (technician) => {
-  setSelectedTechnician(technician);
+    setSelectedTechnician(technician);
 
-  setDescription("");
-  setAddress("");
-  setServiceDate("");
-  setServiceTime("");
+    setDescription("");
+    setAddress("");
+    setServiceDate("");
+    setServiceTime("");
 
-  setTechnicianAvailability([]);
-  setAvailabilityError("");
+    setTechnicianAvailability([]);
+    setAvailabilityError("");
 
-  setSuccess("");
-  setRequestError("");
-};
+    setSuccess("");
+    setRequestError("");
+  };
 
   const closeRequestForm = () => {
     if (submitting) return;
@@ -727,100 +699,84 @@ useEffect(() => {
   // --------------------------------------------------
 
   // --------------------------------------------------
-// SUBMIT SERVICE REQUEST
-// --------------------------------------------------
+  // SUBMIT SERVICE REQUEST
+  // --------------------------------------------------
 
-const submitServiceRequest = async (event) => {
-  event.preventDefault();
+  const submitServiceRequest = async (event) => {
+    event.preventDefault();
 
-  if (!selectedTechnician) return;
+    if (!selectedTechnician) return;
 
-  if (
-    !description.trim() ||
-    !address.trim() ||
-    !serviceDate ||
-    !serviceTime
-  ) {
-    setRequestError(
-      "Please complete all fields and select an available appointment time."
-    );
-    return;
-  }
-
-  if (
-    availabilityLoading ||
-    technicianAvailability.length === 0
-  ) {
-    setRequestError(
-      "There is no confirmed availability for the selected date."
-    );
-    return;
-  }
-
-  setSubmitting(true);
-  setRequestError("");
-  setSuccess("");
-
-  try {
-    await axios.post(
-      `${API}/service-requests`,
-      {
-        technician_id:
-          selectedTechnician.technician_id,
-
-        service_description:
-          description.trim(),
-
-        service_address:
-          address.trim(),
-
-        service_date:
-          serviceDate,
-
-        service_time:
-          serviceTime,
-      },
-      authConfig
-    );
-
-    setSelectedTechnician(null);
-
-    setSuccess(
-      "Your service request has been submitted successfully."
-    );
-
-    setActiveTab("requests");
-
-    fetchRequests();
-  } catch (err) {
-    console.error(
-      "Service request error:",
-      err
-    );
-
-    if (err.response?.status === 401) {
+    if (
+      !description.trim() ||
+      !address.trim() ||
+      !serviceDate ||
+      !serviceTime
+    ) {
       setRequestError(
-        "Your session has expired. Please log in again."
+        "Please complete all fields and select an available appointment time.",
       );
-    } else {
-      setRequestError(
-        err.response?.data?.message ||
-          "Unable to submit your request. Please try again."
-      );
+      return;
     }
-  } finally {
-    setSubmitting(false);
-  }
-};
+
+    if (availabilityLoading || technicianAvailability.length === 0) {
+      setRequestError(
+        "There is no confirmed availability for the selected date.",
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    setRequestError("");
+    setSuccess("");
+
+    try {
+      await axios.post(
+        `${API}/service-requests`,
+        {
+          technician_id: selectedTechnician.technician_id,
+
+          service_description: description.trim(),
+
+          service_address: address.trim(),
+
+          service_date: serviceDate,
+
+          service_time: serviceTime,
+        },
+        authConfig,
+      );
+
+      setSelectedTechnician(null);
+
+      setSuccess("Your service request has been submitted successfully.");
+
+      setActiveTab("requests");
+
+      fetchRequests();
+    } catch (err) {
+      console.error("Service request error:", err);
+
+      if (err.response?.status === 401) {
+        setRequestError("Your session has expired. Please log in again.");
+      } else {
+        setRequestError(
+          err.response?.data?.message ||
+            "Unable to submit your request. Please try again.",
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // --------------------------------------------------
   // LOG OUT
   // --------------------------------------------------
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
     sessionStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("user");
 
     navigate("/login?role=client");
   };
@@ -830,10 +786,7 @@ const submitServiceRequest = async (event) => {
   // --------------------------------------------------
 
   const displayName =
-    user?.full_name ||
-    user?.name ||
-    profile.full_name ||
-    "Client";
+    user?.full_name || user?.name || profile.full_name || "Client";
 
   // --------------------------------------------------
   // RENDER
@@ -841,22 +794,16 @@ const submitServiceRequest = async (event) => {
 
   return (
     <div className="client-dashboard">
-
       {/* HEADER */}
 
       <header className="client-header">
         <div className="client-header-inner">
-
           <Link to="/" className="client-brand">
             <img src={logo} alt="ProQuire" />
           </Link>
 
           <div className="client-header-right">
-
-            <Link
-              to="/"
-              className="client-header-button"
-            >
+            <Link to="/" className="client-header-button">
               <House size={17} />
               <span>Home</span>
             </Link>
@@ -867,11 +814,7 @@ const submitServiceRequest = async (event) => {
               onClick={openProfile}
             >
               <Pencil size={17} />
-              <span>
-                {profileExists
-                  ? "Edit Profile"
-                  : "Complete Profile"}
-              </span>
+              <span>{profileExists ? "Edit Profile" : "Complete Profile"}</span>
             </button>
 
             <div className="client-user">
@@ -880,9 +823,7 @@ const submitServiceRequest = async (event) => {
               </div>
 
               <div>
-                <span className="client-welcome">
-                  Welcome back,
-                </span>
+                <span className="client-welcome">Welcome back,</span>
 
                 <strong>{displayName}</strong>
               </div>
@@ -896,7 +837,6 @@ const submitServiceRequest = async (event) => {
               <LogOut size={17} />
               <span>Log out</span>
             </button>
-
           </div>
         </div>
       </header>
@@ -904,14 +844,11 @@ const submitServiceRequest = async (event) => {
       {/* MAIN DASHBOARD */}
 
       <main className="client-main">
-
         {/* WELCOME BANNER */}
 
         <section className="client-welcome-banner">
           <div>
-            <span className="client-eyebrow">
-              YOUR PROQUIRE DASHBOARD
-            </span>
+            <span className="client-eyebrow">YOUR PROQUIRE DASHBOARD</span>
 
             <h1>
               Find the right professional
@@ -920,8 +857,8 @@ const submitServiceRequest = async (event) => {
             </h1>
 
             <p>
-              Browse skilled technicians, compare their
-              experience, and request the service you need.
+              Browse skilled technicians, compare their experience, and request
+              the service you need.
             </p>
 
             {!profileExists && (
@@ -946,9 +883,7 @@ const submitServiceRequest = async (event) => {
 
         <div className="client-tabs">
           <button
-            className={
-              activeTab === "find" ? "active" : ""
-            }
+            className={activeTab === "find" ? "active" : ""}
             onClick={() => setActiveTab("find")}
             type="button"
           >
@@ -957,9 +892,7 @@ const submitServiceRequest = async (event) => {
           </button>
 
           <button
-            className={
-              activeTab === "requests" ? "active" : ""
-            }
+            className={activeTab === "requests" ? "active" : ""}
             onClick={() => setActiveTab("requests")}
             type="button"
           >
@@ -991,14 +924,11 @@ const submitServiceRequest = async (event) => {
         {activeTab === "find" && (
           <>
             <section className="client-search-panel">
-
               <div className="client-search-heading">
                 <div>
                   <h2>Find a professional</h2>
 
-                  <p>
-                    Search by service, skill, or location.
-                  </p>
+                  <p>Search by service, skill, or location.</p>
                 </div>
 
                 <button
@@ -1012,7 +942,6 @@ const submitServiceRequest = async (event) => {
               </div>
 
               <div className="client-search-fields">
-
                 <label className="client-search-input">
                   <Search size={19} />
 
@@ -1020,9 +949,7 @@ const submitServiceRequest = async (event) => {
                     type="text"
                     placeholder="What service do you need?"
                     value={search}
-                    onChange={(event) =>
-                      setSearch(event.target.value)
-                    }
+                    onChange={(event) => setSearch(event.target.value)}
                   />
                 </label>
 
@@ -1033,28 +960,19 @@ const submitServiceRequest = async (event) => {
                     type="text"
                     placeholder="Town or location"
                     value={location}
-                    onChange={(event) =>
-                      setLocation(event.target.value)
-                    }
+                    onChange={(event) => setLocation(event.target.value)}
                   />
                 </label>
 
                 <select
                   className="client-category-select"
                   value={category}
-                  onChange={(event) =>
-                    setCategory(event.target.value)
-                  }
+                  onChange={(event) => setCategory(event.target.value)}
                 >
-                  <option value="">
-                    All categories
-                  </option>
+                  <option value="">All categories</option>
 
                   {categories.map((item) => (
-                    <option
-                      key={item.category_id}
-                      value={item.category_id}
-                    >
+                    <option key={item.category_id} value={item.category_id}>
                       {item.category_name}
                     </option>
                   ))}
@@ -1071,14 +989,12 @@ const submitServiceRequest = async (event) => {
                   <Search size={18} />
                   Search
                 </button>
-
               </div>
             </section>
 
             {/* PROFESSIONAL RESULTS */}
 
             <section className="client-results-section">
-
               <div className="client-results-heading">
                 <div>
                   <h2>Available professionals</h2>
@@ -1087,9 +1003,7 @@ const submitServiceRequest = async (event) => {
                     {loading
                       ? "Loading professionals..."
                       : `${filteredTechnicians.length} professional${
-                          filteredTechnicians.length === 1
-                            ? ""
-                            : "s"
+                          filteredTechnicians.length === 1 ? "" : "s"
                         } found`}
                   </p>
                 </div>
@@ -1113,10 +1027,7 @@ const submitServiceRequest = async (event) => {
                 <div className="client-error">
                   {error}
 
-                  <button
-                    type="button"
-                    onClick={fetchDashboardData}
-                  >
+                  <button type="button" onClick={fetchDashboardData}>
                     Try again
                   </button>
                 </div>
@@ -1125,23 +1036,17 @@ const submitServiceRequest = async (event) => {
               {loading ? (
                 <div className="client-loading">
                   <div className="client-spinner" />
-                  <p>
-                    Finding professionals for you...
-                  </p>
+                  <p>Finding professionals for you...</p>
                 </div>
               ) : filteredTechnicians.length === 0 ? (
                 <div className="client-empty">
-
                   <div className="client-empty-icon">
                     <Search size={30} />
                   </div>
 
                   <h3>No professionals found</h3>
 
-                  <p>
-                    Try another search term, category, or
-                    location.
-                  </p>
+                  <p>Try another search term, category, or location.</p>
 
                   <button
                     type="button"
@@ -1153,107 +1058,80 @@ const submitServiceRequest = async (event) => {
                   >
                     View all professionals
                   </button>
-
                 </div>
               ) : (
                 <div className="client-technician-grid">
-
-                  {filteredTechnicians.map(
-                    (technician) => (
-                      <article
-                        className="client-technician-card"
-                        key={technician.technician_id}
-                      >
-
-                        <div className="client-card-top">
-                          <div className="client-technician-avatar">
-                            <User size={27} />
-                          </div>
-
-                          <div className="client-verified">
-                            <ShieldCheck size={15} />
-                            Verified
-                          </div>
+                  {filteredTechnicians.map((technician) => (
+                    <article
+                      className="client-technician-card"
+                      key={technician.technician_id}
+                    >
+                      <div className="client-card-top">
+                        <div className="client-technician-avatar">
+                          <User size={27} />
                         </div>
 
-                        <h3>
-                          {technician.full_name ||
-                            "Professional"}
-                        </h3>
+                        <div className="client-verified">
+                          <ShieldCheck size={15} />
+                          Verified
+                        </div>
+                      </div>
 
-                        <span className="client-technician-category">
-                          {technician.category_name ||
-                            "Skilled Professional"}
+                      <h3>{technician.full_name || "Professional"}</h3>
+
+                      <span className="client-technician-category">
+                        {technician.category_name || "Skilled Professional"}
+                      </span>
+
+                      <div className="client-card-meta">
+                        <span>
+                          <MapPin size={15} />
+
+                          {technician.location || "Location not specified"}
                         </span>
 
-                        <div className="client-card-meta">
+                        <span>
+                          <Briefcase size={15} />
+                          {technician.years_experience ?? 0} years experience
+                        </span>
+                      </div>
 
-                          <span>
-                            <MapPin size={15} />
+                      <p className="client-technician-bio">
+                        {technician.bio ||
+                          "This professional has not added a description yet."}
+                      </p>
 
-                            {technician.location ||
-                              "Location not specified"}
-                          </span>
+                      <div className="client-card-footer">
+                        <span className="client-rating">
+                          <Star size={16} fill="currentColor" />
+                          Ratings coming soon
+                        </span>
 
-                          <span>
-                            <Briefcase size={15} />
-
-                            {technician.years_experience ??
-                              0}{" "}
-                            years experience
-                          </span>
-
-                        </div>
-
-                        <p className="client-technician-bio">
-                          {technician.bio ||
-                            "This professional has not added a description yet."}
-                        </p>
-
-                        <div className="client-card-footer">
-
-                          <span className="client-rating">
-                            <Star
-                              size={16}
-                              fill="currentColor"
-                            />
-                            Ratings coming soon
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openRequestForm(technician)
-                            }
-                          >
-                            Request Service
-                            <ArrowRight size={16} />
-                          </button>
-
-                        </div>
-                      </article>
-                    )
-                  )}
-
+                        <button
+                          type="button"
+                          onClick={() => openRequestForm(technician)}
+                        >
+                          Request Service
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               )}
             </section>
           </>
         )}
 
-        
         {/* MY SERVICE REQUESTS */}
 
         {activeTab === "requests" && (
           <section className="client-requests-section">
-
             <div className="client-results-heading">
               <div>
                 <h2>My service requests</h2>
 
-                <p>
-                  Track the services you've requested.
-                </p>
+                <p>Track the services you've requested.</p>
               </div>
 
               <button
@@ -1265,11 +1143,7 @@ const submitServiceRequest = async (event) => {
               </button>
             </div>
 
-            {requestError && (
-              <div className="client-error">
-                {requestError}
-              </div>
-            )}
+            {requestError && <div className="client-error">{requestError}</div>}
 
             {requestsLoading ? (
               <div className="client-loading">
@@ -1278,7 +1152,6 @@ const submitServiceRequest = async (event) => {
               </div>
             ) : requests.length === 0 ? (
               <div className="client-empty">
-
                 <div className="client-empty-icon">
                   <ClipboardList size={30} />
                 </div>
@@ -1286,36 +1159,27 @@ const submitServiceRequest = async (event) => {
                 <h3>No service requests yet</h3>
 
                 <p>
-                  Once you request a professional, your
-                  requests will appear here.
+                  Once you request a professional, your requests will appear
+                  here.
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("find")}
-                >
+                <button type="button" onClick={() => setActiveTab("find")}>
                   Find a professional
                 </button>
-
               </div>
             ) : (
               <div className="client-request-list">
-
                 {requests.map((request) => (
                   <article
                     className="client-request-card"
                     key={request.request_id}
                   >
-
                     <div className="client-request-icon">
                       <Wrench size={22} />
                     </div>
 
                     <div className="client-request-details">
-
-                      <h3>
-                        {request.service_description}
-                      </h3>
+                      <h3>{request.service_description}</h3>
 
                       <p>
                         <MapPin size={15} />
@@ -1326,38 +1190,29 @@ const submitServiceRequest = async (event) => {
                         <CalendarDays size={15} />
 
                         {request.service_date
-                          ? new Date(
-                              request.service_date
-                            ).toLocaleDateString()
+                          ? new Date(request.service_date).toLocaleDateString()
                           : "Date not specified"}
                       </p>
 
                       {request.service_time && (
                         <p>
                           <CalendarDays size={15} />
-
                           Appointment time:{" "}
-                          {formatTime(
-                            String(request.service_time)
-                              .slice(0, 5)
-                          )}
+                          {formatTime(String(request.service_time).slice(0, 5))}
                         </p>
                       )}
 
                       <span className="client-request-technician">
                         Technician:{" "}
-                        {request.technician_name ||
-                          "Assigned professional"}
+                        {request.technician_name || "Assigned professional"}
                       </span>
 
                       {/* TECHNICIAN CONTACT DETAILS
                           Visible only after acceptance */}
 
-                      {String(
-                        request.request_status || ""
-                      ).toLowerCase() === "accepted" && (
+                      {String(request.request_status || "").toLowerCase() ===
+                        "accepted" && (
                         <div className="client-technician-contact">
-
                           <h4>
                             <ShieldCheck size={17} />
                             Technician contact details
@@ -1367,9 +1222,7 @@ const submitServiceRequest = async (event) => {
                             <p>
                               <Phone size={16} />
 
-                              <a
-                                href={`tel:${request.technician_phone}`}
-                              >
+                              <a href={`tel:${request.technician_phone}`}>
                                 {request.technician_phone}
                               </a>
                             </p>
@@ -1384,9 +1237,7 @@ const submitServiceRequest = async (event) => {
                             <p>
                               <Mail size={16} />
 
-                              <a
-                                href={`mailto:${request.technician_email}`}
-                              >
+                              <a href={`mailto:${request.technician_email}`}>
                                 {request.technician_email}
                               </a>
                             </p>
@@ -1396,31 +1247,45 @@ const submitServiceRequest = async (event) => {
                               Email address not available
                             </p>
                           )}
-
                         </div>
                       )}
-
                     </div>
 
                     <div className="client-request-status">
                       <span
-                        className={`request-status ${
-                          (
-                            request.request_status ||
-                            "pending"
-                          )
-                            .toLowerCase()
-                            .replace(/\s+/g, "-")
-                        }`}
+                        className={`request-status ${(
+                          request.request_status || "pending"
+                        )
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}`}
                       >
-                        {request.request_status ||
-                          "Pending"}
+                        {request.request_status || "Pending"}
                       </span>
-                    </div>
 
+                      {String(request.request_status || "").toLowerCase() ===
+                        "completed" &&
+                        Number(request.has_review) !== 1 && (
+                          <button
+                            type="button"
+                            className="client-review-button"
+                            onClick={() => openReviewForm(request)}
+                          >
+                            <Star size={16} />
+                            Leave a Review
+                          </button>
+                        )}
+
+                      {String(request.request_status || "").toLowerCase() ===
+                        "completed" &&
+                        Number(request.has_review) === 1 && (
+                          <span className="client-review-submitted">
+                            <Star size={15} fill="currentColor" />
+                            Review submitted
+                          </span>
+                        )}
+                    </div>
                   </article>
                 ))}
-
               </div>
             )}
           </section>
@@ -1432,9 +1297,7 @@ const submitServiceRequest = async (event) => {
       <footer className="client-footer">
         <img src={logo} alt="ProQuire" />
 
-        <span>
-          Connecting clients with skilled professionals.
-        </span>
+        <span>Connecting clients with skilled professionals.</span>
 
         <span>© 2026 ProQuire</span>
       </footer>
@@ -1444,22 +1307,14 @@ const submitServiceRequest = async (event) => {
       ========================================== */}
 
       {profileOpen && (
-        <div
-          className="client-modal-overlay"
-          onClick={closeProfile}
-        >
+        <div className="client-modal-overlay" onClick={closeProfile}>
           <div
             className="client-request-modal client-profile-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
           >
-
             <div className="client-modal-heading">
               <div>
-                <span className="client-eyebrow">
-                  ACCOUNT SETTINGS
-                </span>
+                <span className="client-eyebrow">ACCOUNT SETTINGS</span>
 
                 <h2>
                   {profileExists
@@ -1467,9 +1322,7 @@ const submitServiceRequest = async (event) => {
                     : "Complete your profile"}
                 </h2>
 
-                <p>
-                  Update your personal and contact details.
-                </p>
+                <p>Update your personal and contact details.</p>
               </div>
 
               <button
@@ -1485,11 +1338,7 @@ const submitServiceRequest = async (event) => {
 
             {/* PROFILE ERROR */}
 
-            {profileError && (
-              <div className="client-error">
-                {profileError}
-              </div>
-            )}
+            {profileError && <div className="client-error">{profileError}</div>}
 
             {/* PROFILE SUCCESS */}
 
@@ -1508,14 +1357,9 @@ const submitServiceRequest = async (event) => {
                 <p>Loading your profile...</p>
               </div>
             ) : (
-              <form
-                className="client-request-form"
-                onSubmit={saveProfile}
-              >
-
+              <form className="client-request-form" onSubmit={saveProfile}>
                 <label>
                   Full name
-
                   <div className="client-profile-input">
                     <User size={18} />
 
@@ -1533,7 +1377,6 @@ const submitServiceRequest = async (event) => {
 
                 <label>
                   Email address
-
                   <div className="client-profile-input">
                     <Mail size={18} />
 
@@ -1551,7 +1394,6 @@ const submitServiceRequest = async (event) => {
 
                 <label>
                   Phone number
-
                   <div className="client-profile-input">
                     <Phone size={18} />
 
@@ -1569,7 +1411,6 @@ const submitServiceRequest = async (event) => {
 
                 <label>
                   Location
-
                   <div className="client-profile-input">
                     <MapPinned size={18} />
 
@@ -1586,7 +1427,6 @@ const submitServiceRequest = async (event) => {
                 </label>
 
                 <div className="client-modal-actions">
-
                   <button
                     type="button"
                     className="client-cancel-button"
@@ -1606,13 +1446,120 @@ const submitServiceRequest = async (event) => {
                     {profileSaving
                       ? "Saving..."
                       : profileExists
-                      ? "Save Changes"
-                      : "Complete Profile"}
+                        ? "Save Changes"
+                        : "Complete Profile"}
                   </button>
-
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+    REVIEW MODAL
+========================================== */}
+
+      {reviewOpen && selectedReviewRequest && (
+        <div className="client-modal-overlay" onClick={closeReviewForm}>
+          <div
+            className="client-request-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="client-modal-heading">
+              <div>
+                <span className="client-eyebrow">SERVICE COMPLETED</span>
+
+                <h2>Leave a review</h2>
+
+                <p>
+                  Share your experience with{" "}
+                  <strong>
+                    {selectedReviewRequest.technician_name || "your technician"}
+                  </strong>
+                  .
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="client-modal-close"
+                onClick={closeReviewForm}
+                disabled={reviewSubmitting}
+                aria-label="Close review form"
+              >
+                <X size={21} />
+              </button>
+            </div>
+
+            {reviewError && <div className="client-error">{reviewError}</div>}
+
+            <form className="client-request-form" onSubmit={submitReview}>
+              <label>
+                Your rating
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                    marginTop: "4px",
+                  }}
+                >
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        padding: "3px",
+                        cursor: "pointer",
+                        color: star <= reviewRating ? "#f59e0b" : "#cbd5e1",
+                      }}
+                    >
+                      <Star
+                        size={30}
+                        fill={star <= reviewRating ? "currentColor" : "none"}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label>
+                Comment
+                <textarea
+                  rows="5"
+                  placeholder="Tell us about your experience..."
+                  value={reviewComment}
+                  onChange={(event) => setReviewComment(event.target.value)}
+                  maxLength={1000}
+                />
+              </label>
+
+              <div className="client-modal-actions">
+                <button
+                  type="button"
+                  className="client-cancel-button"
+                  onClick={closeReviewForm}
+                  disabled={reviewSubmitting}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="client-submit-request"
+                  disabled={reviewSubmitting}
+                >
+                  <Send size={17} />
+
+                  {reviewSubmitting ? "Submitting..." : "Submit Review"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1622,31 +1569,20 @@ const submitServiceRequest = async (event) => {
       ========================================== */}
 
       {selectedTechnician && (
-        <div
-          className="client-modal-overlay"
-          onClick={closeRequestForm}
-        >
+        <div className="client-modal-overlay" onClick={closeRequestForm}>
           <div
             className="client-request-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
           >
-
             <div className="client-modal-heading">
               <div>
-                <span className="client-eyebrow">
-                  HIRE A PROFESSIONAL
-                </span>
+                <span className="client-eyebrow">HIRE A PROFESSIONAL</span>
 
                 <h2>Request a service</h2>
 
                 <p>
                   Send a request to{" "}
-                  <strong>
-                    {selectedTechnician.full_name}
-                  </strong>
-                  .
+                  <strong>{selectedTechnician.full_name}</strong>.
                 </p>
               </div>
 
@@ -1661,48 +1597,36 @@ const submitServiceRequest = async (event) => {
               </button>
             </div>
 
-            {requestError && (
-              <div className="client-error">
-                {requestError}
-              </div>
-            )}
+            {requestError && <div className="client-error">{requestError}</div>}
 
             <form
               className="client-request-form"
               onSubmit={submitServiceRequest}
             >
-
               <label>
                 Service description
-
                 <textarea
                   rows="4"
                   placeholder="Describe the work you need done..."
                   value={description}
-                  onChange={(event) =>
-                    setDescription(event.target.value)
-                  }
+                  onChange={(event) => setDescription(event.target.value)}
                   required
                 />
               </label>
 
               <label>
                 Service address
-
                 <input
                   type="text"
                   placeholder="Where should the service be performed?"
                   value={address}
-                  onChange={(event) =>
-                    setAddress(event.target.value)
-                  }
+                  onChange={(event) => setAddress(event.target.value)}
                   required
                 />
               </label>
 
-                            <label>
+              <label>
                 Preferred service date
-
                 <input
                   type="date"
                   min={(() => {
@@ -1710,13 +1634,9 @@ const submitServiceRequest = async (event) => {
 
                     const year = today.getFullYear();
 
-                    const month = String(
-                      today.getMonth() + 1
-                    ).padStart(2, "0");
+                    const month = String(today.getMonth() + 1).padStart(2, "0");
 
-                    const day = String(
-                      today.getDate()
-                    ).padStart(2, "0");
+                    const day = String(today.getDate()).padStart(2, "0");
 
                     return `${year}-${month}-${day}`;
                   })()}
@@ -1734,61 +1654,42 @@ const submitServiceRequest = async (event) => {
 
               {serviceDate && (
                 <div className="client-availability-section">
-
-                  <label>
-                    Available appointment times
-                  </label>
+                  <label>Available appointment times</label>
 
                   {availabilityLoading ? (
-                    <p>
-                      Checking technician availability...
-                    </p>
+                    <p>Checking technician availability...</p>
                   ) : availabilityError ? (
-                    <div className="client-error">
-                      {availabilityError}
-                    </div>
+                    <div className="client-error">{availabilityError}</div>
                   ) : (
                     <>
                       {technicianAvailability.length > 0 && (
                         <>
-                          <p>
-                            Select a 30-minute appointment
-                            start time:
-                          </p>
+                          <p>Select a 30-minute appointment start time:</p>
 
                           <select
                             value={serviceTime}
                             onChange={(event) => {
-                              setServiceTime(
-                                event.target.value
-                              );
+                              setServiceTime(event.target.value);
 
                               setRequestError("");
                             }}
                             required
                           >
-                            <option value="">
-                              Choose an available time
-                            </option>
+                            <option value="">Choose an available time</option>
 
-                            {generateTimeSlots(
-                              technicianAvailability
-                            ).map((time) => (
-                              <option
-                                key={time}
-                                value={time}
-                              >
-                                {formatTime(time)}
-                              </option>
-                            ))}
+                            {generateTimeSlots(technicianAvailability).map(
+                              (time) => (
+                                <option key={time} value={time}>
+                                  {formatTime(time)}
+                                </option>
+                              ),
+                            )}
                           </select>
 
-                          {generateTimeSlots(
-                            technicianAvailability
-                          ).length === 0 && (
+                          {generateTimeSlots(technicianAvailability).length ===
+                            0 && (
                             <p>
-                              No appointment slots are
-                              available for this date.
+                              No appointment slots are available for this date.
                             </p>
                           )}
                         </>
@@ -1801,7 +1702,6 @@ const submitServiceRequest = async (event) => {
               {/* REQUEST FORM ACTIONS */}
 
               <div className="client-modal-actions">
-
                 <button
                   type="button"
                   className="client-cancel-button"
@@ -1822,19 +1722,13 @@ const submitServiceRequest = async (event) => {
                     technicianAvailability.length === 0
                   }
                 >
-                  {submitting
-                    ? "Submitting..."
-                    : "Submit Service Request"}
+                  {submitting ? "Submitting..." : "Submit Service Request"}
                 </button>
-
               </div>
-
             </form>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

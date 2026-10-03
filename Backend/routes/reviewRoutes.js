@@ -3,7 +3,8 @@ const express = require("express");
 const router = express.Router();
 
 const reviewController =
-require("../controllers/reviewController");
+    require("../controllers/reviewController");
+
 const verifyToken = require("../middleware/authMiddleware");
 
 router.post(
@@ -19,11 +20,6 @@ router.get(
 
 router.get(
     "/technician/:technicianId/rating",
-    reviewController.getAverageRating
-);
-
-router.get(
-    "/technician/:id/average",
     reviewController.getAverageRating
 );
 

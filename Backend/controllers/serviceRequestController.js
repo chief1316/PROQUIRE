@@ -346,8 +346,77 @@ exports.updateRequestStatus = (req, res) => {
     });
 };
 
+// Mark an accepted service request as completed
+exports.completeRequest = (req, res) => {
+    const { id } = req.params;
+
+    const user_id = req.user.user_id;
+
+    const technicianSql = `
+        SELECT technician_id
+        FROM technician_profiles
+        WHERE user_id = ?
+    `;
+
+    db.query(technicianSql, [user_id], (err, results) => {
+        if (err) {
+            console.error("Error finding technician profile:", err);
+            return res.status(500).json({
+                message: "Error finding technician profile"
+            });
+        }
+
+        if (results.length === 0) {
+            return res.status(403).json({
+                message: "Only technicians can complete service requests"
+            });
+        }
+
+        const technician_id = results[0].technician_id;
+
+        const updateSql = `
+            UPDATE service_requests
+            SET request_status = 'completed'
+            WHERE request_id = ?
+            AND technician_id = ?
+            AND request_status = 'accepted'
+        `;
+
+        db.query(
+            updateSql,
+            [id, technician_id],
+            (updateErr, result) => {
+                if (updateErr) {
+                    console.error(
+                        "Error completing service request:",
+                        updateErr
+                    );
+
+                    return res.status(500).json({
+                        message: "Error completing service request"
+                    });
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json({
+                        message:
+                            "Request not found, not assigned to you, or is not currently accepted"
+                    });
+                }
+
+                return res.status(200).json({
+                    message: "Service request completed successfully",
+                    request_id: id,
+                    request_status: "completed"
+                });
+            }
+        );
+    });
+};
+
 // Get service requests for the logged-in client only
 
+// Get service requests for the logged-in client only
 exports.getMyRequests = (req, res) => {
     const clientId = req.user.user_id;
 
@@ -376,7 +445,13 @@ exports.getMyRequests = (req, res) => {
             sr.service_date,
             sr.service_time,
             sr.request_status,
-            sr.request_date
+            sr.request_date,
+
+            CASE
+                WHEN r.review_id IS NOT NULL
+                THEN 1
+                ELSE 0
+            END AS has_review
 
         FROM service_requests sr
 
@@ -386,6 +461,9 @@ exports.getMyRequests = (req, res) => {
         JOIN users technician
             ON tp.user_id = technician.user_id
 
+        LEFT JOIN reviews r
+            ON r.request_id = sr.request_id
+
         WHERE sr.client_id = ?
 
         ORDER BY sr.request_id DESC
@@ -394,7 +472,6 @@ exports.getMyRequests = (req, res) => {
     db.query(sql, [clientId], (err, results) => {
         if (err) {
             console.error("Error fetching client requests:", err);
-
             return res.status(500).json({
                 message: "Error fetching your service requests"
             });

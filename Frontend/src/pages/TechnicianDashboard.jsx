@@ -43,9 +43,15 @@ function TechnicianDashboard() {
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
 
+  const [reviews, setReviews] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [reviewError, setReviewError] = useState("");
+
   const user = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem("user")) || {};
+      return JSON.parse(sessionStorage.getItem("user")) || {};
     } catch {
       return {};
     }
@@ -54,8 +60,7 @@ function TechnicianDashboard() {
   const technicianName =
     user.full_name || user.name || technicianProfile?.full_name || "Technician";
 
-  const token =
-    localStorage.getItem("token") || sessionStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   // Fetch technician profile
   useEffect(() => {
@@ -129,6 +134,51 @@ function TechnicianDashboard() {
 
     fetchServiceRequests();
   }, [technicianProfile, loadingProfile, token]);
+
+  // Fetch technician reviews and average rating
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!technicianProfile?.technician_id) {
+        if (!loadingProfile) {
+          setLoadingReviews(false);
+        }
+        return;
+      }
+
+      try {
+        setLoadingReviews(true);
+        setReviewError("");
+
+        const technicianId = technicianProfile.technician_id;
+
+        const [reviewsResponse, ratingResponse] = await Promise.all([
+          axios.get(`${API}/reviews/technician/${technicianId}`),
+
+          axios.get(`${API}/reviews/technician/${technicianId}/rating`),
+        ]);
+
+        setReviews(
+          Array.isArray(reviewsResponse.data) ? reviewsResponse.data : [],
+        );
+
+        const ratingData = ratingResponse.data || {};
+
+        setAverageRating(Number(ratingData.average_rating || 0));
+
+        setTotalReviews(Number(ratingData.total_reviews || 0));
+      } catch (error) {
+        console.error("Error fetching technician reviews:", error);
+
+        setReviewError(
+          error.response?.data?.message || "Unable to load reviews.",
+        );
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    fetchReviews();
+  }, [technicianProfile, loadingProfile]);
 
   // Fetch technician notifications
   useEffect(() => {
@@ -280,13 +330,58 @@ function TechnicianDashboard() {
     }
   };
 
+  // Mark an accepted request as completed
+  const handleCompleteRequest = async (requestId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to mark this service request as completed?",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setUpdatingRequestId(requestId);
+      setRequestMessage("");
+      setRequestError("");
+
+      const response = await axios.patch(
+        `${API}/service-requests/${requestId}/complete`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setServiceRequests((previousRequests) =>
+        previousRequests.map((request) =>
+          request.request_id === requestId
+            ? {
+                ...request,
+                request_status: response.data.request_status,
+              }
+            : request,
+        ),
+      );
+
+      setRequestMessage("Service request completed successfully.");
+    } catch (error) {
+      console.error("Error completing service request:", error);
+
+      setRequestError(
+        error.response?.data?.message ||
+          "Unable to complete the request. Please try again.",
+      );
+    } finally {
+      setUpdatingRequestId(null);
+    }
+  };
+
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
 
-    navigate("/");
+    navigate("/login");
   };
 
   const closeMobileMenu = () => {
@@ -392,14 +487,20 @@ function TechnicianDashboard() {
                 Portfolio
               </Link>
 
-              <Link
-                to="/technician"
-                style={styles.navItem}
-                onClick={closeMobileMenu}
+              <button
+                type="button"
+                style={styles.navButton}
+                onClick={() => {
+                  document.getElementById("reviews")?.scrollIntoView({
+                    behavior: "smooth",
+                  });
+
+                  closeMobileMenu();
+                }}
               >
                 <Star size={19} />
                 Reviews
-              </Link>
+              </button>
 
               <p
                 style={{
@@ -687,10 +788,22 @@ function TechnicianDashboard() {
                     style={styles.statValue}
                     className="technician-stat-value"
                   >
-                    —
+                    {loadingReviews
+                      ? "—"
+                      : averageRating > 0
+                        ? averageRating.toFixed(1)
+                        : "—"}
                   </strong>
 
-                  <span style={styles.statDescription}>No reviews yet</span>
+                  <span style={styles.statDescription}>
+                    {loadingReviews
+                      ? "Loading reviews..."
+                      : totalReviews > 0
+                        ? `${totalReviews} review${
+                            totalReviews === 1 ? "" : "s"
+                          }`
+                        : "No reviews yet"}
+                  </span>
                 </div>
               </div>
 
@@ -952,9 +1065,32 @@ function TechnicianDashboard() {
                             </div>
                           )}
 
-                          {!isPending && (
+                          {request.request_status === "accepted" && (
+                            <div style={styles.requestActions}>
+                              <button
+                                type="button"
+                                className="request-action-button request-accept-button"
+                                disabled={isUpdating}
+                                onClick={() =>
+                                  handleCompleteRequest(request.request_id)
+                                }
+                              >
+                                {isUpdating
+                                  ? "Processing..."
+                                  : "Mark as Completed"}
+                              </button>
+                            </div>
+                          )}
+
+                          {request.request_status === "completed" && (
                             <p style={styles.processedText}>
-                              This request has been {request.request_status}.
+                              This service request has been completed.
+                            </p>
+                          )}
+
+                          {request.request_status === "rejected" && (
+                            <p style={styles.processedText}>
+                              This request has been rejected.
                             </p>
                           )}
                         </div>
@@ -1052,6 +1188,199 @@ function TechnicianDashboard() {
                   <ArrowRight size={17} />
                 </button>
               </div>
+            </div>
+
+            {/* Reviews */}
+            <div
+              id="reviews"
+              style={styles.panel}
+              className="technician-panel technician-reviews-panel"
+            >
+              <div
+                style={styles.panelHeader}
+                className="technician-panel-header"
+              >
+                <div>
+                  <h2
+                    style={styles.panelTitle}
+                    className="technician-panel-title"
+                  >
+                    Reviews
+                  </h2>
+
+                  <p style={styles.panelSubtitle}>
+                    See what clients have said about your services.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "#c58a00",
+                    fontWeight: "700",
+                    fontSize: "14px",
+                  }}
+                >
+                  <Star size={18} fill="currentColor" />
+
+                  {loadingReviews
+                    ? "—"
+                    : averageRating > 0
+                      ? averageRating.toFixed(1)
+                      : "—"}
+                </div>
+              </div>
+
+              {reviewError && (
+                <div style={styles.errorMessage}>
+                  <AlertCircle size={17} />
+                  {reviewError}
+                </div>
+              )}
+
+              {loadingReviews ? (
+                <div
+                  style={styles.emptyState}
+                  className="technician-empty-state"
+                >
+                  <Clock3 size={25} color="#8090a5" />
+
+                  <p>Loading reviews...</p>
+                </div>
+              ) : reviews.length === 0 ? (
+                <div
+                  style={styles.emptyState}
+                  className="technician-empty-state"
+                >
+                  <div style={styles.emptyIcon}>
+                    <Star size={25} />
+                  </div>
+
+                  <h3>No reviews yet</h3>
+
+                  <p>
+                    Reviews from clients will appear here after completed
+                    services.
+                  </p>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                  }}
+                >
+                  {reviews.map((review) => (
+                    <div
+                      key={review.review_id}
+                      style={{
+                        border: "1px solid #e7ebf2",
+                        borderRadius: "10px",
+                        padding: "16px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "15px",
+                        }}
+                      >
+                        <div>
+                          <strong
+                            style={{
+                              display: "block",
+                              color: "#172033",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {review.client_name || "Client"}
+                          </strong>
+
+                          {review.service_description && (
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "4px",
+                                color: "#7a8496",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {review.service_description}
+                            </span>
+                          )}
+
+                          {review.request_id && (
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "3px",
+                                color: "#98a1b2",
+                                fontSize: "11px",
+                              }}
+                            >
+                              Service Request #{review.request_id}
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            color: "#f59e0b",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={15}
+                              fill={
+                                star <= Number(review.rating)
+                                  ? "currentColor"
+                                  : "none"
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {review.comment && (
+                        <p
+                          style={{
+                            margin: "12px 0 0",
+                            color: "#596579",
+                            fontSize: "13px",
+                            lineHeight: "1.6",
+                          }}
+                        >
+                          "{review.comment}"
+                        </p>
+                      )}
+
+                      {review.review_date && (
+                        <span
+                          style={{
+                            display: "block",
+                            marginTop: "10px",
+                            color: "#98a1b2",
+                            fontSize: "11px",
+                          }}
+                        >
+                          {formatDate(review.review_date)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick actions */}

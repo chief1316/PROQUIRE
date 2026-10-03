@@ -1,24 +1,40 @@
 const db = require("../config/db");
 
-exports.createReview = (client_id, technician_id, rating, comment) => {
+exports.createReview = (
+    request_id,
+    client_id,
+    technician_id,
+    rating,
+    comment
+) => {
     return new Promise((resolve, reject) => {
         const sql = `
             INSERT INTO reviews
             (
+                request_id,
                 client_id,
                 technician_id,
                 rating,
                 comment
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
         `;
 
         db.query(
             sql,
-            [client_id, technician_id, rating, comment],
+            [
+                request_id,
+                client_id,
+                technician_id,
+                rating,
+                comment
+            ],
             (err, result) => {
-                if (err) reject(err);
-                else resolve(result);
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(result);
+                }
             }
         );
     });

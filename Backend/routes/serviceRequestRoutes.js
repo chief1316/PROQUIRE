@@ -1,11 +1,11 @@
 const express = require("express");
 
 const router = express.Router();
+
 const verifyToken = require("../middleware/authMiddleware");
 
-
 const serviceRequestController =
-require("../controllers/serviceRequestController");
+    require("../controllers/serviceRequestController");
 
 router.post(
     "/",
@@ -44,6 +44,13 @@ router.patch(
     "/:id/status",
     verifyToken,
     serviceRequestController.updateRequestStatus
+);
+
+// Mark an accepted service request as completed
+router.patch(
+    "/:id/complete",
+    verifyToken,
+    serviceRequestController.completeRequest
 );
 
 module.exports = router;

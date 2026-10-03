@@ -41,7 +41,7 @@ function AdminDashboard() {
 
   const [success, setSuccess] = useState("");
 
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   const getAuthHeaders = () => ({
     headers: {
@@ -65,7 +65,7 @@ function AdminDashboard() {
         return;
       }
 
-      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const storedUser = JSON.parse(sessionStorage.getItem("user") || "{}");
 
       if (storedUser.role !== "admin") {
         navigate("/admin-login");
@@ -128,8 +128,8 @@ function AdminDashboard() {
       console.error("Admin dashboard error:", err);
 
       if (err.response?.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
         navigate("/admin-login");
         return;
       }
@@ -164,8 +164,8 @@ function AdminDashboard() {
    */
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     navigate("/admin-login");
   };
 
