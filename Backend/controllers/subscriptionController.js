@@ -46,26 +46,18 @@ exports.getPlans = (req, res) => {
 
 // =====================================================
 // Subscribe User to a Plan
+// Creates a PENDING subscription
 // =====================================================
 
 exports.subscribe = (req, res) => {
-
     const user_id = req.user.user_id;
     const { plan_id } = req.body;
 
-
-    // Check that plan_id was provided
-
     if (!plan_id) {
-
         return res.status(400).json({
             message: "plan_id is required."
         });
-
     }
-
-
-    // Find the selected plan
 
     const planSql = `
         SELECT
@@ -82,113 +74,139 @@ exports.subscribe = (req, res) => {
         planSql,
         [plan_id],
         (err, plans) => {
-
             if (err) {
-
                 console.error(
                     "Error checking subscription plan:",
                     err
                 );
 
                 return res.status(500).json({
-                    message: "Failed to check subscription plan.",
+                    message:
+                        "Failed to check subscription plan.",
                     error: err
                 });
-
             }
-
-
-            // Plan does not exist
 
             if (plans.length === 0) {
-
                 return res.status(404).json({
-                    message: "Subscription plan not found or inactive."
+                    message:
+                        "Subscription plan not found or inactive."
                 });
-
             }
-
 
             const plan = plans[0];
 
-
-            // Check whether the user already has
-            // an active or pending subscription
-
             const existingSql = `
                 SELECT
-                    subscription_id,
-                    plan_id,
-                    start_date,
-                    end_date,
-                    status
-                FROM subscriptions
-                WHERE user_id = ?
-                AND status IN ('active', 'pending')
-                ORDER BY subscription_id DESC
-                LIMIT 1
+                    s.subscription_id,
+                    s.plan_id,
+                    s.start_date,
+                    s.end_date,
+                    s.status,
+                    p.plan_name,
+                    p.price
+                FROM subscriptions s
+                JOIN subscription_plans p
+                    ON s.plan_id = p.plan_id
+                WHERE s.user_id = ?
+                AND s.status IN ('active', 'pending')
+                ORDER BY s.subscription_id DESC
             `;
 
             db.query(
                 existingSql,
                 [user_id],
                 (err, existingSubscriptions) => {
-
                     if (err) {
-
                         console.error(
                             "Error checking existing subscription:",
                             err
                         );
 
                         return res.status(500).json({
-                            message: "Failed to check existing subscription.",
+                            message:
+                                "Failed to check existing subscription.",
                             error: err
                         });
-
                     }
 
+                    const pendingSubscription =
+                        existingSubscriptions.find(
+                            (subscription) =>
+                                subscription.status ===
+                                "pending"
+                        );
 
-                    // Prevent duplicate active subscription
-
-                    if (existingSubscriptions.length > 0) {
-
+                    if (pendingSubscription) {
                         return res.status(409).json({
-                            message: "You already have an active or pending subscription.",
-                            subscription: existingSubscriptions[0]
+                            message:
+                                "You already have a pending subscription awaiting payment.",
+                            subscription:
+                                pendingSubscription
                         });
-
                     }
 
+                    const activeSubscription =
+                        existingSubscriptions.find(
+                            (subscription) =>
+                                subscription.status ===
+                                "active"
+                        );
 
-                    // Calculate subscription dates
+                    if (activeSubscription) {
+                        const currentPrice = Number(
+                            activeSubscription.price
+                        );
+
+                        const newPrice = Number(
+                            plan.price
+                        );
+
+                        if (
+                            newPrice ===
+                            currentPrice
+                        ) {
+                            return res.status(409).json({
+                                message:
+                                    "You are already subscribed to this plan.",
+                                subscription:
+                                    activeSubscription
+                            });
+                        }
+
+                        if (
+                            newPrice <
+                            currentPrice
+                        ) {
+                            return res.status(400).json({
+                                message:
+                                    "You cannot downgrade your subscription from this page."
+                            });
+                        }
+                    }
 
                     const startDate = new Date();
 
-                    const endDate = new Date(startDate);
-
-                    endDate.setDate(
-                        endDate.getDate() + plan.duration_days
+                    const endDate = new Date(
+                        startDate
                     );
 
-
-                    // Format dates for MySQL
+                    endDate.setDate(
+                        endDate.getDate() +
+                            plan.duration_days
+                    );
 
                     const formatDate = (date) => {
-
-                        return date.toISOString().split("T")[0];
-
+                        return date
+                            .toISOString()
+                            .split("T")[0];
                     };
-
 
                     const formattedStartDate =
                         formatDate(startDate);
 
                     const formattedEndDate =
                         formatDate(endDate);
-
-
-                    // Insert subscription
 
                     const insertSql = `
                         INSERT INTO subscriptions
@@ -199,7 +217,7 @@ exports.subscribe = (req, res) => {
                             end_date,
                             status
                         )
-                        VALUES (?, ?, ?, ?, 'active')
+                        VALUES (?, ?, ?, ?, 'pending')
                     `;
 
                     db.query(
@@ -211,64 +229,51 @@ exports.subscribe = (req, res) => {
                             formattedEndDate
                         ],
                         (err, result) => {
-
                             if (err) {
-
                                 console.error(
                                     "Error creating subscription:",
                                     err
                                 );
 
                                 return res.status(500).json({
-                                    message: "Failed to create subscription.",
+                                    message:
+                                        "Failed to create subscription.",
                                     error: err
                                 });
-
                             }
 
-
                             res.status(201).json({
-
                                 message:
-                                    "Subscription created successfully.",
-
+                                    "Subscription created successfully and is pending payment.",
                                 subscription: {
                                     subscription_id:
                                         result.insertId,
-
                                     user_id:
                                         user_id,
-
                                     plan_id:
                                         plan.plan_id,
-
                                     plan_name:
                                         plan.plan_name,
-
                                     price:
                                         plan.price,
-
                                     start_date:
                                         formattedStartDate,
-
                                     end_date:
                                         formattedEndDate,
-
                                     status:
-                                        "active"
+                                        "pending",
+                                    previous_subscription_id:
+                                        activeSubscription
+                                            ? activeSubscription.subscription_id
+                                            : null
                                 }
-
                             });
-
                         }
                     );
-
                 }
             );
-
         }
     );
-
 };
 
 

@@ -512,7 +512,7 @@ function TechnicianDashboard() {
               </p>
 
               <Link
-                to="/technician"
+                to="/technician/subscription"
                 style={styles.navItem}
                 onClick={closeMobileMenu}
               >
@@ -1442,7 +1442,7 @@ function TechnicianDashboard() {
                 <button
                   style={styles.quickCard}
                   className="technician-quick-card"
-                  onClick={() => navigate("/technician")}
+                  onClick={() => navigate("/technician/subscription")}
                 >
                   <CreditCard size={22} color="#c58a00" />
 

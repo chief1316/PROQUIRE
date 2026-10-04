@@ -5,17 +5,20 @@ const router = express.Router();
 const {
     createPayment,
     getMyPayments,
-    updatePaymentStatus
+    updatePaymentStatus,
+    initiateMpesaStkPush,
+    mpesaCallback
 } = require("../controllers/paymentController");
 
-const verifyToken = require("../middleware/authMiddleware");
+const verifyToken =
+    require("../middleware/authMiddleware");
 
-const isAdmin = require("../middleware/adminMiddleware");
+const isAdmin =
+    require("../middleware/adminMiddleware");
 
 
 // =====================================================
-// Create Payment
-// User creates a payment for their subscription
+// Regular Payment Routes
 // =====================================================
 
 router.post(
@@ -23,12 +26,6 @@ router.post(
     verifyToken,
     createPayment
 );
-
-
-// =====================================================
-// Get My Payments
-// User views their own payment history
-// =====================================================
 
 router.get(
     "/my-payments",
@@ -38,8 +35,34 @@ router.get(
 
 
 // =====================================================
-// Update Payment Status
-// Admin Only
+// M-Pesa STK Push
+// =====================================================
+
+// Starts an M-Pesa payment request.
+// Requires the logged-in user's JWT.
+
+router.post(
+    "/mpesa/stkpush",
+    verifyToken,
+    initiateMpesaStkPush
+);
+
+
+// =====================================================
+// M-Pesa Callback
+// =====================================================
+
+// Safaricom calls this endpoint.
+// DO NOT add verifyToken here.
+
+router.post(
+    "/mpesa/callback",
+    mpesaCallback
+);
+
+
+// =====================================================
+// Admin Payment Status
 // =====================================================
 
 router.patch(
