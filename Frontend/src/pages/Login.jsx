@@ -223,9 +223,16 @@ function Login() {
               <span>Remember me</span>
             </label>
 
-            <button type="button" className="forgot-password">
+            <Link
+              to={
+                selectedRole
+                  ? `/forgot-password?role=${selectedRole}`
+                  : "/forgot-password"
+              }
+              className="forgot-password"
+            >
               Forgot Password?
-            </button>
+            </Link>
           </div>
 
           {/* Login button */}

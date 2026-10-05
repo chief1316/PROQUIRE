@@ -13,6 +13,8 @@ import {
 import logo from "./assets/proquire-logo.png";
 
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Register from "./pages/Register";
 import RoleSelection from "./pages/RoleSelection";
 import AdminLogin from "./pages/AdminLogin";
@@ -29,6 +31,7 @@ import Availability from "./pages/technician/Availability";
 import TechnicianPortfolio from "./pages/technician/TechnicianPortfolio";
 import TechnicianVerification from "./pages/technician/TechnicianVerification";
 import TechnicianSubscription from "./pages/technician/TechnicianSubscription";
+import TechnicianSettings from "./pages/technician/TechnicianSettings";
 
 import "./App.css";
 
@@ -417,6 +420,10 @@ function App() {
         {/* Login */}
         <Route path="/login" element={<Login />} />
 
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+
         {/* Registration */}
         <Route path="/register" element={<Register />} />
 
@@ -462,6 +469,8 @@ function App() {
           path="/technician/subscription"
           element={<TechnicianSubscription />}
         />
+
+        <Route path="/technician/settings" element={<TechnicianSettings />} />
       </Routes>
     </BrowserRouter>
   );

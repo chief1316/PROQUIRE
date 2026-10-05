@@ -18,4 +18,26 @@ router.put(
     userController.updateCurrentUser
 );
 
+router.post(
+    "/forgot-password",
+    userController.forgotPassword
+);
+
+router.post(
+    "/reset-password",
+    userController.resetPassword
+);
+
+router.put(
+    "/change-password",
+    authMiddleware,
+    userController.changePassword
+);
+
+router.delete(
+    "/me",
+    authMiddleware,
+    userController.deleteCurrentUser
+);
+
 module.exports = router;

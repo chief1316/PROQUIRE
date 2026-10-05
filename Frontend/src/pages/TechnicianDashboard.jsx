@@ -521,7 +521,7 @@ function TechnicianDashboard() {
               </Link>
 
               <Link
-                to="/technician"
+                to="/technician/settings"
                 style={styles.navItem}
                 onClick={closeMobileMenu}
               >
@@ -576,7 +576,15 @@ function TechnicianDashboard() {
                   style={styles.avatar}
                   className="technician-profile-avatar"
                 >
-                  {technicianName.charAt(0).toUpperCase()}
+                  {user?.profile_photo ? (
+                    <img
+                      src={user.profile_photo}
+                      alt={technicianName}
+                      style={styles.avatarImage}
+                    />
+                  ) : (
+                    technicianName.charAt(0).toUpperCase()
+                  )}
                 </div>
 
                 <div
@@ -1596,6 +1604,14 @@ const styles = {
     borderRadius: "10px",
     color: "#1769e0",
     marginBottom: "13px",
+  },
+
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    objectFit: "cover",
+    display: "block",
   },
 
   logoutButton: {

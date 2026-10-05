@@ -210,3 +210,191 @@ exports.login = (req, res) => {
     );
 
 };
+
+// ==========================================
+// CHANGE PASSWORD
+// ==========================================
+exports.changePassword = async (req, res) => {
+
+    try {
+
+        const userId = req.user.user_id;
+
+        const {
+            current_password,
+            new_password
+        } = req.body;
+
+
+        // ------------------------------------------
+        // Validate required fields
+        // ------------------------------------------
+        if (!current_password || !new_password) {
+
+            return res.status(400).json({
+                message:
+                    "Current password and new password are required."
+            });
+
+        }
+
+
+        // ------------------------------------------
+        // Validate new password length
+        // ------------------------------------------
+        if (new_password.length < 8) {
+
+            return res.status(400).json({
+                message:
+                    "New password must be at least 8 characters long."
+            });
+
+        }
+
+
+        // ------------------------------------------
+        // Get current password
+        // ------------------------------------------
+        db.query(
+            `
+                SELECT password
+                FROM users
+                WHERE user_id = ?
+            `,
+            [userId],
+            async (err, results) => {
+
+                if (err) {
+
+                    console.error(
+                        "Error retrieving password:",
+                        err
+                    );
+
+                    return res.status(500).json({
+                        message:
+                            "Unable to change password."
+                    });
+
+                }
+
+
+                if (results.length === 0) {
+
+                    return res.status(404).json({
+                        message:
+                            "User account not found."
+                    });
+
+                }
+
+
+                const user = results[0];
+
+
+                // ------------------------------------------
+                // Verify current password
+                // ------------------------------------------
+                const passwordMatches =
+                    await bcrypt.compare(
+                        current_password,
+                        user.password
+                    );
+
+
+                if (!passwordMatches) {
+
+                    return res.status(401).json({
+                        message:
+                            "Current password is incorrect."
+                    });
+
+                }
+
+
+                // ------------------------------------------
+                // Prevent using the same password
+                // ------------------------------------------
+                const samePassword =
+                    await bcrypt.compare(
+                        new_password,
+                        user.password
+                    );
+
+
+                if (samePassword) {
+
+                    return res.status(400).json({
+                        message:
+                            "Your new password must be different from your current password."
+                    });
+
+                }
+
+
+                // ------------------------------------------
+                // Hash new password
+                // ------------------------------------------
+                const hashedPassword =
+                    await bcrypt.hash(
+                        new_password,
+                        10
+                    );
+
+
+                // ------------------------------------------
+                // Update password
+                // ------------------------------------------
+                db.query(
+                    `
+                        UPDATE users
+                        SET password = ?
+                        WHERE user_id = ?
+                    `,
+                    [
+                        hashedPassword,
+                        userId
+                    ],
+                    (updateError) => {
+
+                        if (updateError) {
+
+                            console.error(
+                                "Error updating password:",
+                                updateError
+                            );
+
+                            return res.status(500).json({
+                                message:
+                                    "Unable to change password."
+                            });
+
+                        }
+
+
+                        return res.status(200).json({
+                            message:
+                                "Password changed successfully."
+                        });
+
+                    }
+                );
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Change password error:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Unable to change password."
+        });
+
+    }
+
+};
