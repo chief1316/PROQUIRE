@@ -1,6 +1,7 @@
 const agencyModel = require("../models/agencyModel");
 const db = require("../config/db");
 
+
 /*
 |--------------------------------------------------------------------------
 | Create Agency Profile
@@ -11,121 +12,151 @@ const createAgency = (req, res) => {
 
     // Only agencies can create agency profiles
     if (req.user.role !== "agency") {
+
         return res.status(403).json({
-            message: "Only agency accounts can create agency profiles."
+            message:
+                "Only agency accounts can create agency profiles."
         });
+
     }
 
     // Check if the logged-in user already has an agency profile
-    agencyModel.getAgencyByUserId(req.user.user_id, (err, agencies) => {
+    agencyModel.getAgencyByUserId(
+        req.user.user_id,
+        (err, agencies) => {
 
-        if (err) {
-            return res.status(500).json(err);
-        }
+            if (err) {
 
-        if (agencies.length > 0) {
-            return res.status(400).json({
-                message: "Agency profile already exists."
-            });
-        }
+                return res.status(500).json(err);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Get contact details from the users table
-        |--------------------------------------------------------------------------
-        */
+            }
 
-        const userSql = `
-            SELECT
-                email,
-                phone
-            FROM users
-            WHERE user_id = ?
-        `;
+            if (agencies.length > 0) {
 
-        db.query(
-            userSql,
-            [req.user.user_id],
-            (userErr, userResults) => {
+                return res.status(400).json({
+                    message:
+                        "Agency profile already exists."
+                });
 
-                if (userErr) {
-                    return res.status(500).json({
-                        message: "Failed to retrieve agency contact details.",
-                        error: userErr
-                    });
-                }
+            }
 
-                if (userResults.length === 0) {
-                    return res.status(404).json({
-                        message: "Agency user account not found."
-                    });
-                }
 
-                const user = userResults[0];
+            /*
+            |--------------------------------------------------------------------------
+            | Get contact details from users table
+            |--------------------------------------------------------------------------
+            */
 
-                /*
-                |--------------------------------------------------------------------------
-                | Create agency profile
-                |--------------------------------------------------------------------------
-                */
+            const userSql = `
+                SELECT
+                    email,
+                    phone
+                FROM users
+                WHERE user_id = ?
+            `;
 
-                const agencyData = {
+            db.query(
+                userSql,
+                [req.user.user_id],
+                (userErr, userResults) => {
 
-                    user_id: req.user.user_id,
+                    if (userErr) {
 
-                    company_name: req.body.company_name,
-
-                    registration_number:
-                        req.body.registration_number,
-
-                    kra_pin:
-                        req.body.kra_pin,
-
-                    // Retrieved automatically from users table
-                    email: user.email,
-
-                    // Retrieved automatically from users table
-                    phone: user.phone,
-
-                    county:
-                        req.body.county,
-
-                    address:
-                        req.body.address,
-
-                    description:
-                        req.body.description,
-
-                    logo:
-                        req.file ? req.file.path : null
-                };
-
-                agencyModel.createAgency(
-                    agencyData,
-                    (err, result) => {
-
-                        if (err) {
-                            return res.status(500).json({
-                                message:
-                                    "Failed to create agency profile.",
-                                error: err
-                            });
-                        }
-
-                        res.status(201).json({
+                        return res.status(500).json({
                             message:
-                                "Agency profile created successfully.",
-                            agency_id:
-                                result.insertId
+                                "Failed to retrieve agency contact details.",
+                            error: userErr
                         });
 
                     }
-                );
 
-            }
-        );
+                    if (userResults.length === 0) {
 
-    });
+                        return res.status(404).json({
+                            message:
+                                "Agency user account not found."
+                        });
+
+                    }
+
+                    const user = userResults[0];
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Create agency profile
+                    |--------------------------------------------------------------------------
+                    */
+
+                    const agencyData = {
+
+                        user_id:
+                            req.user.user_id,
+
+                        company_name:
+                            req.body.company_name,
+
+                        registration_number:
+                            req.body.registration_number,
+
+                        kra_pin:
+                            req.body.kra_pin,
+
+                        email:
+                            user.email,
+
+                        phone:
+                            user.phone,
+
+                        county:
+                            req.body.county,
+
+                        address:
+                            req.body.address,
+
+                        description:
+                            req.body.description,
+
+                        logo:
+                            req.file
+                                ? req.file.path
+                                : null
+
+                    };
+
+
+                    agencyModel.createAgency(
+                        agencyData,
+                        (err, result) => {
+
+                            if (err) {
+
+                                return res.status(500).json({
+                                    message:
+                                        "Failed to create agency profile.",
+                                    error: err
+                                });
+
+                            }
+
+                            res.status(201).json({
+
+                                message:
+                                    "Agency profile created successfully.",
+
+                                agency_id:
+                                    result.insertId
+
+                            });
+
+                        }
+                    );
+
+                }
+            );
+
+        }
+    );
 
 };
 
@@ -138,18 +169,23 @@ const createAgency = (req, res) => {
 
 const getAllAgencies = (req, res) => {
 
-    agencyModel.getAllAgencies((err, result) => {
+    agencyModel.getAllAgencies(
+        (err, result) => {
 
-        if (err) {
-            return res.status(500).json({
-                message: "Failed to fetch agencies.",
-                error: err
-            });
+            if (err) {
+
+                return res.status(500).json({
+                    message:
+                        "Failed to fetch agencies.",
+                    error: err
+                });
+
+            }
+
+            res.status(200).json(result);
+
         }
-
-        res.status(200).json(result);
-
-    });
+    );
 
 };
 
@@ -162,21 +198,29 @@ const getAllAgencies = (req, res) => {
 
 const getAgencyById = (req, res) => {
 
-    agencyModel.getAgencyById(req.params.id, (err, result) => {
+    agencyModel.getAgencyById(
+        req.params.id,
+        (err, result) => {
 
-        if (err) {
-            return res.status(500).json(err);
+            if (err) {
+
+                return res.status(500).json(err);
+
+            }
+
+            if (result.length === 0) {
+
+                return res.status(404).json({
+                    message:
+                        "Agency not found."
+                });
+
+            }
+
+            res.json(result[0]);
+
         }
-
-        if (result.length === 0) {
-            return res.status(404).json({
-                message: "Agency not found."
-            });
-        }
-
-        res.json(result[0]);
-
-    });
+    );
 
 };
 
@@ -194,13 +238,18 @@ const getMyAgency = (req, res) => {
         (err, result) => {
 
             if (err) {
+
                 return res.status(500).json(err);
+
             }
 
             if (result.length === 0) {
+
                 return res.status(404).json({
-                    message: "Agency profile not found."
+                    message:
+                        "Agency profile not found."
                 });
+
             }
 
             res.json(result[0]);
@@ -225,24 +274,32 @@ const updateAgency = (req, res) => {
         (err, result) => {
 
             if (err) {
+
                 return res.status(500).json(err);
+
             }
 
             if (result.length === 0) {
+
                 return res.status(404).json({
-                    message: "Agency not found."
+                    message:
+                        "Agency not found."
                 });
+
             }
 
             if (
                 result[0].user_id !==
                 req.user.user_id
             ) {
+
                 return res.status(403).json({
                     message:
                         "You are not allowed to update this agency."
                 });
+
             }
+
 
             /*
             |--------------------------------------------------------------------------
@@ -264,21 +321,26 @@ const updateAgency = (req, res) => {
                 (userErr, userResults) => {
 
                     if (userErr) {
+
                         return res.status(500).json({
                             message:
                                 "Failed to retrieve agency contact details.",
                             error: userErr
                         });
+
                     }
 
                     if (userResults.length === 0) {
+
                         return res.status(404).json({
                             message:
                                 "Agency user account not found."
                         });
+
                     }
 
                     const user = userResults[0];
+
 
                     const agencyData = {
 
@@ -291,8 +353,6 @@ const updateAgency = (req, res) => {
                         kra_pin:
                             req.body.kra_pin,
 
-                        // Keep agency contact details
-                        // synchronized with users table
                         email:
                             user.email,
 
@@ -315,13 +375,16 @@ const updateAgency = (req, res) => {
 
                     };
 
+
                     agencyModel.updateAgency(
                         req.params.id,
                         agencyData,
                         (err) => {
 
                             if (err) {
+
                                 return res.status(500).json(err);
+
                             }
 
                             res.json({
@@ -354,23 +417,30 @@ const deleteAgency = (req, res) => {
         (err, result) => {
 
             if (err) {
+
                 return res.status(500).json(err);
+
             }
 
             if (result.length === 0) {
+
                 return res.status(404).json({
-                    message: "Agency not found."
+                    message:
+                        "Agency not found."
                 });
+
             }
 
             if (
                 result[0].user_id !==
                 req.user.user_id
             ) {
+
                 return res.status(403).json({
                     message:
                         "You are not allowed to delete this agency."
                 });
+
             }
 
             agencyModel.deleteAgency(
@@ -378,7 +448,9 @@ const deleteAgency = (req, res) => {
                 (err) => {
 
                     if (err) {
+
                         return res.status(500).json(err);
+
                     }
 
                     res.json({
@@ -388,6 +460,164 @@ const deleteAgency = (req, res) => {
 
                 }
             );
+
+        }
+    );
+
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| Get Pending Agencies
+|--------------------------------------------------------------------------
+*/
+
+const getPendingAgencies = (req, res) => {
+
+    const sql = `
+        SELECT
+            agency_id,
+            user_id,
+            company_name,
+            registration_number,
+            kra_pin,
+            email,
+            phone,
+            county,
+            address,
+            description,
+            logo,
+            is_verified,
+            created_at,
+            updated_at
+        FROM agency_profiles
+        WHERE is_verified = 0
+        ORDER BY agency_id DESC
+    `;
+
+
+    db.query(
+        sql,
+        (err, result) => {
+
+            if (err) {
+
+                console.error(
+                    "Failed to fetch pending agencies:",
+                    err
+                );
+
+                return res.status(500).json({
+                    message:
+                        "Failed to fetch pending agencies.",
+                    error: err
+                });
+
+            }
+
+
+            console.log(
+                `Pending agencies fetched: ${result.length}`
+            );
+
+
+            res.status(200).json(result);
+
+        }
+    );
+
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| Verify Agency
+|--------------------------------------------------------------------------
+*/
+
+const verifyAgency = (req, res) => {
+
+    const agencyId = req.params.id;
+
+
+    if (!agencyId) {
+
+        return res.status(400).json({
+            message:
+                "Agency ID is required."
+        });
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | IMPORTANT
+    |
+    | The actual database table is:
+    |
+    | agency_profiles
+    |
+    | NOT:
+    |
+    | agencies
+    |--------------------------------------------------------------------------
+    */
+
+    const sql = `
+        UPDATE agency_profiles
+        SET
+            is_verified = 1
+        WHERE agency_id = ?
+    `;
+
+
+    db.query(
+        sql,
+        [agencyId],
+        (err, result) => {
+
+            if (err) {
+
+                console.error(
+                    "Failed to verify agency:",
+                    err
+                );
+
+                return res.status(500).json({
+                    message:
+                        "Failed to verify agency.",
+                    error: err
+                });
+
+            }
+
+
+            if (result.affectedRows === 0) {
+
+                return res.status(404).json({
+                    message:
+                        "Agency not found."
+                });
+
+            }
+
+
+            console.log(
+                `Agency ${agencyId} verified successfully.`
+            );
+
+
+            res.status(200).json({
+
+                message:
+                    "Agency verified successfully.",
+
+                agency_id:
+                    Number(agencyId)
+
+            });
 
         }
     );
@@ -408,6 +638,8 @@ module.exports = {
     getAgencyById,
     getMyAgency,
     updateAgency,
-    deleteAgency
+    deleteAgency,
+    getPendingAgencies,
+    verifyAgency
 
 };

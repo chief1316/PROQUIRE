@@ -165,7 +165,10 @@ function AgencyDashboard() {
 
           <button
             className="agency-nav-item"
-            onClick={() => navigate("/agency/profile-setup")}
+            onClick={() => {
+              navigate("/agency/profile");
+              setSidebarOpen(false);
+            }}
           >
             <Building2 size={19} />
             <span>Agency Profile</span>
@@ -453,10 +456,13 @@ function AgencyDashboard() {
                 <span>Manage Technicians</span>
               </button>
 
-              <button className="agency-quick-action">
+              <button
+                className="agency-quick-action"
+                onClick={() => navigate("/agency/profile")}
+              >
                 <Building2 size={22} />
 
-                <span>Edit Agency Profile</span>
+                <span>View Agency Profile</span>
               </button>
 
               <button className="agency-quick-action">

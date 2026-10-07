@@ -23,6 +23,7 @@ import TechnicianDashboard from "./pages/TechnicianDashboard";
 import TechnicianProfile from "./pages/TechnicianProfile";
 import AgencyRegister from "./pages/AgencyRegister";
 import AgencyProfileSetup from "./pages/AgencyProfileSetup";
+import AgencyProfile from "./pages/AgencyProfile";
 import AgencyDashboard from "./pages/AgencyDashboard";
 import AgencyTechnicians from "./pages/AgencyTechnicians";
 import AgencyTechnicianDetails from "./pages/AgencyTechnicianDetails";
@@ -444,6 +445,9 @@ function App() {
 
         {/* Agency Profile Setup */}
         <Route path="/agency/profile-setup" element={<AgencyProfileSetup />} />
+
+        {/* Existing Agency Profile */}
+        <Route path="/agency/profile" element={<AgencyProfile />} />
 
         {/* Agency Dashboard */}
         <Route path="/agency" element={<AgencyDashboard />} />

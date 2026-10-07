@@ -6,12 +6,15 @@ const agencyController = require("../controllers/agencyController");
 
 const verifyToken = require("../middleware/authMiddleware");
 
+const isAdmin = require("../middleware/adminMiddleware");
+
 const upload = require("../middleware/uploadMiddleware");
 
 
-// =========================
+// ==========================================================
 // Create agency profile
-// =========================
+// ==========================================================
+
 router.post(
     "/",
     verifyToken,
@@ -20,9 +23,9 @@ router.post(
 );
 
 
-// =========================
+// ==========================================================
 // Get all agencies
-// =========================
+// ==========================================================
 
 router.get(
     "/",
@@ -30,9 +33,10 @@ router.get(
 );
 
 
-// =========================
-// Get logged in agency
-// =========================
+// ==========================================================
+// Get logged-in agency
+// ==========================================================
+
 router.get(
     "/me",
     verifyToken,
@@ -40,18 +44,46 @@ router.get(
 );
 
 
-// =========================
+// ==========================================================
+// Get pending agencies
+// ADMIN ONLY
+// ==========================================================
+
+router.get(
+    "/pending/list",
+    verifyToken,
+    isAdmin,
+    agencyController.getPendingAgencies
+);
+
+
+// ==========================================================
+// Verify agency
+// ADMIN ONLY
+// ==========================================================
+
+router.patch(
+    "/verify/:id",
+    verifyToken,
+    isAdmin,
+    agencyController.verifyAgency
+);
+
+
+// ==========================================================
 // Get agency by ID
-// =========================
+// ==========================================================
+
 router.get(
     "/:id",
     agencyController.getAgencyById
 );
 
 
-// =========================
-// Update logged in agency
-// =========================
+// ==========================================================
+// Update agency
+// ==========================================================
+
 router.put(
     "/:id",
     verifyToken,
@@ -60,13 +92,15 @@ router.put(
 );
 
 
-// =========================
-// Delete agency by ID
-// =========================
+// ==========================================================
+// Delete agency
+// ==========================================================
+
 router.delete(
     "/:id",
     verifyToken,
     agencyController.deleteAgency
 );
+
 
 module.exports = router;

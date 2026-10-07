@@ -23,8 +23,17 @@ function AdminDashboard() {
   const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
+
   const [pendingTechnicians, setPendingTechnicians] = useState([]);
+
+  const [pendingAgencies, setPendingAgencies] = useState([]);
+
   const [selectedTechnician, setSelectedTechnician] = useState(null);
+
+  const [selectedAgency, setSelectedAgency] = useState(null);
+
+  const [verifyingAgency, setVerifyingAgency] = useState(false);
+
   const [selectedDocument, setSelectedDocument] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -72,15 +81,24 @@ function AdminDashboard() {
         return;
       }
 
-      const [usersResponse, pendingResponse] = await Promise.all([
-        axios.get("http://localhost:5000/api/admin/users", getAuthHeaders()),
-        axios.get(
-          "http://localhost:5000/api/technicians/pending/list",
-          getAuthHeaders(),
-        ),
-      ]);
+      const [usersResponse, pendingResponse, pendingAgenciesResponse] =
+        await Promise.all([
+          axios.get("http://localhost:5000/api/admin/users", getAuthHeaders()),
+
+          axios.get(
+            "http://localhost:5000/api/technicians/pending/list",
+            getAuthHeaders(),
+          ),
+
+          axios.get(
+            "http://localhost:5000/api/agencies/pending/list",
+            getAuthHeaders(),
+          ),
+        ]);
 
       setUsers(usersResponse.data || []);
+
+      setPendingAgencies(pendingAgenciesResponse.data || []);
 
       /*
        * The backend can return multiple rows for one
@@ -209,6 +227,51 @@ function AdminDashboard() {
       setError(err.response?.data?.message || "Unable to verify technician.");
     } finally {
       setVerifying(false);
+    }
+  };
+
+  /*
+   * ==========================================
+   * VERIFY AGENCY
+   * ==========================================
+   */
+
+  const handleVerifyAgency = async () => {
+    if (!selectedAgency) {
+      return;
+    }
+
+    const agencyId = selectedAgency.agency_id;
+
+    try {
+      setVerifyingAgency(true);
+
+      setError("");
+
+      setSuccess("");
+
+      const response = await axios.patch(
+        `http://localhost:5000/api/agencies/verify/${agencyId}`,
+        {},
+        getAuthHeaders(),
+      );
+
+      setSuccess(response.data?.message || "Agency verified successfully.");
+
+      setSelectedAgency(null);
+
+      /*
+       * Reload dashboard so the verified
+       * agency disappears from pending.
+       */
+
+      await loadDashboardData();
+    } catch (err) {
+      console.error("Agency verification error:", err);
+
+      setError(err.response?.data?.message || "Unable to verify agency.");
+    } finally {
+      setVerifyingAgency(false);
     }
   };
 
@@ -505,6 +568,14 @@ function AdminDashboard() {
           {/* Agencies */}
 
           <button
+            onClick={() =>
+              document
+                .getElementById("pending-agencies-section")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+            }
             style={{
               width: "100%",
               border: "none",
@@ -976,12 +1047,17 @@ function AdminDashboard() {
           >
             {/* Recent Users */}
 
+            {/* Recent Users */}
+
             <div
               style={{
                 background: "#ffffff",
                 border: "1px solid #e2e8f0",
                 borderRadius: "14px",
                 overflow: "hidden",
+                height: "420px",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div
@@ -1038,6 +1114,8 @@ function AdminDashboard() {
                 <div
                   style={{
                     overflowX: "auto",
+                    overflowY: "auto",
+                    flex: 1,
                   }}
                 >
                   <table
@@ -1176,6 +1254,9 @@ function AdminDashboard() {
                 border: "1px solid #e2e8f0",
                 borderRadius: "14px",
                 overflow: "hidden",
+                height: "420px",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div
@@ -1233,8 +1314,13 @@ function AdminDashboard() {
                   </div>
                 </div>
               ) : (
-                <div>
-                  {pendingTechnicians.slice(0, 6).map((technician) => (
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                  }}
+                >
+                  {pendingTechnicians.map((technician) => (
                     <div
                       key={technician.technician_id}
                       style={{
@@ -1298,6 +1384,194 @@ function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* ==================================
+    PENDING AGENCY VERIFICATION
+================================== */}
+
+          <div
+            id="pending-agencies-section"
+            style={{
+              marginTop: "22px",
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "14px",
+              overflow: "hidden",
+              maxHeight: "420px",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Header */}
+
+            <div
+              style={{
+                padding: "18px 20px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    fontWeight: "700",
+                  }}
+                >
+                  Pending Agency Verification
+                </h2>
+
+                <p
+                  style={{
+                    margin: "5px 0 0",
+                    fontSize: "12px",
+                    color: "#64748b",
+                  }}
+                >
+                  Agencies waiting for administrator verification.
+                </p>
+              </div>
+
+              <span
+                style={{
+                  background: "#fff7ed",
+                  color: "#ea580c",
+                  padding: "5px 9px",
+                  borderRadius: "999px",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                }}
+              >
+                {pendingAgencies.length}
+              </span>
+            </div>
+
+            {/* Empty State */}
+
+            {pendingAgencies.length === 0 ? (
+              <div
+                style={{
+                  padding: "35px 20px",
+                  textAlign: "center",
+                  color: "#64748b",
+                  fontSize: "13px",
+                }}
+              >
+                <CheckCircle
+                  size={30}
+                  style={{
+                    marginBottom: "8px",
+                    color: "#16a34a",
+                  }}
+                />
+
+                <div>No agencies are currently waiting for verification.</div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  overflowY: "auto",
+                  flex: 1,
+                }}
+              >
+                {pendingAgencies.map((agency) => (
+                  <div
+                    key={agency.agency_id}
+                    style={{
+                      padding: "18px 20px",
+                      borderBottom: "1px solid #f1f5f9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "20px",
+                    }}
+                  >
+                    {/* Agency information */}
+
+                    <div
+                      style={{
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "14px",
+                          fontWeight: "700",
+                          color: "#0f172a",
+                        }}
+                      >
+                        {agency.company_name || "Unnamed Agency"}
+                      </p>
+
+                      <p
+                        style={{
+                          margin: "5px 0 0",
+                          fontSize: "12px",
+                          color: "#64748b",
+                        }}
+                      >
+                        Registration:{" "}
+                        {agency.registration_number || "Not provided"}
+                      </p>
+
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          fontSize: "12px",
+                          color: "#64748b",
+                        }}
+                      >
+                        County: {agency.county || "Not provided"}
+                      </p>
+
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          fontSize: "12px",
+                          color: "#64748b",
+                        }}
+                      >
+                        Email: {agency.email || "Not provided"}
+                      </p>
+                    </div>
+
+                    {/* Review button */}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError("");
+                        setSuccess("");
+                        setSelectedAgency(agency);
+                      }}
+                      style={{
+                        border: "none",
+                        background: "#2563eb",
+                        color: "#ffffff",
+                        padding: "8px 12px",
+                        borderRadius: "7px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Eye size={14} />
+                      Review
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ==================================
@@ -1755,6 +2029,226 @@ function AdminDashboard() {
                 <CheckCircle size={16} />
 
                 {verifying ? "Verifying..." : "Approve & Verify"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================
+          AGENCY REVIEW MODAL
+      ====================================== */}
+
+      {selectedAgency && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 1100,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "620px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#ffffff",
+              borderRadius: "16px",
+              boxShadow: "0 20px 60px rgba(15, 23, 42, 0.2)",
+            }}
+          >
+            {/* Header */}
+
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                    fontWeight: "700",
+                    color: "#0f172a",
+                  }}
+                >
+                  Agency Verification
+                </h2>
+
+                <p
+                  style={{
+                    margin: "5px 0 0",
+                    fontSize: "12px",
+                    color: "#64748b",
+                  }}
+                >
+                  Review the agency's submitted business information.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedAgency(null)}
+                disabled={verifyingAgency}
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  color: "#475569",
+                  width: "35px",
+                  height: "35px",
+                  borderRadius: "8px",
+                  cursor: verifyingAgency ? "not-allowed" : "pointer",
+                  fontSize: "20px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Agency Details */}
+
+            <div
+              style={{
+                padding: "24px",
+              }}
+            >
+              {[
+                ["Company Name", selectedAgency.company_name],
+                ["Registration Number", selectedAgency.registration_number],
+                ["KRA PIN", selectedAgency.kra_pin],
+                ["Business Email", selectedAgency.email],
+                ["Business Phone", selectedAgency.phone],
+                ["County", selectedAgency.county],
+                ["Address", selectedAgency.address],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "20px",
+                    padding: "13px 0",
+                    borderBottom: "1px solid #f1f5f9",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "#64748b",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {label}
+                  </span>
+
+                  <strong
+                    style={{
+                      fontSize: "13px",
+                      color: "#0f172a",
+                      textAlign: "right",
+                      maxWidth: "65%",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {value || "Not provided"}
+                  </strong>
+                </div>
+              ))}
+
+              {/* Description */}
+
+              <div
+                style={{
+                  marginTop: "20px",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    color: "#334155",
+                  }}
+                >
+                  Business Description
+                </p>
+
+                <div
+                  style={{
+                    padding: "14px",
+                    background: "#f8fafc",
+                    borderRadius: "10px",
+                    color: "#475569",
+                    fontSize: "13px",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  {selectedAgency.description || "No description provided."}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+
+            <div
+              style={{
+                padding: "18px 24px",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedAgency(null)}
+                disabled={verifyingAgency}
+                style={{
+                  padding: "10px 17px",
+                  border: "1px solid #cbd5e1",
+                  background: "#ffffff",
+                  color: "#475569",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: verifyingAgency ? "not-allowed" : "pointer",
+                }}
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={handleVerifyAgency}
+                disabled={verifyingAgency}
+                style={{
+                  padding: "10px 17px",
+                  border: "none",
+                  background: verifyingAgency ? "#93c5fd" : "#16a34a",
+                  color: "#ffffff",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: verifyingAgency ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "7px",
+                }}
+              >
+                <CheckCircle size={16} />
+
+                {verifyingAgency ? "Verifying..." : "Approve & Verify"}
               </button>
             </div>
           </div>
