@@ -103,6 +103,7 @@ function ClientDashboard() {
   const [user, setUser] = useState(null);
 
   const [technicians, setTechnicians] = useState([]);
+  const [agencies, setAgencies] = useState([]);
   const [categories, setCategories] = useState([]);
   const [requests, setRequests] = useState([]);
 
@@ -113,6 +114,7 @@ function ClientDashboard() {
   const [activeTab, setActiveTab] = useState("find");
 
   const [selectedTechnician, setSelectedTechnician] = useState(null);
+  const [selectedAgency, setSelectedAgency] = useState(null);
 
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
@@ -300,13 +302,19 @@ function ClientDashboard() {
     setError("");
 
     try {
-      const [technicianResponse, categoryResponse] = await Promise.all([
-        axios.get(`${API}/technicians`),
-        axios.get(`${API}/categories`),
-      ]);
+      const [technicianResponse, categoryResponse, agencyResponse] =
+        await Promise.all([
+          axios.get(`${API}/technicians`),
+          axios.get(`${API}/categories`),
+          axios.get(`${API}/agencies`),
+        ]);
 
       setTechnicians(
         Array.isArray(technicianResponse.data) ? technicianResponse.data : [],
+      );
+
+      setAgencies(
+        Array.isArray(agencyResponse.data) ? agencyResponse.data : [],
       );
 
       setCategories(
@@ -668,6 +676,30 @@ function ClientDashboard() {
     });
   }, [technicians, search, location, category]);
 
+  const verifiedAgencies = useMemo(() => {
+    return agencies.filter((agency) => {
+      const query = search.toLowerCase().trim();
+      const selectedLocation = location.toLowerCase().trim();
+
+      const name = (agency.company_name || "").toLowerCase();
+      const description = (agency.description || "").toLowerCase();
+      const county = (agency.county || "").toLowerCase();
+      const address = (agency.address || "").toLowerCase();
+
+      const matchesSearch =
+        !query || name.includes(query) || description.includes(query);
+
+      const matchesLocation =
+        !selectedLocation ||
+        county.includes(selectedLocation) ||
+        address.includes(selectedLocation);
+
+      return (
+        Number(agency.is_verified) === 1 && matchesSearch && matchesLocation
+      );
+    });
+  }, [agencies, search, location]);
+
   // --------------------------------------------------
   // SERVICE REQUEST MODAL
   // --------------------------------------------------
@@ -687,10 +719,23 @@ function ClientDashboard() {
     setRequestError("");
   };
 
+  const openAgencyRequestForm = (agency) => {
+    setSelectedAgency(agency);
+    setSelectedTechnician(null);
+
+    setDescription("");
+    setAddress("");
+    setServiceDate("");
+    setServiceTime("");
+    setTechnicianAvailability([]);
+    setAvailabilityError("");
+  };
+
   const closeRequestForm = () => {
     if (submitting) return;
 
     setSelectedTechnician(null);
+    setSelectedAgency(null);
     setRequestError("");
   };
 
@@ -705,7 +750,7 @@ function ClientDashboard() {
   const submitServiceRequest = async (event) => {
     event.preventDefault();
 
-    if (!selectedTechnician) return;
+    if (!selectedTechnician && !selectedAgency) return;
 
     if (
       !description.trim() ||
@@ -713,13 +758,15 @@ function ClientDashboard() {
       !serviceDate ||
       !serviceTime
     ) {
-      setRequestError(
-        "Please complete all fields and select an available appointment time.",
-      );
+      setRequestError("Please complete all fields and select a service time.");
       return;
     }
 
-    if (availabilityLoading || technicianAvailability.length === 0) {
+    // Technician requests require confirmed availability.
+    if (
+      selectedTechnician &&
+      (availabilityLoading || technicianAvailability.length === 0)
+    ) {
       setRequestError(
         "There is no confirmed availability for the selected date.",
       );
@@ -731,23 +778,25 @@ function ClientDashboard() {
     setSuccess("");
 
     try {
-      await axios.post(
-        `${API}/service-requests`,
-        {
-          technician_id: selectedTechnician.technician_id,
+      const requestData = {
+        service_description: description.trim(),
+        service_address: address.trim(),
+        service_date: serviceDate,
+        service_time: serviceTime,
+      };
 
-          service_description: description.trim(),
+      if (selectedTechnician) {
+        requestData.technician_id = selectedTechnician.technician_id;
+      }
 
-          service_address: address.trim(),
+      if (selectedAgency) {
+        requestData.agency_id = selectedAgency.agency_id;
+      }
 
-          service_date: serviceDate,
-
-          service_time: serviceTime,
-        },
-        authConfig,
-      );
+      await axios.post(`${API}/service-requests`, requestData, authConfig);
 
       setSelectedTechnician(null);
+      setSelectedAgency(null);
 
       setSuccess("Your service request has been submitted successfully.");
 
@@ -1038,7 +1087,8 @@ function ClientDashboard() {
                   <div className="client-spinner" />
                   <p>Finding professionals for you...</p>
                 </div>
-              ) : filteredTechnicians.length === 0 ? (
+              ) : filteredTechnicians.length === 0 &&
+                verifiedAgencies.length === 0 ? (
                 <div className="client-empty">
                   <div className="client-empty-icon">
                     <Search size={30} />
@@ -1110,6 +1160,58 @@ function ClientDashboard() {
                         <button
                           type="button"
                           onClick={() => openRequestForm(technician)}
+                        >
+                          Request Service
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                  {verifiedAgencies.map((agency) => (
+                    <article
+                      className="client-technician-card"
+                      key={`agency-${agency.agency_id}`}
+                    >
+                      <div className="client-card-top">
+                        <div className="client-technician-avatar">
+                          <ShieldCheck size={27} />
+                        </div>
+
+                        <div className="client-verified">
+                          <ShieldCheck size={15} />
+                          Verified Agency
+                        </div>
+                      </div>
+
+                      <h3>{agency.company_name || "Professional Agency"}</h3>
+
+                      <span className="client-technician-category">
+                        Professional Agency
+                      </span>
+
+                      <div className="client-card-meta">
+                        <span>
+                          <MapPin size={15} />
+                          {agency.county ||
+                            agency.address ||
+                            "Location not specified"}
+                        </span>
+                      </div>
+
+                      <p className="client-technician-bio">
+                        {agency.description ||
+                          "This verified agency has not added a description yet."}
+                      </p>
+
+                      <div className="client-card-footer">
+                        <span className="client-rating">
+                          <ShieldCheck size={16} />
+                          Verified Agency
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => openAgencyRequestForm(agency)}
                         >
                           Request Service
                           <ArrowRight size={16} />
@@ -1203,8 +1305,10 @@ function ClientDashboard() {
                       )}
 
                       <span className="client-request-technician">
-                        Technician:{" "}
-                        {request.technician_name || "Assigned professional"}
+                        {request.agency ? "Agency: " : "Technician: "}
+                        {request.agency ||
+                          request.technician_name ||
+                          "Not assigned yet"}
                       </span>
 
                       {/* TECHNICIAN CONTACT DETAILS
@@ -1568,7 +1672,7 @@ function ClientDashboard() {
           SERVICE REQUEST MODAL
       ========================================== */}
 
-      {selectedTechnician && (
+      {(selectedTechnician || selectedAgency) && (
         <div className="client-modal-overlay" onClick={closeRequestForm}>
           <div
             className="client-request-modal"
@@ -1582,7 +1686,11 @@ function ClientDashboard() {
 
                 <p>
                   Send a request to{" "}
-                  <strong>{selectedTechnician.full_name}</strong>.
+                  <strong>
+                    {selectedAgency?.company_name ||
+                      selectedTechnician?.full_name}
+                  </strong>
+                  .
                 </p>
               </div>
 
@@ -1652,7 +1760,7 @@ function ClientDashboard() {
 
               {/* AVAILABLE APPOINTMENT TIMES */}
 
-              {serviceDate && (
+              {selectedTechnician && serviceDate && (
                 <div className="client-availability-section">
                   <label>Available appointment times</label>
 
@@ -1699,6 +1807,21 @@ function ClientDashboard() {
                 </div>
               )}
 
+              {selectedAgency && serviceDate && (
+                <label>
+                  Preferred service time
+                  <input
+                    type="time"
+                    value={serviceTime}
+                    onChange={(event) => {
+                      setServiceTime(event.target.value);
+                      setRequestError("");
+                    }}
+                    required
+                  />
+                </label>
+              )}
+
               {/* REQUEST FORM ACTIONS */}
 
               <div className="client-modal-actions">
@@ -1719,7 +1842,7 @@ function ClientDashboard() {
                     availabilityLoading ||
                     !serviceDate ||
                     !serviceTime ||
-                    technicianAvailability.length === 0
+                    (selectedTechnician && technicianAvailability.length === 0)
                   }
                 >
                   {submitting ? "Submitting..." : "Submit Service Request"}

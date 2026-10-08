@@ -60,7 +60,6 @@ const createAgency = (agencyData, callback) => {
 */
 
 const getAllAgencies = (callback) => {
-
     db.query(
         `
         SELECT
@@ -72,11 +71,11 @@ const getAllAgencies = (callback) => {
             logo,
             is_verified
         FROM agency_profiles
+        WHERE is_verified = 1
         ORDER BY company_name ASC
         `,
         callback
     );
-
 };
 
 
@@ -185,6 +184,52 @@ const deleteAgency = (agencyId, callback) => {
 
 };
 
+/*
+|--------------------------------------------------------------------------
+| Get Technicians Belonging To An Agency
+|--------------------------------------------------------------------------
+*/
+
+const getAgencyTechnicians = (agencyId, callback) => {
+
+    const sql = `
+        SELECT
+            tp.technician_id,
+            tp.user_id,
+            u.full_name,
+            u.email,
+            u.phone,
+            tp.category_id,
+            c.category_name,
+            tp.bio,
+            tp.years_experience,
+            tp.location,
+            tp.employment_type,
+            tp.agency_id,
+            tp.is_verified
+        FROM technician_profiles tp
+
+        JOIN users u
+            ON tp.user_id = u.user_id
+
+        JOIN categories c
+            ON tp.category_id = c.category_id
+
+        WHERE tp.agency_id = ?
+        AND tp.employment_type = 'Agency'
+        AND tp.is_verified = 1
+
+        ORDER BY u.full_name ASC
+    `;
+
+    db.query(
+        sql,
+        [agencyId],
+        callback
+    );
+
+};
+
 
 /*
 |--------------------------------------------------------------------------
@@ -198,6 +243,7 @@ module.exports = {
     getAllAgencies,
     getAgencyById,
     getAgencyByUserId,
+    getAgencyTechnicians,
     updateAgency,
     deleteAgency
 

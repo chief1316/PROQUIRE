@@ -42,3 +42,5 @@ desktop.ini
 # Local test artifacts
 test-national-id.png.png
 test_id_2.png
+
+/Database/proquire.sql

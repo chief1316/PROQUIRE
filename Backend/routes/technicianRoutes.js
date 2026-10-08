@@ -15,7 +15,8 @@ const {
     uploadVerificationDocument,
     getPendingTechnicians,
     getAIVerificationResults,
-    reviewVerificationDocument
+    reviewVerificationDocument,
+    getMyAgencyTechnicians
 } = require("../controllers/technicianController");
 
 // Middleware
@@ -71,6 +72,13 @@ router.put(
     updateMyProfile
 );
 console.log("PUT MY-PROFILE ROUTE REGISTERED");
+
+
+router.get(
+    "/agency/my-technicians",
+    verifyToken,
+    getMyAgencyTechnicians
+);
 
 
 // ======================================================

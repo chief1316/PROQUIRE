@@ -799,3 +799,36 @@
   }
 
 }
+
+/* =========================================================
+   AGENCY SIDEBAR LAYOUT
+   ========================================================= */
+
+.agency-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   SIDEBAR NAVIGATION
+   ========================================================= */
+
+.agency-sidebar-nav {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+
+/* =========================================================
+   SIDEBAR BOTTOM ACTIONS
+   ========================================================= */
+
+.agency-sidebar-bottom {
+    flex-shrink: 0;
+    margin-top: auto;
+}

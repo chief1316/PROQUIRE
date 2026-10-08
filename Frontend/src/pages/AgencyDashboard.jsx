@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   CreditCard,
   FileText,
@@ -181,8 +182,14 @@ function AgencyDashboard() {
             <span>Technicians</span>
           </button>
 
-          <button className="agency-nav-item">
-            <FileText size={19} />
+          <button
+            className="agency-nav-item"
+            onClick={() => {
+              navigate("/agency/service-requests");
+              setSidebarOpen(false);
+            }}
+          >
+            <ClipboardList size={19} />
             <span>Service Requests</span>
           </button>
 

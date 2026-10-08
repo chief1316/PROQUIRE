@@ -25,6 +25,13 @@ router.get(
     serviceRequestController.getMyRequests
 );
 
+// Get requests belonging to the logged-in agency
+router.get(
+    "/agency/my-requests",
+    verifyToken,
+    serviceRequestController.getMyAgencyRequests
+);
+
 router.get(
     "/:id",
     serviceRequestController.getServiceRequestById
@@ -44,6 +51,20 @@ router.patch(
     "/:id/status",
     verifyToken,
     serviceRequestController.updateRequestStatus
+);
+
+// Agency accepts or rejects an agency service request
+router.patch(
+    "/agency/:id/status",
+    verifyToken,
+    serviceRequestController.updateAgencyRequestStatus
+);
+
+// Agency assigns one of its technicians to an accepted request
+router.patch(
+    "/agency/:id/assign-technician",
+    verifyToken,
+    serviceRequestController.assignAgencyTechnician
 );
 
 // Mark an accepted service request as completed

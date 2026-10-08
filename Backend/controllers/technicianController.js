@@ -731,6 +731,73 @@ exports.getPendingTechnicians = (req, res) => {
 
 };
 
+// Get verified technicians belonging to the logged-in agency
+exports.getMyAgencyTechnicians = (req, res) => {
+
+    const userId = req.user.user_id;
+
+
+    const sql = `
+        SELECT
+            tp.technician_id,
+            tp.user_id,
+            u.full_name,
+            u.email,
+            u.phone,
+            c.category_name,
+            tp.bio,
+            tp.years_experience,
+            tp.location,
+            tp.is_verified,
+            tp.employment_type,
+            tp.agency_id
+
+        FROM technician_profiles tp
+
+        JOIN users u
+            ON tp.user_id = u.user_id
+
+        JOIN categories c
+            ON tp.category_id = c.category_id
+
+        JOIN agency_profiles ap
+            ON tp.agency_id = ap.agency_id
+
+        WHERE ap.user_id = ?
+        AND tp.employment_type = 'Agency'
+        AND tp.is_verified = 1
+
+        ORDER BY u.full_name ASC
+    `;
+
+
+    db.query(
+        sql,
+        [userId],
+        (err, results) => {
+
+            if (err) {
+
+                console.error(
+                    "Error fetching agency technicians:",
+                    err
+                );
+
+                return res.status(500).json({
+                    message:
+                        "Error fetching agency technicians"
+                });
+
+            }
+
+
+            return res.status(200).json(results);
+
+        }
+    );
+
+};
+
 
 // ======================================================
 // Create Technician Profile
