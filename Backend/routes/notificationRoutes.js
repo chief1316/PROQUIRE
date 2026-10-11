@@ -19,6 +19,32 @@ router.get(
     notificationController.getTechnicianNotifications
 );
 
+/*
+ * ==========================================
+ * GET AGENCY NOTIFICATIONS
+ * ==========================================
+ */
+
+router.get(
+    "/agency",
+    verifyToken,
+    notificationController.getAgencyNotifications
+);
+
+
+router.patch(
+    "/agency/read-all",
+    verifyToken,
+    notificationController.markAllAgencyNotificationsAsRead
+);
+
+router.patch(
+    "/agency/:notificationId/read",
+    verifyToken,
+    notificationController.markAgencyNotificationAsRead
+);
+
+
 
 /*
  * ==========================================

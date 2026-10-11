@@ -28,6 +28,10 @@ import AgencyDashboard from "./pages/AgencyDashboard";
 import AgencyTechnicians from "./pages/AgencyTechnicians";
 import AgencyTechnicianDetails from "./pages/AgencyTechnicianDetails";
 import AgencyServiceRequests from "./pages/AgencyServiceRequests";
+import AgencySubscription from "./pages/agency/AgencySubscription";
+
+import AgencyReports from "./pages/agency/AgencyReports";
+
 import ClientDashboard from "./pages/ClientDashboard";
 import Availability from "./pages/technician/Availability";
 import TechnicianPortfolio from "./pages/technician/TechnicianPortfolio";
@@ -464,6 +468,10 @@ function App() {
           path="/agency/technicians/:id"
           element={<AgencyTechnicianDetails />}
         />
+
+        <Route path="/agency/subscription" element={<AgencySubscription />} />
+
+        <Route path="/agency/reports" element={<AgencyReports />} />
 
         {/* Client Dashboard */}
         <Route path="/client" element={<ClientDashboard />} />

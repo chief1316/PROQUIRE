@@ -5,7 +5,17 @@ const db = require("../config/db");
 // Get All Active Subscription Plans
 // =====================================================
 
+
 exports.getPlans = (req, res) => {
+    const accountType = String(req.query.type || "technician")
+        .trim()
+        .toLowerCase();
+
+    if (!["technician", "agency"].includes(accountType)) {
+        return res.status(400).json({
+            message: "Invalid subscription plan type."
+        });
+    }
 
     const sql = `
         SELECT
@@ -16,32 +26,27 @@ exports.getPlans = (req, res) => {
             duration_days,
             features,
             status,
+            plan_type,
             created_at
         FROM subscription_plans
         WHERE status = 'active'
+          AND plan_type = ?
         ORDER BY price ASC
     `;
 
-    db.query(sql, (err, results) => {
-
+    db.query(sql, [accountType], (err, results) => {
         if (err) {
-
-            console.error(
-                "Error fetching subscription plans:",
-                err
-            );
+            console.error("Error fetching subscription plans:", err);
 
             return res.status(500).json({
-                message: "Failed to fetch subscription plans.",
-                error: err
+                message: "Failed to fetch subscription plans."
             });
         }
 
-        res.status(200).json(results);
-
+        return res.status(200).json(results);
     });
-
 };
+
 
 
 // =====================================================

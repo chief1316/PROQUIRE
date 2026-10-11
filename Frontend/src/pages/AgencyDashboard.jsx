@@ -26,9 +26,18 @@ function AgencyDashboard() {
   const navigate = useNavigate();
 
   const [agency, setAgency] = useState(null);
+  const [subscription, setSubscription] = useState(null);
+
+  const [technicians, setTechnicians] = useState([]);
+
+  const [requests, setRequests] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     const fetchAgency = async () => {
@@ -50,6 +59,50 @@ function AgencyDashboard() {
         );
 
         setAgency(response.data);
+        const subscriptionResponse = await axios
+          .get("http://localhost:5000/api/subscriptions/my-subscription", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .catch((err) => {
+            if (err.response?.status === 404) {
+              return { data: null };
+            }
+            throw err;
+          });
+
+        setSubscription(subscriptionResponse.data);
+
+        const techniciansResponse = await axios.get(
+          "http://localhost:5000/api/agencies/technicians",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        setTechnicians(
+          Array.isArray(techniciansResponse.data)
+            ? techniciansResponse.data
+            : techniciansResponse.data.technicians || [],
+        );
+
+        const requestsResponse = await axios.get(
+          "http://localhost:5000/api/service-requests/agency/my-requests",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        setRequests(
+          Array.isArray(requestsResponse.data)
+            ? requestsResponse.data
+            : requestsResponse.data.requests || [],
+        );
       } catch (err) {
         console.error("Error loading agency:", err);
 
@@ -74,6 +127,35 @@ function AgencyDashboard() {
 
     fetchAgency();
   }, [navigate]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      const token = sessionStorage.getItem("token");
+
+      if (!token) return;
+
+      try {
+        const response = await axios.get(
+          "http://localhost:5000/api/notifications/agency",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        setNotifications(
+          Array.isArray(response.data)
+            ? response.data
+            : response.data.notifications || [],
+        );
+      } catch (err) {
+        console.error("Error loading agency notifications:", err);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
@@ -193,12 +275,18 @@ function AgencyDashboard() {
             <span>Service Requests</span>
           </button>
 
-          <button className="agency-nav-item">
+          <button
+            className="agency-nav-item"
+            onClick={() => navigate("/agency/subscription")}
+          >
             <CreditCard size={19} />
             <span>Subscription</span>
           </button>
 
-          <button className="agency-nav-item">
+          <button
+            className="agency-nav-item"
+            onClick={() => navigate("/agency/reports")}
+          >
             <BarChart3 size={19} />
             <span>Reports</span>
           </button>
@@ -296,7 +384,7 @@ function AgencyDashboard() {
               <div>
                 <span>Technicians</span>
 
-                <strong>0</strong>
+                <strong>{technicians.length}</strong>
 
                 <small>Team members</small>
               </div>
@@ -324,7 +412,7 @@ function AgencyDashboard() {
               <div>
                 <span>Requests</span>
 
-                <strong>0</strong>
+                <strong>{requests.length}</strong>
 
                 <small>Service requests</small>
               </div>
@@ -338,9 +426,21 @@ function AgencyDashboard() {
               <div>
                 <span>Subscription</span>
 
-                <strong>None</strong>
+                <strong>
+                  {subscription?.status === "active"
+                    ? subscription.plan_name || "Active"
+                    : subscription?.status === "pending"
+                      ? "Pending"
+                      : "None"}
+                </strong>
 
-                <small>Current plan</small>
+                <small>
+                  {subscription?.status === "active"
+                    ? "Current plan"
+                    : subscription?.status === "pending"
+                      ? "Payment required"
+                      : "No active plan"}
+                </small>
               </div>
             </div>
           </div>

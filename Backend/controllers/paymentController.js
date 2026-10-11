@@ -747,8 +747,7 @@ exports.initiateMpesaStkPush = async (req, res) => {
                             PhoneNumber:
                                 phoneNumber,
 
-                            CallBackURL:
-                                process.env.MPESA_CALLBACK_URL,
+                            CallBackURL: process.env.MPESA_CALLBACK_URL,
 
                             AccountReference:
                                 `PROQUIRE-${subscription.subscription_id}`,
