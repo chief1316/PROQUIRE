@@ -36,46 +36,93 @@ exports.getCurrentUser = (req, res) => {
 };
 
 
-exports.updateCurrentUser = (req, res) => {
 
+exports.updateCurrentUser = async (req, res) => {
     const userId = req.user.user_id;
-
     const { full_name, phone } = req.body;
 
-    let sql =
-        "UPDATE users SET full_name = ?, phone = ?";
+    const connection = db.promise();
 
-    let values = [full_name, phone];
+    try {
+        await connection.beginTransaction();
 
-    if (req.file) {
+        // Confirm the user exists and get their role.
+        const [users] = await connection.query(
+            `
+                SELECT user_id, role
+                FROM users
+                WHERE user_id = ?
+                FOR UPDATE
+            `,
+            [userId]
+        );
 
-        sql += ", profile_photo = ?";
+        if (users.length === 0) {
+            await connection.rollback();
 
-        values.push(req.file.filename);
-
-    }
-
-    sql += " WHERE user_id = ?";
-
-    values.push(userId);
-
-    db.query(sql, values, (err) => {
-
-        if (err) {
-
-            return res.status(500).json(err);
-
+            return res.status(404).json({
+                message: "User not found."
+            });
         }
 
-        res.json({
+        // Update the user's personal account information.
+        let sql = `
+            UPDATE users
+            SET full_name = ?, phone = ?
+        `;
 
-            message: "Profile updated successfully"
+        const values = [
+            full_name,
+            phone
+        ];
 
+        // Preserve existing profile-photo upload support.
+        if (req.file) {
+            sql += ", profile_photo = ?";
+            values.push(req.file.filename);
+        }
+
+        sql += " WHERE user_id = ?";
+        values.push(userId);
+
+        await connection.query(sql, values);
+
+        // Keep the agency profile phone number synchronized.
+        if (users[0].role === "agency") {
+            await connection.query(
+                `
+                    UPDATE agency_profiles
+                    SET phone = ?
+                    WHERE user_id = ?
+                `,
+                [phone, userId]
+            );
+        }
+
+        await connection.commit();
+
+        return res.status(200).json({
+            message: "Profile updated successfully."
         });
 
-    });
+    } catch (error) {
+        try {
+            await connection.rollback();
+        } catch (rollbackError) {
+            console.error(
+                "Error rolling back profile update:",
+                rollbackError
+            );
+        }
 
+        console.error("Error updating user profile:", error);
+
+        return res.status(500).json({
+            message: "Unable to update your profile."
+        });
+    }
 };
+
 
 exports.forgotPassword = async (req, res) => {
     const { email } = req.body;

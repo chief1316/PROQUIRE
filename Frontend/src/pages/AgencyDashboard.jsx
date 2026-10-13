@@ -39,6 +39,15 @@ function AgencyDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  const unreadCount = notifications.filter(
+    (notification) =>
+      !(
+        notification.is_read === true ||
+        notification.is_read === 1 ||
+        notification.is_read === "1"
+      ),
+  ).length;
+
   useEffect(() => {
     const fetchAgency = async () => {
       const token = sessionStorage.getItem("token");
@@ -156,6 +165,73 @@ function AgencyDashboard() {
 
     fetchNotifications();
   }, []);
+
+  const handleMarkNotificationAsRead = async (notification) => {
+    const isRead =
+      notification.is_read === true ||
+      notification.is_read === 1 ||
+      notification.is_read === "1";
+
+    if (isRead) return;
+
+    const token = sessionStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      await axios.patch(
+        `http://localhost:5000/api/notifications/agency/${notification.notification_id}/read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setNotifications((previous) =>
+        previous.map((item) =>
+          item.notification_id === notification.notification_id
+            ? { ...item, is_read: 1 }
+            : item,
+        ),
+      );
+    } catch (err) {
+      console.error(
+        "Error marking agency notification as read:",
+        err.response?.data || err.message,
+      );
+    }
+  };
+
+  const handleMarkAllNotificationsAsRead = async () => {
+    if (unreadCount === 0) return;
+
+    const token = sessionStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      await axios.patch(
+        "http://localhost:5000/api/notifications/agency/read-all",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setNotifications((previous) =>
+        previous.map((notification) => ({
+          ...notification,
+          is_read: 1,
+        })),
+      );
+    } catch (err) {
+      console.error("Error marking all agency notifications as read:", err);
+    }
+  };
 
   const handleLogout = () => {
     sessionStorage.removeItem("token");
@@ -290,15 +366,16 @@ function AgencyDashboard() {
             <BarChart3 size={19} />
             <span>Reports</span>
           </button>
-
-          <button className="agency-nav-item">
-            <Bell size={19} />
-            <span>Notifications</span>
-          </button>
         </nav>
 
         <div className="agency-sidebar-bottom">
-          <button className="agency-nav-item">
+          <button
+            className="agency-nav-item"
+            onClick={() => {
+              navigate("/agency/settings");
+              setSidebarOpen(false);
+            }}
+          >
             <Settings size={19} />
             <span>Settings</span>
           </button>
@@ -332,9 +409,20 @@ function AgencyDashboard() {
           </div>
 
           <div className="agency-header-actions">
-            <button className="agency-notification-button">
+            <button
+              type="button"
+              className="agency-notification-button"
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+              aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+              aria-expanded={notificationsOpen}
+            >
               <Bell size={21} />
-              <span className="agency-notification-dot"></span>
+
+              {unreadCount > 0 && (
+                <span className="agency-notification-count">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </button>
 
             <div className="agency-header-user">
@@ -350,6 +438,87 @@ function AgencyDashboard() {
             </div>
           </div>
         </header>
+
+        {/* NOTIFICATIONS PANEL */}
+
+        {notificationsOpen && (
+          <div className="agency-notifications-panel">
+            <div className="agency-notifications-header">
+              <div>
+                <h3>Notifications</h3>
+                <small>
+                  {unreadCount > 0
+                    ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+                    : "You're all caught up"}
+                </small>
+              </div>
+
+              <div className="agency-notifications-header-actions">
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllNotificationsAsRead}
+                  >
+                    Mark all as read
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setNotificationsOpen(false)}
+                  aria-label="Close notifications"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {notifications.length === 0 ? (
+              <p className="agency-notifications-empty">
+                You're all caught up! No notifications yet.
+              </p>
+            ) : (
+              <div className="agency-notifications-list">
+                {notifications.map((notification) => {
+                  const isRead =
+                    notification.is_read === true ||
+                    notification.is_read === 1 ||
+                    notification.is_read === "1";
+
+                  return (
+                    <button
+                      type="button"
+                      className={`agency-notification-item ${
+                        isRead ? "read" : "unread"
+                      }`}
+                      key={notification.notification_id}
+                      onClick={() => handleMarkNotificationAsRead(notification)}
+                      disabled={isRead}
+                    >
+                      <div className="agency-notification-item-heading">
+                        <strong>{notification.title || "Notification"}</strong>
+
+                        {!isRead && (
+                          <span className="agency-unread-indicator">New</span>
+                        )}
+                      </div>
+
+                      <p>
+                        {notification.message || "You have a new notification."}
+                      </p>
+
+                      {notification.created_at && (
+                        <small>
+                          {new Date(notification.created_at).toLocaleString()}
+                        </small>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* CONTENT */}
 
@@ -572,15 +741,19 @@ function AgencyDashboard() {
                 <span>View Agency Profile</span>
               </button>
 
-              <button className="agency-quick-action">
+              <button
+                className="agency-quick-action"
+                onClick={() => navigate("/agency/subscription")}
+              >
                 <CreditCard size={22} />
-
                 <span>Manage Subscription</span>
               </button>
 
-              <button className="agency-quick-action">
+              <button
+                className="agency-quick-action"
+                onClick={() => navigate("/agency/reports")}
+              >
                 <BarChart3 size={22} />
-
                 <span>View Reports</span>
               </button>
             </div>

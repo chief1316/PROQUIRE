@@ -8,7 +8,7 @@ import {
   Upload,
   Save,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import "./AgencyProfileSetup.css";
 
@@ -16,6 +16,10 @@ import logo from "../assets/proquire-logo.png";
 
 function AgencyProfileSetup() {
   const navigate = useNavigate();
+  const [agencyId, setAgencyId] = useState(null);
+  const [existingLogo, setExistingLogo] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     companyName: "",
@@ -81,6 +85,61 @@ function AgencyProfileSetup() {
     "West Pokot",
   ];
 
+  useEffect(() => {
+    const fetchExistingAgency = async () => {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+
+      if (!token) {
+        navigate("/login?role=agency");
+        return;
+      }
+
+      try {
+        const response = await axios.get(
+          "http://localhost:5000/api/agencies/me",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        const agency = response.data;
+
+        setAgencyId(agency.agency_id);
+        setIsEditing(true);
+        setExistingLogo(agency.logo || null);
+
+        setFormData({
+          companyName: agency.company_name || "",
+          registrationNumber: agency.registration_number || "",
+          kraPin: agency.kra_pin || "",
+          county: agency.county || "",
+          address: agency.address || "",
+          description: agency.description || "",
+        });
+      } catch (err) {
+        if (err.response?.status === 404) {
+          // No agency profile exists yet.
+          // Keep the form in creation mode.
+          setIsEditing(false);
+        } else if (err.response?.status === 401) {
+          localStorage.removeItem("token");
+          sessionStorage.removeItem("token");
+          navigate("/login?role=agency");
+        } else {
+          console.error("Error loading agency for editing:", err);
+          setError("Unable to load your agency profile.");
+        }
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    fetchExistingAgency();
+  }, [navigate]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -112,13 +171,10 @@ function AgencyProfileSetup() {
      * whether "Remember me" was selected.
      */
     const token =
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token");
+      localStorage.getItem("token") || sessionStorage.getItem("token");
 
     if (!token) {
-      setError(
-        "Your session has expired. Please log in again."
-      );
+      setError("Your session has expired. Please log in again.");
 
       navigate("/login?role=agency");
       return;
@@ -129,169 +185,109 @@ function AgencyProfileSetup() {
 
       const data = new FormData();
 
-      data.append(
-        "company_name",
-        formData.companyName
-      );
+      data.append("company_name", formData.companyName);
 
-      data.append(
-        "registration_number",
-        formData.registrationNumber
-      );
+      data.append("registration_number", formData.registrationNumber);
 
-      data.append(
-        "kra_pin",
-        formData.kraPin
-      );
+      data.append("kra_pin", formData.kraPin);
 
-      data.append(
-        "county",
-        formData.county
-      );
+      data.append("county", formData.county);
 
-      data.append(
-        "address",
-        formData.address
-      );
+      data.append("address", formData.address);
 
-      data.append(
-        "description",
-        formData.description
-      );
+      data.append("description", formData.description);
 
       if (logoFile) {
         data.append("logo", logoFile);
       }
 
-      const response = await axios.post(
-        "http://localhost:5000/api/agencies",
+      const requestUrl = isEditing
+        ? `http://localhost:5000/api/agencies/${agencyId}`
+        : "http://localhost:5000/api/agencies";
+
+      const response = await axios({
+        method: isEditing ? "put" : "post",
+        url: requestUrl,
         data,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      console.log(
-        "Agency profile response:",
-        response.data
-      );
+      console.log("Agency profile response:", response.data);
 
-      setSuccess(
-        "Agency profile created successfully."
-      );
+      setSuccess("Agency profile created successfully.");
 
       setTimeout(() => {
         navigate("/agency");
       }, 1500);
-
     } catch (error) {
-      console.error(
-        "Agency profile creation error:",
-        error
-      );
+      console.error("Agency profile creation error:", error);
 
       if (error.response) {
         setError(
           error.response.data?.message ||
-            "Unable to create the agency profile."
+            "Unable to create the agency profile.",
         );
       } else {
         setError(
-          "Unable to connect to the server. Make sure the backend is running."
+          "Unable to connect to the server. Make sure the backend is running.",
         );
       }
-
     } finally {
       setLoading(false);
     }
   };
 
+  if (initialLoading) {
+    return <div>Loading agency profile...</div>;
+  }
+
   return (
     <div className="agency-profile-page">
-
       <div className="agency-profile-card">
-
-        <Link
-          to="/agency"
-          className="agency-profile-back"
-        >
+        <Link to="/agency" className="agency-profile-back">
           <ArrowLeft size={18} />
           Back
         </Link>
 
         <div className="agency-profile-logo">
-          <img
-            src={logo}
-            alt="ProQuire Logo"
-          />
+          <img src={logo} alt="ProQuire Logo" />
         </div>
 
         <div className="agency-profile-heading">
-
           <h1>
-            Set Up Your Agency Profile
+            {isEditing ? "Edit Agency Profile" : "Set Up Your Agency Profile"}
           </h1>
 
-          <p>
-            Complete your agency information to start
-            using ProQuire.
-          </p>
-
+          <p>Complete your agency information to start using ProQuire.</p>
         </div>
 
-        {error && (
-          <div className="agency-profile-error">
-            {error}
-          </div>
-        )}
+        {error && <div className="agency-profile-error">{error}</div>}
 
-        {success && (
-          <div className="agency-profile-success">
-            {success}
-          </div>
-        )}
+        {success && <div className="agency-profile-success">{success}</div>}
 
-        <form
-          className="agency-profile-form"
-          onSubmit={handleSubmit}
-        >
-
+        <form className="agency-profile-form" onSubmit={handleSubmit}>
           {/* Agency Information */}
 
           <div className="agency-profile-section">
-
             <div className="agency-profile-section-title">
-
               <Building2 size={20} />
 
               <div>
+                <h2>Agency Information</h2>
 
-                <h2>
-                  Agency Information
-                </h2>
-
-                <p>
-                  Provide your official business details.
-                </p>
-
+                <p>Provide your official business details.</p>
               </div>
-
             </div>
-
           </div>
 
           {/* Company Name */}
 
           <div className="agency-profile-form-group">
-
-            <label htmlFor="companyName">
-              Agency / Company Name
-            </label>
+            <label htmlFor="companyName">Agency / Company Name</label>
 
             <div className="agency-profile-input-wrapper">
-
               <Building2 size={18} />
 
               <input
@@ -303,21 +299,17 @@ function AgencyProfileSetup() {
                 onChange={handleChange}
                 required
               />
-
             </div>
-
           </div>
 
           {/* Registration Number */}
 
           <div className="agency-profile-form-group">
-
             <label htmlFor="registrationNumber">
               Business Registration Number
             </label>
 
             <div className="agency-profile-input-wrapper">
-
               <FileText size={18} />
 
               <input
@@ -329,21 +321,15 @@ function AgencyProfileSetup() {
                 onChange={handleChange}
                 required
               />
-
             </div>
-
           </div>
 
           {/* KRA PIN */}
 
           <div className="agency-profile-form-group">
-
-            <label htmlFor="kraPin">
-              KRA PIN
-            </label>
+            <label htmlFor="kraPin">KRA PIN</label>
 
             <div className="agency-profile-input-wrapper">
-
               <CreditCard size={18} />
 
               <input
@@ -355,21 +341,15 @@ function AgencyProfileSetup() {
                 onChange={handleChange}
                 required
               />
-
             </div>
-
           </div>
 
           {/* County */}
 
           <div className="agency-profile-form-group">
-
-            <label htmlFor="county">
-              County
-            </label>
+            <label htmlFor="county">County</label>
 
             <div className="agency-profile-input-wrapper">
-
               <MapPin size={18} />
 
               <select
@@ -379,36 +359,23 @@ function AgencyProfileSetup() {
                 onChange={handleChange}
                 required
               >
-
-                <option value="">
-                  Select county
-                </option>
+                <option value="">Select county</option>
 
                 {counties.map((county) => (
-                  <option
-                    key={county}
-                    value={county}
-                  >
+                  <option key={county} value={county}>
                     {county}
                   </option>
                 ))}
-
               </select>
-
             </div>
-
           </div>
 
           {/* Address */}
 
           <div className="agency-profile-form-group">
-
-            <label htmlFor="address">
-              Physical Address
-            </label>
+            <label htmlFor="address">Physical Address</label>
 
             <div className="agency-profile-input-wrapper">
-
               <MapPin size={18} />
 
               <input
@@ -420,18 +387,13 @@ function AgencyProfileSetup() {
                 onChange={handleChange}
                 required
               />
-
             </div>
-
           </div>
 
           {/* Description */}
 
           <div className="agency-profile-form-group">
-
-            <label htmlFor="description">
-              Agency Description
-            </label>
+            <label htmlFor="description">Agency Description</label>
 
             <textarea
               id="description"
@@ -442,49 +404,29 @@ function AgencyProfileSetup() {
               rows="6"
               required
             />
-
           </div>
 
           {/* Agency Logo */}
 
           <div className="agency-profile-section">
-
             <div className="agency-profile-section-title">
-
               <Upload size={20} />
 
               <div>
+                <h2>Agency Logo</h2>
 
-                <h2>
-                  Agency Logo
-                </h2>
-
-                <p>
-                  Upload your agency logo.
-                </p>
-
+                <p>Upload your agency logo.</p>
               </div>
-
             </div>
-
           </div>
 
           <div className="agency-profile-upload-box">
-
             <Upload size={28} />
 
             <label htmlFor="agencyLogo">
+              <strong>{logoFile ? logoFile.name : "Choose agency logo"}</strong>
 
-              <strong>
-                {logoFile
-                  ? logoFile.name
-                  : "Choose agency logo"}
-              </strong>
-
-              <span>
-                PNG, JPG, JPEG or WEBP
-              </span>
-
+              <span>PNG, JPG, JPEG or WEBP</span>
             </label>
 
             <input
@@ -494,7 +436,6 @@ function AgencyProfileSetup() {
               accept=".png,.jpg,.jpeg,.webp"
               onChange={handleLogoChange}
             />
-
           </div>
 
           {/* Submit */}
@@ -504,31 +445,22 @@ function AgencyProfileSetup() {
             className="agency-profile-submit"
             disabled={loading}
           >
-
             <Save size={18} />
 
             {loading
               ? "Saving Profile..."
-              : "Save Agency Profile"}
-
+              : isEditing
+                ? "Update Agency Profile"
+                : "Save Agency Profile"}
           </button>
-
         </form>
 
         <div className="agency-profile-footer">
+          <span>ProQuire</span>
 
-          <span>
-            ProQuire
-          </span>
-
-          <span>
-            Professional Service Marketplace
-          </span>
-
+          <span>Professional Service Marketplace</span>
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -29,8 +29,8 @@ import AgencyTechnicians from "./pages/AgencyTechnicians";
 import AgencyTechnicianDetails from "./pages/AgencyTechnicianDetails";
 import AgencyServiceRequests from "./pages/AgencyServiceRequests";
 import AgencySubscription from "./pages/agency/AgencySubscription";
-
 import AgencyReports from "./pages/agency/AgencyReports";
+import AgencySettings from "./pages/agency/AgencySettings";
 
 import ClientDashboard from "./pages/ClientDashboard";
 import Availability from "./pages/technician/Availability";
@@ -472,6 +472,8 @@ function App() {
         <Route path="/agency/subscription" element={<AgencySubscription />} />
 
         <Route path="/agency/reports" element={<AgencyReports />} />
+
+        <Route path="/agency/settings" element={<AgencySettings />} />
 
         {/* Client Dashboard */}
         <Route path="/client" element={<ClientDashboard />} />
