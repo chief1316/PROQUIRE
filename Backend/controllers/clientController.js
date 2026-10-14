@@ -70,6 +70,7 @@ exports.getMyClientProfile = async (req, res) => {
           u.full_name,
           u.email,
           u.phone,
+          u.profile_photo,
           cp.location
        FROM client_profiles cp
        INNER JOIN users u
@@ -111,6 +112,7 @@ exports.getClientProfileById = async (req, res) => {
           u.full_name,
           u.email,
           u.phone,
+          u.profile_photo,
           cp.location
        FROM client_profiles cp
        INNER JOIN users u
@@ -168,12 +170,26 @@ exports.updateClientProfile = async (req, res) => {
 
     const cleanName = full_name.trim();
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPhone = phone.trim();
+    const rawPhone = phone.trim().replace(/[\s()-]/g, "");
+
+let cleanPhone;
+
+if (/^0[17]\d{8}$/.test(rawPhone)) {
+  cleanPhone = `+254${rawPhone.slice(1)}`;
+} else if (/^254[17]\d{8}$/.test(rawPhone)) {
+  cleanPhone = `+${rawPhone}`;
+} else if (/^\+254[17]\d{8}$/.test(rawPhone)) {
+  cleanPhone = rawPhone;
+} else {
+  return res.status(400).json({
+    message:
+      "Enter a valid Kenyan phone number, e.g. 0712345678 or +254712345678.",
+  });
+}
     const cleanLocation = location.trim();
 
     // Validate email
-    const emailRegex =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(cleanEmail)) {
       return res.status(400).json({
@@ -317,6 +333,49 @@ exports.updateClientProfile = async (req, res) => {
 
     return res.status(500).json({
       message: "Unable to save client profile.",
+    });
+  }
+};
+
+// =====================================================
+// UPDATE CLIENT PROFILE PHOTO
+// POST /api/clients/profile/photo
+// =====================================================
+
+exports.updateClientProfilePhoto = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Please select a valid profile picture.",
+      });
+    }
+
+    const photoPath = `profile_photos/${req.file.filename}`;
+
+    const [result] = await db.promise().query(
+      `UPDATE users
+       SET profile_photo = ?
+       WHERE user_id = ?`,
+      [photoPath, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "User account not found.",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Profile picture updated successfully.",
+      profile_photo: photoPath,
+    });
+  } catch (error) {
+    console.error("Profile photo update error:", error);
+
+    return res.status(500).json({
+      message: "Unable to update profile picture.",
     });
   }
 };

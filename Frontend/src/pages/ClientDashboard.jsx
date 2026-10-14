@@ -22,6 +22,9 @@ import {
   Mail,
   Phone,
   MapPinned,
+  Bell,
+  ChevronDown,
+  Menu,
 } from "lucide-react";
 
 import "./ClientDashboard.css";
@@ -134,6 +137,8 @@ function ClientDashboard() {
   const [error, setError] = useState("");
   const [requestError, setRequestError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // --------------------------------------------------
   // REVIEW STATE
@@ -352,6 +357,7 @@ function ClientDashboard() {
         email: data.email || "",
         phone: data.phone || "",
         location: data.location || "",
+        profile_photo: data.profile_photo || "",
       };
 
       setProfile(updatedProfile);
@@ -826,8 +832,7 @@ function ClientDashboard() {
   const handleLogout = () => {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
-
-    navigate("/login?role=client");
+    navigate("/");
   };
 
   // --------------------------------------------------
@@ -844,48 +849,97 @@ function ClientDashboard() {
   return (
     <div className="client-dashboard">
       {/* HEADER */}
-
       <header className="client-header">
         <div className="client-header-inner">
-          <Link to="/" className="client-brand">
+          <Link to="/" className="client-brand" aria-label="ProQuire home">
             <img src={logo} alt="ProQuire" />
           </Link>
 
           <div className="client-header-right">
-            <Link to="/" className="client-header-button">
-              <House size={17} />
-              <span>Home</span>
-            </Link>
-
-            <button
-              type="button"
-              className="client-header-button"
-              onClick={openProfile}
-            >
-              <Pencil size={17} />
-              <span>{profileExists ? "Edit Profile" : "Complete Profile"}</span>
-            </button>
-
             <div className="client-user">
               <div className="client-avatar">
-                <User size={19} />
+                {user?.profile_photo ? (
+                  <img
+                    src={
+                      user.profile_photo.startsWith("http")
+                        ? user.profile_photo
+                        : `http://localhost:5000/uploads/${user.profile_photo.replace(/^\/+/, "")}`
+                    }
+                    alt="Client profile"
+                  />
+                ) : (
+                  <User size={19} />
+                )}
               </div>
 
-              <div>
+              <div className="client-user-details">
                 <span className="client-welcome">Welcome back,</span>
-
                 <strong>{displayName}</strong>
               </div>
             </div>
 
             <button
-              className="client-logout"
-              onClick={handleLogout}
               type="button"
+              className="client-notifications-button"
+              aria-label="Notifications"
+              title="Notifications"
             >
-              <LogOut size={17} />
-              <span>Log out</span>
+              <Bell size={21} />
             </button>
+
+            <div className="client-menu-wrapper">
+              <button
+                type="button"
+                className="client-menu-toggle"
+                onClick={() => setMenuOpen((previous) => !previous)}
+                aria-expanded={menuOpen}
+                aria-label="Open dashboard menu"
+              >
+                <Menu size={20} />
+                <span>Menu</span>
+                <ChevronDown size={16} />
+              </button>
+
+              {menuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="client-menu-backdrop"
+                    aria-label="Close menu"
+                    onClick={() => setMenuOpen(false)}
+                  />
+
+                  <div className="client-dropdown">
+                    <Link
+                      to="/"
+                      className="client-dropdown-item"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <House size={17} />
+                      Home
+                    </Link>
+
+                    <Link
+                      to="/client/settings"
+                      className="client-dropdown-item"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <User size={17} />
+                      Settings
+                    </Link>
+
+                    <button
+                      type="button"
+                      className="client-dropdown-item client-dropdown-logout"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={17} />
+                      Log out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>

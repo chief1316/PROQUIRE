@@ -2,15 +2,20 @@ const express = require("express");
 
 const router = express.Router();
 
+
 const {
     createClientProfile,
     getMyClientProfile,
     getClientProfileById,
     updateClientProfile,
+    updateClientProfilePhoto,
     deleteClientProfile
 } = require("../controllers/clientController");
 
+
 const verifyToken = require("../middleware/authMiddleware");
+
+const upload = require("../middleware/uploadMiddleware");
 
 
 // =====================================================
@@ -56,6 +61,12 @@ router.patch(
     updateClientProfile
 );
 
+router.post(
+  "/profile/photo",
+  verifyToken,
+  upload.single("profile_photo"),
+  updateClientProfilePhoto
+);
 
 // =====================================================
 // Delete Client Profile

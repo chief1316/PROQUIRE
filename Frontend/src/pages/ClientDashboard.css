@@ -822,6 +822,18 @@
     height: 35px;
   }
 
+  .client-avatar {
+  overflow: hidden;
+}
+
+.client-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
   .client-user strong {
     font-size: 12px;
     max-width: 100px;
@@ -1137,4 +1149,167 @@
   color: #16a34a;
   font-size: 12px;
   font-weight: 700;
+}
+
+/* CLIENT HEADER MENU */
+
+.client-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.client-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.client-user-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.client-user-details strong {
+  overflow-wrap: anywhere;
+}
+
+.client-notifications-button,
+.client-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #142b4a;
+  cursor: pointer;
+}
+
+.client-notifications-button {
+  width: 42px;
+  flex-shrink: 0;
+}
+
+.client-menu-wrapper {
+  position: relative;
+  z-index: 20;
+}
+
+.client-menu-toggle {
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.client-notifications-button:hover,
+.client-menu-toggle:hover {
+  background: #f1f5f9;
+}
+
+.client-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 220px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+  z-index: 22;
+}
+
+.client-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #142b4a;
+  text-align: left;
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.client-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
+.client-dropdown-logout {
+  color: #dc2626;
+}
+
+.client-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .client-header-inner {
+    gap: 12px;
+  }
+
+  .client-header-right {
+    gap: 8px;
+  }
+
+  .client-brand img {
+    max-width: 110px;
+    height: auto;
+  }
+
+  .client-user {
+    gap: 8px;
+  }
+
+  .client-user-details {
+    max-width: 130px;
+  }
+
+  .client-welcome {
+    font-size: 11px;
+  }
+
+  .client-user-details strong {
+    font-size: 13px;
+  }
+
+  .client-notifications-button {
+    width: 38px;
+    min-height: 38px;
+  }
+
+  .client-menu-toggle {
+    min-height: 38px;
+    padding: 0 9px;
+  }
+}
+
+@media (max-width: 420px) {
+  .client-header-inner {
+    flex-wrap: wrap;
+  }
+
+  .client-header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .client-user-details {
+    max-width: 180px;
+  }
 }

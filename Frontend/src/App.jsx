@@ -33,6 +33,7 @@ import AgencyReports from "./pages/agency/AgencyReports";
 import AgencySettings from "./pages/agency/AgencySettings";
 
 import ClientDashboard from "./pages/ClientDashboard";
+import ClientSettings from "./pages/ClientSettings";
 import Availability from "./pages/technician/Availability";
 import TechnicianPortfolio from "./pages/technician/TechnicianPortfolio";
 import TechnicianVerification from "./pages/technician/TechnicianVerification";
@@ -477,6 +478,8 @@ function App() {
 
         {/* Client Dashboard */}
         <Route path="/client" element={<ClientDashboard />} />
+
+        <Route path="/client/settings" element={<ClientSettings />} />
 
         <Route path="/technician/availability" element={<Availability />} />
 
