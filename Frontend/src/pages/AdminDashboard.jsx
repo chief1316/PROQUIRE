@@ -8,6 +8,7 @@ import {
   Wrench,
   Building2,
   ShieldCheck,
+  Bell,
   Clock,
   LogOut,
   RefreshCw,
@@ -27,6 +28,10 @@ function AdminDashboard() {
   const [pendingTechnicians, setPendingTechnicians] = useState([]);
 
   const [pendingAgencies, setPendingAgencies] = useState([]);
+
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const [readNotificationIds, setReadNotificationIds] = useState([]);
 
   const [selectedTechnician, setSelectedTechnician] = useState(null);
 
@@ -50,6 +55,11 @@ function AdminDashboard() {
 
   const [success, setSuccess] = useState("");
 
+  const [activeSection, setActiveSection] = useState("dashboard");
+  const [userSearch, setUserSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [selectedUser, setSelectedUser] = useState(null);
+
   const token = sessionStorage.getItem("token");
 
   const getAuthHeaders = () => ({
@@ -57,6 +67,53 @@ function AdminDashboard() {
       Authorization: `Bearer ${token}`,
     },
   });
+  // ==========================================
+  // ACTIVATE / DEACTIVATE USER
+  // ==========================================
+  const handleToggleUserStatus = async () => {
+    if (!selectedUser) return;
+
+    const currentlyActive = Number(selectedUser.is_active) === 1;
+    const newStatus = currentlyActive ? 0 : 1;
+    const action = currentlyActive ? "deactivate" : "activate";
+
+    const confirmed = window.confirm(
+      `Are you sure you want to ${action} this user?`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const userId = selectedUser.user_id;
+
+      const response = await axios.patch(
+        `http://localhost:5000/api/admin/users/${userId}/status`,
+        { is_active: newStatus },
+        getAuthHeaders(),
+      );
+
+      setUsers((previousUsers) =>
+        previousUsers.map((user) =>
+          user.user_id === userId ? { ...user, is_active: newStatus } : user,
+        ),
+      );
+
+      setSelectedUser((previousUser) =>
+        previousUser ? { ...previousUser, is_active: newStatus } : null,
+      );
+
+      setSuccess(
+        response.data?.message || "Account status updated successfully.",
+      );
+    } catch (err) {
+      console.error("User status update error:", err);
+
+      setError(
+        err.response?.data?.message ||
+          "Unable to update user status. Please try again.",
+      );
+    }
+  };
 
   /*
    * ==========================================
@@ -164,6 +221,24 @@ function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const filteredUsers = users.filter((user) => {
+    const search = userSearch.trim().toLowerCase();
+
+    const matchesSearch =
+      !search ||
+      [user.full_name, user.name, user.email, user.role].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(search),
+      );
+
+    const matchesRole =
+      roleFilter === "all" ||
+      String(user.role || "").toLowerCase() === roleFilter.toLowerCase();
+
+    return matchesSearch && matchesRole;
+  });
 
   /*
    * ==========================================
@@ -342,6 +417,26 @@ function AdminDashboard() {
 
   const totalAdmins = users.filter((user) => user.role === "admin").length;
 
+  const notifications = [
+    ...pendingTechnicians.map((technician) => ({
+      id: `technician-${technician.technician_id}`,
+      title: "Technician verification pending",
+      message: `${technician.full_name || "A technician"} is waiting for verification.`,
+      time: "Awaiting review",
+      read: readNotificationIds.includes(
+        `technician-${technician.technician_id}`,
+      ),
+    })),
+
+    ...pendingAgencies.map((agency) => ({
+      id: `agency-${agency.agency_id}`,
+      title: "Agency verification pending",
+      message: `${agency.company_name || "An agency"} is waiting for verification.`,
+      time: "Awaiting review",
+      read: readNotificationIds.includes(`agency-${agency.agency_id}`),
+    })),
+  ];
+
   const formatDate = (date) => {
     if (!date) {
       return "—";
@@ -496,20 +591,21 @@ function AdminDashboard() {
           {/* Dashboard */}
 
           <button
+            type="button"
+            onClick={() => setActiveSection("dashboard")}
             style={{
               width: "100%",
-              border: "none",
-              background: "#eff6ff",
-              color: "#2563eb",
               display: "flex",
               alignItems: "center",
               gap: "12px",
-              padding: "12px",
-              borderRadius: "9px",
-              fontSize: "14px",
-              fontWeight: "600",
+              padding: "12px 14px",
+              border: "none",
+              borderRadius: "8px",
+              background:
+                activeSection === "dashboard" ? "#eff6ff" : "transparent",
+              color: activeSection === "dashboard" ? "#2563eb" : "#475569",
+              fontWeight: activeSection === "dashboard" ? "600" : "500",
               cursor: "pointer",
-              marginBottom: "5px",
               textAlign: "left",
             }}
           >
@@ -520,20 +616,20 @@ function AdminDashboard() {
           {/* Users */}
 
           <button
+            type="button"
+            onClick={() => setActiveSection("users")}
             style={{
               width: "100%",
-              border: "none",
-              background: "transparent",
-              color: "#475569",
               display: "flex",
               alignItems: "center",
               gap: "12px",
-              padding: "12px",
-              borderRadius: "9px",
-              fontSize: "14px",
-              fontWeight: "600",
+              padding: "12px 14px",
+              border: "none",
+              borderRadius: "8px",
+              background: activeSection === "users" ? "#eff6ff" : "transparent",
+              color: activeSection === "users" ? "#2563eb" : "#475569",
+              fontWeight: activeSection === "users" ? "600" : "500",
               cursor: "pointer",
-              marginBottom: "5px",
               textAlign: "left",
             }}
           >
@@ -668,6 +764,7 @@ function AdminDashboard() {
       >
         {/* Top bar */}
 
+        {/* Top bar */}
         <header
           style={{
             height: "80px",
@@ -677,6 +774,8 @@ function AdminDashboard() {
             alignItems: "center",
             justifyContent: "space-between",
             padding: "0 35px",
+            position: "relative",
+            zIndex: 1001,
           }}
         >
           <div>
@@ -701,564 +800,972 @@ function AdminDashboard() {
             </p>
           </div>
 
+          {/* Header actions */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px",
-              background: "#eff6ff",
-              color: "#2563eb",
-              padding: "8px 13px",
-              borderRadius: "999px",
-              fontSize: "13px",
-              fontWeight: "600",
+              gap: "16px",
             }}
           >
-            <ShieldCheck size={17} />
-            Administrator
+            {/* Bell and dropdown wrapper */}
+            <div style={{ position: "relative" }}>
+              {/* Notification Bell */}
+              <button
+                type="button"
+                title="Notifications"
+                aria-label="Notifications"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                style={{
+                  position: "relative",
+                  width: "42px",
+                  height: "42px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  color: "#475569",
+                  cursor: "pointer",
+                }}
+              >
+                <Bell size={21} />
+
+                {notifications.some((notification) => !notification.read) && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-5px",
+                      right: "-5px",
+                      minWidth: "18px",
+                      height: "18px",
+                      padding: "0 4px",
+                      borderRadius: "999px",
+                      background: "#dc2626",
+                      color: "#ffffff",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "2px solid #ffffff",
+                    }}
+                  >
+                    {
+                      notifications.filter((notification) => !notification.read)
+                        .length
+                    }
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50px",
+                    right: "0",
+                    width: "340px",
+                    maxWidth: "calc(100vw - 32px)",
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 12px 35px rgba(15, 23, 42, 0.15)",
+                    zIndex: 1002,
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Panel Header */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      borderBottom: "1px solid #e2e8f0",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "10px",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "15px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Notifications
+                    </h3>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReadNotificationIds((prev) => [
+                          ...new Set([
+                            ...prev,
+                            ...notifications.map(
+                              (notification) => notification.id,
+                            ),
+                          ]),
+                        ])
+                      }
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        color: "#2563eb",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Mark all read
+                    </button>
+                  </div>
+
+                  {/* Notification List */}
+                  <div style={{ maxHeight: "360px", overflowY: "auto" }}>
+                    {notifications.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "30px 16px",
+                          textAlign: "center",
+                          color: "#64748b",
+                          fontSize: "13px",
+                        }}
+                      >
+                        You're all caught up!
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          style={{
+                            padding: "15px 16px",
+                            borderBottom: "1px solid #f1f5f9",
+                            background: notification.read
+                              ? "#ffffff"
+                              : "#eff6ff",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: "10px",
+                            }}
+                          >
+                            <Bell
+                              size={17}
+                              color={notification.read ? "#94a3b8" : "#2563eb"}
+                              style={{ marginTop: "2px", flexShrink: 0 }}
+                            />
+
+                            <div style={{ flex: 1 }}>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: "13px",
+                                  fontWeight: "700",
+                                  color: "#0f172a",
+                                }}
+                              >
+                                {notification.title}
+                              </p>
+
+                              <p
+                                style={{
+                                  margin: "5px 0",
+                                  fontSize: "12px",
+                                  color: "#475569",
+                                  lineHeight: "1.5",
+                                }}
+                              >
+                                {notification.message}
+                              </p>
+
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#94a3b8",
+                                }}
+                              >
+                                {notification.time}
+                              </span>
+                            </div>
+
+                            {!notification.read && (
+                              <span
+                                title="Unread"
+                                style={{
+                                  width: "7px",
+                                  height: "7px",
+                                  borderRadius: "50%",
+                                  background: "#2563eb",
+                                  marginTop: "5px",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Administrator Label */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#eff6ff",
+                color: "#2563eb",
+                padding: "8px 13px",
+                borderRadius: "999px",
+                fontSize: "13px",
+                fontWeight: "600",
+              }}
+            >
+              <ShieldCheck size={17} />
+              Administrator
+            </div>
           </div>
         </header>
 
         {/* Dashboard content */}
 
-        <section
-          style={{
-            padding: "30px 35px",
-          }}
-        >
-          {/* Success message */}
+        {activeSection === "dashboard" && (
+          <section
+            style={{
+              padding: "30px 35px",
+            }}
+          >
+            {/* Success message */}
 
-          {success && (
-            <div
-              style={{
-                background: "#f0fdf4",
-                border: "1px solid #bbf7d0",
-                color: "#15803d",
-                padding: "14px 16px",
-                borderRadius: "10px",
-                marginBottom: "20px",
-                fontSize: "14px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <CheckCircle size={18} />
-              {success}
-            </div>
-          )}
+            {success && (
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  color: "#15803d",
+                  padding: "14px 16px",
+                  borderRadius: "10px",
+                  marginBottom: "20px",
+                  fontSize: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <CheckCircle size={18} />
+                {success}
+              </div>
+            )}
 
-          {/* Error message */}
+            {/* Error message */}
 
-          {error && (
-            <div
-              style={{
-                background: "#fef2f2",
-                border: "1px solid #fecaca",
-                color: "#b91c1c",
-                padding: "14px 16px",
-                borderRadius: "10px",
-                marginBottom: "20px",
-                fontSize: "14px",
-              }}
-            >
-              {error}
-            </div>
-          )}
+            {error && (
+              <div
+                style={{
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#b91c1c",
+                  padding: "14px 16px",
+                  borderRadius: "10px",
+                  marginBottom: "20px",
+                  fontSize: "14px",
+                }}
+              >
+                {error}
+              </div>
+            )}
 
-          {/* ==================================
+            {/* ==================================
               STATISTICS
           ================================== */}
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-              gap: "18px",
-              marginBottom: "30px",
-            }}
-          >
-            {/* Total Users */}
-
             <div
               style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "20px",
-                display: "flex",
-                alignItems: "center",
-                gap: "15px",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: "18px",
+                marginBottom: "30px",
               }}
             >
+              {/* Total Users */}
+
               <div
                 style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "#eff6ff",
-                  color: "#2563eb",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "20px",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: "15px",
                 }}
               >
-                <Users size={23} />
-              </div>
-
-              <div>
-                <p
+                <div
                   style={{
-                    margin: 0,
-                    fontSize: "25px",
-                    fontWeight: "700",
-                  }}
-                >
-                  {totalUsers}
-                </p>
-
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    fontSize: "13px",
-                    color: "#64748b",
-                  }}
-                >
-                  Total Users
-                </p>
-              </div>
-            </div>
-
-            {/* Clients */}
-
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "20px",
-                display: "flex",
-                alignItems: "center",
-                gap: "15px",
-              }}
-            >
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "#eff6ff",
-                  color: "#2563eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <UserRound size={23} />
-              </div>
-
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "25px",
-                    fontWeight: "700",
-                  }}
-                >
-                  {totalClients}
-                </p>
-
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    fontSize: "13px",
-                    color: "#64748b",
-                  }}
-                >
-                  Clients
-                </p>
-              </div>
-            </div>
-
-            {/* Technicians */}
-
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "20px",
-                display: "flex",
-                alignItems: "center",
-                gap: "15px",
-              }}
-            >
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "#f0fdf4",
-                  color: "#16a34a",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Wrench size={23} />
-              </div>
-
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "25px",
-                    fontWeight: "700",
-                  }}
-                >
-                  {totalTechnicians}
-                </p>
-
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    fontSize: "13px",
-                    color: "#64748b",
-                  }}
-                >
-                  Technicians
-                </p>
-              </div>
-            </div>
-
-            {/* Agencies */}
-
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "20px",
-                display: "flex",
-                alignItems: "center",
-                gap: "15px",
-              }}
-            >
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "#fff7ed",
-                  color: "#ea580c",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Building2 size={23} />
-              </div>
-
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "25px",
-                    fontWeight: "700",
-                  }}
-                >
-                  {totalAgencies}
-                </p>
-
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    fontSize: "13px",
-                    color: "#64748b",
-                  }}
-                >
-                  Agencies
-                </p>
-              </div>
-            </div>
-
-            {/* Pending Verification */}
-
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                padding: "20px",
-                display: "flex",
-                alignItems: "center",
-                gap: "15px",
-              }}
-            >
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "12px",
-                  background: "#fff7ed",
-                  color: "#ea580c",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Clock size={23} />
-              </div>
-
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "25px",
-                    fontWeight: "700",
-                  }}
-                >
-                  {pendingTechnicians.length}
-                </p>
-
-                <p
-                  style={{
-                    margin: "3px 0 0",
-                    fontSize: "13px",
-                    color: "#64748b",
-                  }}
-                >
-                  Pending Verification
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* ==================================
-              CONTENT PANELS
-          ================================== */}
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1.5fr) minmax(300px, 1fr)",
-              gap: "22px",
-            }}
-          >
-            {/* Recent Users */}
-
-            {/* Recent Users */}
-
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "14px",
-                overflow: "hidden",
-                height: "420px",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div
-                style={{
-                  padding: "18px 20px",
-                  borderBottom: "1px solid #e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: "16px",
-                    fontWeight: "700",
-                  }}
-                >
-                  Recent Users
-                </h2>
-
-                <button
-                  onClick={loadDashboardData}
-                  title="Refresh"
-                  style={{
-                    border: "none",
-                    background: "#f8fafc",
-                    color: "#475569",
-                    width: "34px",
-                    height: "34px",
-                    borderRadius: "8px",
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "#eff6ff",
+                    color: "#2563eb",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    cursor: "pointer",
                   }}
                 >
-                  <RefreshCw size={16} />
-                </button>
-              </div>
-
-              {users.length === 0 ? (
-                <div
-                  style={{
-                    padding: "35px 20px",
-                    textAlign: "center",
-                    color: "#64748b",
-                    fontSize: "13px",
-                  }}
-                >
-                  No users found.
+                  <Users size={23} />
                 </div>
-              ) : (
-                <div
-                  style={{
-                    overflowX: "auto",
-                    overflowY: "auto",
-                    flex: 1,
-                  }}
-                >
-                  <table
+
+                <div>
+                  <p
                     style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
+                      margin: 0,
+                      fontSize: "25px",
+                      fontWeight: "700",
                     }}
                   >
-                    <thead>
-                      <tr>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "12px 20px",
-                            fontSize: "11px",
-                            color: "#94a3b8",
-                            textTransform: "uppercase",
-                            background: "#f8fafc",
-                          }}
-                        >
-                          Name
-                        </th>
+                    {totalUsers}
+                  </p>
 
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "12px 20px",
-                            fontSize: "11px",
-                            color: "#94a3b8",
-                            textTransform: "uppercase",
-                            background: "#f8fafc",
-                          }}
-                        >
-                          Email
-                        </th>
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontSize: "13px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Total Users
+                  </p>
+                </div>
+              </div>
 
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "12px 20px",
-                            fontSize: "11px",
-                            color: "#94a3b8",
-                            textTransform: "uppercase",
-                            background: "#f8fafc",
-                          }}
-                        >
-                          Role
-                        </th>
+              {/* Clients */}
 
-                        <th
-                          style={{
-                            textAlign: "left",
-                            padding: "12px 20px",
-                            fontSize: "11px",
-                            color: "#94a3b8",
-                            textTransform: "uppercase",
-                            background: "#f8fafc",
-                          }}
-                        >
-                          Joined
-                        </th>
-                      </tr>
-                    </thead>
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <UserRound size={23} />
+                </div>
 
-                    <tbody>
-                      {users.slice(0, 8).map((user) => (
-                        <tr key={user.user_id}>
-                          <td
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "25px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {totalClients}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontSize: "13px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Clients
+                  </p>
+                </div>
+              </div>
+
+              {/* Technicians */}
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "#f0fdf4",
+                    color: "#16a34a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Wrench size={23} />
+                </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "25px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {totalTechnicians}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontSize: "13px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Technicians
+                  </p>
+                </div>
+              </div>
+
+              {/* Agencies */}
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "#fff7ed",
+                    color: "#ea580c",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Building2 size={23} />
+                </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "25px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {totalAgencies}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontSize: "13px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Agencies
+                  </p>
+                </div>
+              </div>
+
+              {/* Pending Verification */}
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "#fff7ed",
+                    color: "#ea580c",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Clock size={23} />
+                </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "25px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {pendingTechnicians.length}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontSize: "13px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Pending Verification
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ==================================
+              CONTENT PANELS
+          ================================== */}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.5fr) minmax(300px, 1fr)",
+                gap: "22px",
+              }}
+            >
+              {/* Recent Users */}
+
+              {/* Recent Users */}
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  overflow: "hidden",
+                  height: "420px",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "18px 20px",
+                    borderBottom: "1px solid #e2e8f0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "16px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    Recent Users
+                  </h2>
+
+                  <button
+                    onClick={loadDashboardData}
+                    title="Refresh"
+                    style={{
+                      border: "none",
+                      background: "#f8fafc",
+                      color: "#475569",
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                </div>
+
+                {users.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "35px 20px",
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontSize: "13px",
+                    }}
+                  >
+                    No users found.
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      overflowX: "auto",
+                      overflowY: "auto",
+                      flex: 1,
+                    }}
+                  >
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          <th
                             style={{
-                              padding: "14px 20px",
-                              borderTop: "1px solid #f1f5f9",
-                              fontSize: "13px",
+                              textAlign: "left",
+                              padding: "12px 20px",
+                              fontSize: "11px",
+                              color: "#94a3b8",
+                              textTransform: "uppercase",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Name
+                          </th>
+
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "12px 20px",
+                              fontSize: "11px",
+                              color: "#94a3b8",
+                              textTransform: "uppercase",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Email
+                          </th>
+
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "12px 20px",
+                              fontSize: "11px",
+                              color: "#94a3b8",
+                              textTransform: "uppercase",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Role
+                          </th>
+
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "12px 20px",
+                              fontSize: "11px",
+                              color: "#94a3b8",
+                              textTransform: "uppercase",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Joined
+                          </th>
+
+                          <th
+                            style={{
+                              textAlign: "left",
+                              padding: "12px 20px",
+                              fontSize: "11px",
+                              color: "#94a3b8",
+                              textTransform: "uppercase",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {users.slice(0, 8).map((user) => (
+                          <tr key={user.user_id}>
+                            <td
+                              style={{
+                                padding: "14px 20px",
+                                borderTop: "1px solid #f1f5f9",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                color: "#0f172a",
+                              }}
+                            >
+                              {user.full_name}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "14px 20px",
+                                borderTop: "1px solid #f1f5f9",
+                                fontSize: "13px",
+                                color: "#475569",
+                              }}
+                            >
+                              {user.email}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "14px 20px",
+                                borderTop: "1px solid #f1f5f9",
+                                fontSize: "13px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  padding: "5px 9px",
+                                  borderRadius: "999px",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                  ...getRoleStyle(user.role),
+                                }}
+                              >
+                                {getRoleLabel(user.role)}
+                              </span>
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "14px 20px",
+                                borderTop: "1px solid #f1f5f9",
+                                fontSize: "13px",
+                                color: "#475569",
+                              }}
+                            >
+                              {formatDate(user.created_at)}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: "14px 20px",
+                                borderTop: "1px solid #f1f5f9",
+                                fontSize: "13px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  padding: "5px 9px",
+                                  borderRadius: "999px",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                  background:
+                                    Number(user.is_active) === 1
+                                      ? "#dcfce7"
+                                      : "#fee2e2",
+                                  color:
+                                    Number(user.is_active) === 1
+                                      ? "#166534"
+                                      : "#991b1b",
+                                }}
+                              >
+                                {Number(user.is_active) === 1
+                                  ? "Active"
+                                  : "Deactivated"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Pending Verification */}
+
+              <div
+                id="pending-verification-section"
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  overflow: "hidden",
+                  height: "420px",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "18px 20px",
+                    borderBottom: "1px solid #e2e8f0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "16px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    Pending Verification
+                  </h2>
+
+                  <span
+                    style={{
+                      background: "#fff7ed",
+                      color: "#ea580c",
+                      padding: "5px 9px",
+                      borderRadius: "999px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {pendingTechnicians.length}
+                  </span>
+                </div>
+
+                {pendingTechnicians.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "35px 20px",
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontSize: "13px",
+                    }}
+                  >
+                    <CheckCircle
+                      size={30}
+                      style={{
+                        marginBottom: "8px",
+                        color: "#16a34a",
+                      }}
+                    />
+
+                    <div>
+                      No technicians are currently waiting for verification.
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                    }}
+                  >
+                    {pendingTechnicians.map((technician) => (
+                      <div
+                        key={technician.technician_id}
+                        style={{
+                          padding: "16px 20px",
+                          borderBottom: "1px solid #f1f5f9",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "15px",
+                        }}
+                      >
+                        <div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: "14px",
                               fontWeight: "600",
                               color: "#0f172a",
                             }}
                           >
-                            {user.full_name}
-                          </td>
+                            {technician.full_name}
+                          </p>
 
-                          <td
+                          <p
                             style={{
-                              padding: "14px 20px",
-                              borderTop: "1px solid #f1f5f9",
-                              fontSize: "13px",
-                              color: "#475569",
+                              margin: "4px 0 0",
+                              fontSize: "12px",
+                              color: "#64748b",
                             }}
                           >
-                            {user.email}
-                          </td>
+                            {technician.location || "Location not provided"}
+                          </p>
+                        </div>
 
-                          <td
-                            style={{
-                              padding: "14px 20px",
-                              borderTop: "1px solid #f1f5f9",
-                              fontSize: "13px",
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                padding: "5px 9px",
-                                borderRadius: "999px",
-                                fontSize: "11px",
-                                fontWeight: "600",
-                                ...getRoleStyle(user.role),
-                              }}
-                            >
-                              {getRoleLabel(user.role)}
-                            </span>
-                          </td>
-
-                          <td
-                            style={{
-                              padding: "14px 20px",
-                              borderTop: "1px solid #f1f5f9",
-                              fontSize: "13px",
-                              color: "#475569",
-                            }}
-                          >
-                            {formatDate(user.created_at)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        <button
+                          onClick={() => {
+                            setError("");
+                            setSuccess("");
+                            setSelectedTechnician(technician);
+                          }}
+                          style={{
+                            border: "none",
+                            background: "#2563eb",
+                            color: "#ffffff",
+                            padding: "8px 11px",
+                            borderRadius: "7px",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <Eye size={14} />
+                          Review
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Pending Verification */}
+            {/* ==================================
+    PENDING AGENCY VERIFICATION
+================================== */}
 
             <div
-              id="pending-verification-section"
+              id="pending-agencies-section"
               style={{
+                marginTop: "22px",
                 background: "#ffffff",
                 border: "1px solid #e2e8f0",
                 borderRadius: "14px",
                 overflow: "hidden",
-                height: "420px",
+                maxHeight: "420px",
                 display: "flex",
                 flexDirection: "column",
               }}
             >
+              {/* Header */}
+
               <div
                 style={{
                   padding: "18px 20px",
@@ -1268,15 +1775,27 @@ function AdminDashboard() {
                   justifyContent: "space-between",
                 }}
               >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: "16px",
-                    fontWeight: "700",
-                  }}
-                >
-                  Pending Verification
-                </h2>
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "16px",
+                      fontWeight: "700",
+                    }}
+                  >
+                    Pending Agency Verification
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "5px 0 0",
+                      fontSize: "12px",
+                      color: "#64748b",
+                    }}
+                  >
+                    Agencies waiting for administrator verification.
+                  </p>
+                </div>
 
                 <span
                   style={{
@@ -1288,11 +1807,13 @@ function AdminDashboard() {
                     fontWeight: "700",
                   }}
                 >
-                  {pendingTechnicians.length}
+                  {pendingAgencies.length}
                 </span>
               </div>
 
-              {pendingTechnicians.length === 0 ? (
+              {/* Empty State */}
+
+              {pendingAgencies.length === 0 ? (
                 <div
                   style={{
                     padding: "35px 20px",
@@ -1309,39 +1830,55 @@ function AdminDashboard() {
                     }}
                   />
 
-                  <div>
-                    No technicians are currently waiting for verification.
-                  </div>
+                  <div>No agencies are currently waiting for verification.</div>
                 </div>
               ) : (
                 <div
                   style={{
-                    flex: 1,
                     overflowY: "auto",
+                    flex: 1,
                   }}
                 >
-                  {pendingTechnicians.map((technician) => (
+                  {pendingAgencies.map((agency) => (
                     <div
-                      key={technician.technician_id}
+                      key={agency.agency_id}
                       style={{
-                        padding: "16px 20px",
+                        padding: "18px 20px",
                         borderBottom: "1px solid #f1f5f9",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        gap: "15px",
+                        gap: "20px",
                       }}
                     >
-                      <div>
+                      {/* Agency information */}
+
+                      <div
+                        style={{
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
                         <p
                           style={{
                             margin: 0,
                             fontSize: "14px",
-                            fontWeight: "600",
+                            fontWeight: "700",
                             color: "#0f172a",
                           }}
                         >
-                          {technician.full_name}
+                          {agency.company_name || "Unnamed Agency"}
+                        </p>
+
+                        <p
+                          style={{
+                            margin: "5px 0 0",
+                            fontSize: "12px",
+                            color: "#64748b",
+                          }}
+                        >
+                          Registration:{" "}
+                          {agency.registration_number || "Not provided"}
                         </p>
 
                         <p
@@ -1351,21 +1888,34 @@ function AdminDashboard() {
                             color: "#64748b",
                           }}
                         >
-                          {technician.location || "Location not provided"}
+                          County: {agency.county || "Not provided"}
+                        </p>
+
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            fontSize: "12px",
+                            color: "#64748b",
+                          }}
+                        >
+                          Email: {agency.email || "Not provided"}
                         </p>
                       </div>
 
+                      {/* Review button */}
+
                       <button
+                        type="button"
                         onClick={() => {
                           setError("");
                           setSuccess("");
-                          setSelectedTechnician(technician);
+                          setSelectedAgency(agency);
                         }}
                         style={{
                           border: "none",
                           background: "#2563eb",
                           color: "#ffffff",
-                          padding: "8px 11px",
+                          padding: "8px 12px",
                           borderRadius: "7px",
                           fontSize: "12px",
                           fontWeight: "600",
@@ -1384,239 +1934,467 @@ function AdminDashboard() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* ==================================
-    PENDING AGENCY VERIFICATION
-================================== */}
-
-          <div
-            id="pending-agencies-section"
-            style={{
-              marginTop: "22px",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px",
-              overflow: "hidden",
-              maxHeight: "420px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {/* Header */}
+            {/* ==================================
+              ADMIN INFORMATION
+          ================================== */}
 
             <div
               style={{
+                marginTop: "22px",
                 padding: "18px 20px",
-                borderBottom: "1px solid #e2e8f0",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "14px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
+                gap: "12px",
               }}
             >
+              <ShieldCheck size={20} color="#2563eb" />
+
               <div>
-                <h2
+                <p
                   style={{
                     margin: 0,
-                    fontSize: "16px",
-                    fontWeight: "700",
+                    fontSize: "14px",
+                    fontWeight: "600",
                   }}
                 >
-                  Pending Agency Verification
-                </h2>
+                  ProQuire Administration
+                </p>
 
                 <p
                   style={{
-                    margin: "5px 0 0",
+                    margin: "4px 0 0",
                     fontSize: "12px",
                     color: "#64748b",
                   }}
                 >
-                  Agencies waiting for administrator verification.
+                  {totalAdmins} administrator account
+                  {totalAdmins === 1 ? "" : "s"} currently registered.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* USERS MANAGEMENT SECTION */}
+        {activeSection === "users" && (
+          <section style={{ padding: "30px 35px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "15px",
+                marginBottom: "24px",
+              }}
+            >
+              <div>
+                <h2 style={{ margin: "0 0 8px", fontSize: "22px" }}>
+                  User Management
+                </h2>
+                <p style={{ margin: 0, color: "#64748b", fontSize: "14px" }}>
+                  Search and view registered ProQuire users.
                 </p>
               </div>
 
-              <span
+              <button
+                type="button"
+                onClick={loadDashboardData}
                 style={{
-                  background: "#fff7ed",
-                  color: "#ea580c",
-                  padding: "5px 9px",
-                  borderRadius: "999px",
-                  fontSize: "11px",
-                  fontWeight: "700",
+                  padding: "10px 14px",
+                  background: "#2563eb",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
                 }}
               >
-                {pendingAgencies.length}
+                <RefreshCw size={15} /> Refresh Users
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                marginBottom: "20px",
+              }}
+            >
+              <input
+                type="text"
+                placeholder="Search name, email, or role..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: "220px",
+                  padding: "12px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "8px",
+                }}
+              />
+
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                style={{
+                  padding: "12px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "8px",
+                  background: "#fff",
+                }}
+              >
+                <option value="all">All Roles</option>
+                <option value="client">Clients</option>
+                <option value="technician">Technicians</option>
+                <option value="agency">Agencies</option>
+                <option value="admin">Administrators</option>
+              </select>
+            </div>
+
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                overflowX: "auto",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  textAlign: "left",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "#f8fafc" }}>
+                    {["Name", "Email", "Role", "Joined", "Action"].map(
+                      (heading) => (
+                        <th
+                          key={heading}
+                          style={{
+                            padding: "14px 16px",
+                            color: "#64748b",
+                            fontSize: "12px",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          {heading}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        style={{
+                          padding: "28px",
+                          textAlign: "center",
+                          color: "#64748b",
+                        }}
+                      >
+                        No users found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((user, index) => (
+                      <tr key={user.user_id || user.id || user.email || index}>
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          {user.full_name || user.name || "—"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          {user.email || "—"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          {getRoleLabel(user.role)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          {user.created_at ? formatDate(user.created_at) : "—"}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "14px 16px",
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedUser({
+                                ...user,
+                                is_active: Number(user.is_active),
+                              })
+                            }
+                            style={{
+                              padding: "7px 12px",
+                              border: "1px solid #bfdbfe",
+                              borderRadius: "7px",
+                              background: "#eff6ff",
+                              color: "#2563eb",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <p
+              style={{ marginTop: "14px", color: "#64748b", fontSize: "13px" }}
+            >
+              Showing {filteredUsers.length} of {users.length} users
+            </p>
+          </section>
+        )}
+      </main>
+
+      {/* ======================================
+    USER DETAILS MODAL
+====================================== */}
+
+      {selectedUser && (
+        <div
+          onClick={() => setSelectedUser(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 1100,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "520px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#ffffff",
+              borderRadius: "16px",
+              padding: "26px",
+              boxShadow: "0 20px 60px rgba(15, 23, 42, 0.2)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "22px",
+              }}
+            >
+              <div>
+                <h2 style={{ margin: 0, fontSize: "21px", color: "#0f172a" }}>
+                  User Details
+                </h2>
+                <p
+                  style={{
+                    margin: "6px 0 0",
+                    color: "#64748b",
+                    fontSize: "13px",
+                  }}
+                >
+                  Registered ProQuire account information
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedUser(null)}
+                aria-label="Close user details"
+                style={{
+                  border: "none",
+                  background: "#f1f5f9",
+                  borderRadius: "8px",
+                  padding: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                padding: "18px",
+                marginBottom: "18px",
+              }}
+            >
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  background: "#dbeafe",
+                  color: "#1d4ed8",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "20px",
+                  fontWeight: "700",
+                  marginBottom: "12px",
+                }}
+              >
+                {(selectedUser.full_name || selectedUser.name || "U")
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
+
+              <h3 style={{ margin: "0 0 6px", fontSize: "18px" }}>
+                {selectedUser.full_name ||
+                  selectedUser.name ||
+                  "Name not provided"}
+              </h3>
+
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "5px 10px",
+                  borderRadius: "999px",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  ...getRoleStyle(selectedUser.role),
+                }}
+              >
+                {getRoleLabel(selectedUser.role)}
               </span>
             </div>
 
-            {/* Empty State */}
-
-            {pendingAgencies.length === 0 ? (
+            {[
+              ["User ID", selectedUser.user_id ?? selectedUser.id],
+              ["Full Name", selectedUser.full_name || selectedUser.name],
+              ["Email", selectedUser.email],
+              ["Role", getRoleLabel(selectedUser.role)],
+              [
+                "Date Registered",
+                selectedUser.created_at
+                  ? formatDate(selectedUser.created_at)
+                  : null,
+              ],
+              [
+                "Account Status",
+                selectedUser.is_active == null
+                  ? "Unknown"
+                  : Number(selectedUser.is_active) === 1
+                    ? "Active"
+                    : "Deactivated",
+              ],
+            ].map(([label, value]) => (
               <div
+                key={label}
                 style={{
-                  padding: "35px 20px",
-                  textAlign: "center",
-                  color: "#64748b",
-                  fontSize: "13px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  padding: "13px 0",
+                  borderBottom: "1px solid #f1f5f9",
                 }}
               >
-                <CheckCircle
-                  size={30}
+                <span style={{ color: "#64748b", fontSize: "13px" }}>
+                  {label}
+                </span>
+                <span
                   style={{
-                    marginBottom: "8px",
-                    color: "#16a34a",
+                    color: "#0f172a",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    textAlign: "right",
+                    overflowWrap: "anywhere",
                   }}
-                />
-
-                <div>No agencies are currently waiting for verification.</div>
+                >
+                  {value ?? "Not available"}
+                </span>
               </div>
-            ) : (
-              <div
-                style={{
-                  overflowY: "auto",
-                  flex: 1,
-                }}
-              >
-                {pendingAgencies.map((agency) => (
-                  <div
-                    key={agency.agency_id}
-                    style={{
-                      padding: "18px 20px",
-                      borderBottom: "1px solid #f1f5f9",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "20px",
-                    }}
-                  >
-                    {/* Agency information */}
+            ))}
 
-                    <div
-                      style={{
-                        minWidth: 0,
-                        flex: 1,
-                      }}
-                    >
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "14px",
-                          fontWeight: "700",
-                          color: "#0f172a",
-                        }}
-                      >
-                        {agency.company_name || "Unnamed Agency"}
-                      </p>
+            <button
+              type="button"
+              onClick={handleToggleUserStatus}
+              style={{
+                width: "100%",
+                marginTop: "24px",
+                padding: "12px",
+                border: "none",
+                borderRadius: "8px",
+                background:
+                  Number(selectedUser.is_active) === 1 ? "#dc2626" : "#16a34a",
+                color: "#ffffff",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              {Number(selectedUser.is_active) === 1
+                ? "Deactivate User"
+                : "Activate User"}
+            </button>
 
-                      <p
-                        style={{
-                          margin: "5px 0 0",
-                          fontSize: "12px",
-                          color: "#64748b",
-                        }}
-                      >
-                        Registration:{" "}
-                        {agency.registration_number || "Not provided"}
-                      </p>
-
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          fontSize: "12px",
-                          color: "#64748b",
-                        }}
-                      >
-                        County: {agency.county || "Not provided"}
-                      </p>
-
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          fontSize: "12px",
-                          color: "#64748b",
-                        }}
-                      >
-                        Email: {agency.email || "Not provided"}
-                      </p>
-                    </div>
-
-                    {/* Review button */}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError("");
-                        setSuccess("");
-                        setSelectedAgency(agency);
-                      }}
-                      style={{
-                        border: "none",
-                        background: "#2563eb",
-                        color: "#ffffff",
-                        padding: "8px 12px",
-                        borderRadius: "7px",
-                        fontSize: "12px",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <Eye size={14} />
-                      Review
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => setSelectedUser(null)}
+              style={{
+                width: "100%",
+                marginTop: "24px",
+                padding: "12px",
+                border: "none",
+                borderRadius: "8px",
+                background: "#2563eb",
+                color: "#ffffff",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
           </div>
-
-          {/* ==================================
-              ADMIN INFORMATION
-          ================================== */}
-
-          <div
-            style={{
-              marginTop: "22px",
-              padding: "18px 20px",
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "14px",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-            }}
-          >
-            <ShieldCheck size={20} color="#2563eb" />
-
-            <div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
-                ProQuire Administration
-              </p>
-
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: "12px",
-                  color: "#64748b",
-                }}
-              >
-                {totalAdmins} administrator account
-                {totalAdmins === 1 ? "" : "s"} currently registered.
-              </p>
-            </div>
-          </div>
-        </section>
-      </main>
+        </div>
+      )}
 
       {/* ======================================
           TECHNICIAN REVIEW MODAL

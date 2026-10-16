@@ -22,7 +22,6 @@ import {
   Mail,
   Phone,
   MapPinned,
-  Bell,
   ChevronDown,
   Menu,
 } from "lucide-react";
@@ -877,15 +876,6 @@ function ClientDashboard() {
                 <strong>{displayName}</strong>
               </div>
             </div>
-
-            <button
-              type="button"
-              className="client-notifications-button"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell size={21} />
-            </button>
 
             <div className="client-menu-wrapper">
               <button

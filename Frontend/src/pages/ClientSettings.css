@@ -18,7 +18,7 @@
 }
 
 .settings-brand {
-  color: #176b50;
+  color: #195bcc;
   font-size: 25px;
   font-weight: 800;
   text-decoration: none;
@@ -41,7 +41,7 @@
 }
 
 .settings-navigation a:hover {
-  color: #176b50;
+  color: #195bcc;
 }
 
 .settings-navigation button {
@@ -70,7 +70,7 @@
 
 .settings-eyebrow {
   margin: 0 0 8px;
-  color: #176b50;
+  color: #195bcc;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.5px;
@@ -93,7 +93,7 @@
 
 .settings-back-link {
   flex-shrink: 0;
-  color: #176b50;
+  color: #195bcc;
   font-size: 14px;
   font-weight: 650;
   text-decoration: none;
@@ -146,10 +146,10 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 3px solid #e5f2ec;
+  border: 3px solid #dbeafe;
   border-radius: 50%;
-  background: #e8f5ee;
-  color: #176b50;
+  background: #eff6ff;
+  color: #195bcc;
   font-size: 36px;
   font-weight: 750;
 }
@@ -181,7 +181,7 @@
 }
 
 .settings-file-input:focus-visible + .settings-button {
-  outline: 3px solid #a7f3d0;
+  outline: 3px solid #bfdbfe;
   outline-offset: 3px;
 }
 
@@ -236,8 +236,8 @@
 }
 
 .settings-field input:focus {
-  border-color: #238562;
-  box-shadow: 0 0 0 3px rgb(35 133 98 / 12%);
+  border-color: #195bcc;
+  box-shadow: 0 0 0 3px rgb(25 91 204 / 12%);
 }
 
 .settings-field input:disabled {
@@ -276,12 +276,12 @@
 }
 
 .settings-button-primary {
-  background: #176b50;
+  background: #195bcc;
   color: #ffffff;
 }
 
 .settings-button-primary:hover:not(:disabled) {
-  background: #10543e;
+  background: #1449a8;
 }
 
 .settings-button-secondary {
@@ -291,8 +291,8 @@
 }
 
 .settings-button-secondary:hover {
-  border-color: #176b50;
-  color: #176b50;
+  border-color: #195bcc;
+  color: #195bcc;
 }
 
 .settings-button-danger {
@@ -322,9 +322,9 @@
 }
 
 .settings-alert-success {
-  border-color: #a7f3d0;
-  background: #ecfdf5;
-  color: #065f46;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .settings-alert-error {

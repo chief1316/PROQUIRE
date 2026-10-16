@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./ClientSettings.css";
@@ -11,6 +12,24 @@ const emptyProfile = {
   email: "",
   phone: "",
   location: "",
+};
+
+const normalizeKenyanPhone = (value) => {
+  const phone = value.replace(/[\s()-]/g, "");
+
+  if (/^0[17]\d{8}$/.test(phone)) {
+    return `+254${phone.slice(1)}`;
+  }
+
+  if (/^254[17]\d{8}$/.test(phone)) {
+    return `+${phone}`;
+  }
+
+  if (/^\+254[17]\d{8}$/.test(phone)) {
+    return phone;
+  }
+
+  return null;
 };
 
 function ClientSettings() {
@@ -26,6 +45,15 @@ function ClientSettings() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const authConfig = {
     headers: {
@@ -133,24 +161,6 @@ function ClientSettings() {
       setMessage("");
       return;
     }
-
-    const normalizeKenyanPhone = (value) => {
-      const phone = value.replace(/[\s()-]/g, "");
-
-      if (/^0[17]\d{8}$/.test(phone)) {
-        return `+254${phone.slice(1)}`;
-      }
-
-      if (/^254[17]\d{8}$/.test(phone)) {
-        return `+${phone}`;
-      }
-
-      if (/^\+254[17]\d{8}$/.test(phone)) {
-        return phone;
-      }
-
-      return null;
-    };
 
     setSaving(true);
     setError("");
@@ -272,6 +282,64 @@ function ClientSettings() {
       );
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setMessage("");
+
+    if (newPassword.length < 8) {
+      setError("Your new password must be at least 8 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Your new passwords do not match.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setError("Your new password must differ from your current password.");
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      const response = await axios.put(
+        `${SERVER_URL}/api/auth/change-password`,
+        {
+          current_password: currentPassword,
+          new_password: newPassword,
+        },
+        authConfig,
+      );
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      setMessage(response.data.message || "Password changed successfully.");
+    } catch (err) {
+      if (
+        err.response?.status === 401 &&
+        /token|expired|authentication/i.test(err.response?.data?.message || "")
+      ) {
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+        navigate("/");
+        return;
+      }
+
+      setError(
+        err.response?.data?.message ||
+          "Unable to change your password. Please try again.",
+      );
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -440,8 +508,20 @@ function ClientSettings() {
                   name="phone"
                   type="tel"
                   value={profile.phone}
-                  onChange={handleChange}
-                  maxLength={30}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    const trimmed = raw.trimStart();
+                    const digits = trimmed.replace(/\D/g, "");
+                    const isInternational =
+                      trimmed.startsWith("+") || digits.startsWith("254");
+                    const maxDigits = isInternational ? 12 : 10;
+
+                    if (digits.length > maxDigits) return;
+
+                    handleChange(event);
+                  }}
+                  maxLength={13}
+                  placeholder="0712345678 or +254712345678"
                   autoComplete="tel"
                   required
                 />
@@ -469,6 +549,122 @@ function ClientSettings() {
                 disabled={saving}
               >
                 {saving ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {/* CHANGE PASSWORD */}
+        <section className="settings-card">
+          <div className="settings-card-heading">
+            <h2>Change password</h2>
+            <p>Update your password to help keep your account secure.</p>
+          </div>
+
+          <form onSubmit={handleChangePassword}>
+            <div className="settings-form-grid">
+              <div className="settings-field">
+                <label htmlFor="current-password">Current password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    id="current-password"
+                    type={showCurrentPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    aria-label={
+                      showCurrentPassword
+                        ? "Hide current password"
+                        : "Show current password"
+                    }
+                    aria-pressed={showCurrentPassword}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff size={19} />
+                    ) : (
+                      <Eye size={19} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="settings-field">
+                <label htmlFor="new-password">New password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    id="new-password"
+                    type={showNewPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={128}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    aria-label={
+                      showNewPassword
+                        ? "Hide new password"
+                        : "Show new password"
+                    }
+                    aria-pressed={showNewPassword}
+                  >
+                    {showNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                  </button>
+                </div>
+                <p className="settings-help">Use at least 8 characters.</p>
+              </div>
+
+              <div className="settings-field">
+                <label htmlFor="confirm-password">Confirm new password</label>
+                <div className="password-input-wrapper">
+                  <input
+                    id="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={128}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={
+                      showConfirmPassword
+                        ? "Hide confirmation password"
+                        : "Show confirmation password"
+                    }
+                    aria-pressed={showConfirmPassword}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={19} />
+                    ) : (
+                      <Eye size={19} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="settings-form-actions">
+              <button
+                type="submit"
+                className="settings-button settings-button-primary"
+                disabled={changingPassword}
+              >
+                {changingPassword ? "Changing password..." : "Change password"}
               </button>
             </div>
           </form>

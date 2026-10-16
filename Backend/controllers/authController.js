@@ -143,6 +143,13 @@ exports.login = (req, res) => {
 
             const user = results[0];
 
+        // Block deactivated accounts
+if (Number(user.is_active) !== 1) {
+    return res.status(403).json({
+        message: "Your account has been deactivated. Please contact the administrator."
+    });
+}
+
 
             // ------------------------------------------
             // Compare password
