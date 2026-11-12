@@ -69,6 +69,19 @@ router.patch(
     agencyController.verifyAgency
 );
 
+router.post(
+    "/documents/upload",
+    verifyToken,
+    upload.single("document"),
+    agencyController.uploadAgencyDocument
+);
+
+router.get(
+    "/documents/my",
+    verifyToken,
+    agencyController.getMyAgencyDocuments
+);
+
 
 // ==========================================================
 // Get agency by ID

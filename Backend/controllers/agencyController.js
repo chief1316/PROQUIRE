@@ -469,9 +469,171 @@ const deleteAgency = (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
+| Upload Agency Verification Document
+|--------------------------------------------------------------------------
+*/
+
+const uploadAgencyDocument = (req, res) => {
+
+    if (req.user.role !== "agency") {
+        return res.status(403).json({
+            message: "Only agency accounts can upload verification documents."
+        });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({
+            message: "Please select a PDF document to upload."
+        });
+    }
+
+    const documentType = req.body.document_type;
+
+    if (!documentType) {
+        return res.status(400).json({
+            message: "Please select a document type."
+        });
+    }
+
+    // Find the agency profile belonging to the logged-in user.
+    agencyModel.getAgencyByUserId(
+        req.user.user_id,
+        (err, agencies) => {
+
+            if (err) {
+                return res.status(500).json({
+                    message: "Failed to retrieve agency profile.",
+                    error: err
+                });
+            }
+
+            if (!agencies || agencies.length === 0) {
+                return res.status(404).json({
+                    message: "Create your agency profile before uploading documents."
+                });
+            }
+
+            const agencyId = agencies[0].agency_id;
+
+            const sql = `
+                INSERT INTO documents (
+                    agency_id,
+                    document_type,
+                    document_path,
+                    verification_status
+                )
+                VALUES (?, ?, ?, 'Pending')
+            `;
+
+            db.query(
+                sql,
+                [
+                    agencyId,
+                    documentType,
+                    "/" + req.file.path.replace(/\\/g, "/")
+                ],
+                (insertErr, result) => {
+
+                    if (insertErr) {
+                        console.error("Agency document upload error:", insertErr);
+
+                        return res.status(500).json({
+                            message: "Failed to save agency verification document.",
+                            error: insertErr
+                        });
+                    }
+
+                    return res.status(201).json({
+                        message: "Verification document uploaded successfully.",
+                        document_id: result.insertId,
+                        agency_id: agencyId,
+                        document_type: documentType,
+                        verification_status: "Pending"
+                    });
+
+                }
+            );
+
+        }
+    );
+
+};
+
+
+/*
+|--------------------------------------------------------------------------
+| Get Logged-in Agency Documents
+|--------------------------------------------------------------------------
+*/
+
+const getMyAgencyDocuments = (req, res) => {
+
+    if (req.user.role !== "agency") {
+        return res.status(403).json({
+            message: "Only agency accounts can view agency documents."
+        });
+    }
+
+    agencyModel.getAgencyByUserId(
+        req.user.user_id,
+        (err, agencies) => {
+
+            if (err) {
+                return res.status(500).json({
+                    message: "Failed to retrieve agency profile.",
+                    error: err
+                });
+            }
+
+            if (!agencies || agencies.length === 0) {
+                return res.status(404).json({
+                    message: "Agency profile not found."
+                });
+            }
+
+            const sql = `
+                SELECT
+                    document_id,
+                    document_type,
+                    document_path,
+                    uploaded_at,
+                    verification_status
+                FROM documents
+                WHERE agency_id = ?
+                ORDER BY uploaded_at DESC
+            `;
+
+            db.query(
+                sql,
+                [agencies[0].agency_id],
+                (docErr, documents) => {
+
+                    if (docErr) {
+                        return res.status(500).json({
+                            message: "Failed to retrieve agency documents.",
+                            error: docErr
+                        });
+                    }
+
+                    res.status(200).json(documents);
+
+                }
+            );
+
+        }
+    );
+
+};
+
+
+
+
+/*
+|--------------------------------------------------------------------------
 | Get Pending Agencies
 |--------------------------------------------------------------------------
 */
+
 
 const getPendingAgencies = (req, res) => {
 
@@ -496,38 +658,77 @@ const getPendingAgencies = (req, res) => {
         ORDER BY agency_id DESC
     `;
 
+    db.query(sql, (err, agencies) => {
 
-    db.query(
-        sql,
-        (err, result) => {
+        if (err) {
 
-            if (err) {
+            console.error("Failed to fetch pending agencies:", err);
 
-                console.error(
-                    "Failed to fetch pending agencies:",
-                    err
-                );
+            return res.status(500).json({
+                message: "Failed to fetch pending agencies.",
+                error: err
+            });
+
+        }
+
+        if (agencies.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        const agencyIds = agencies.map(
+            agency => agency.agency_id
+        );
+
+        const documentSql = `
+            SELECT
+                document_id,
+                agency_id,
+                document_type,
+                document_path,
+                uploaded_at,
+                verification_status
+            FROM documents
+            WHERE agency_id IN (?)
+            ORDER BY uploaded_at DESC
+        `;
+
+        db.query(documentSql, [agencyIds], (docErr, documents) => {
+
+            if (docErr) {
+
+                console.error("Failed to fetch agency documents:", docErr);
 
                 return res.status(500).json({
-                    message:
-                        "Failed to fetch pending agencies.",
-                    error: err
+                    message: "Failed to fetch agency documents.",
+                    error: docErr
                 });
 
             }
 
+            const result = agencies.map(agency => ({
+
+                ...agency,
+
+                documents: documents.filter(
+                    document =>
+                        Number(document.agency_id) ===
+                        Number(agency.agency_id)
+                )
+
+            }));
 
             console.log(
                 `Pending agencies fetched: ${result.length}`
             );
 
-
             res.status(200).json(result);
 
-        }
-    );
+        });
+
+    });
 
 };
+
 
 
 /*
@@ -640,6 +841,8 @@ module.exports = {
     updateAgency,
     deleteAgency,
     getPendingAgencies,
-    verifyAgency
+    verifyAgency,
+    uploadAgencyDocument,
+    getMyAgencyDocuments
 
 };

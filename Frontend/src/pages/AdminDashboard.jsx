@@ -157,6 +157,8 @@ function AdminDashboard() {
 
       setPendingAgencies(pendingAgenciesResponse.data || []);
 
+      console.log("PENDING AGENCIES:", pendingAgenciesResponse.data);
+
       /*
        * The backend can return multiple rows for one
        * technician when that technician has multiple
@@ -2354,26 +2356,30 @@ function AdminDashboard() {
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={handleToggleUserStatus}
-              style={{
-                width: "100%",
-                marginTop: "24px",
-                padding: "12px",
-                border: "none",
-                borderRadius: "8px",
-                background:
-                  Number(selectedUser.is_active) === 1 ? "#dc2626" : "#16a34a",
-                color: "#ffffff",
-                fontWeight: "600",
-                cursor: "pointer",
-              }}
-            >
-              {Number(selectedUser.is_active) === 1
-                ? "Deactivate User"
-                : "Activate User"}
-            </button>
+            {String(selectedUser.role || "").toLowerCase() !== "admin" && (
+              <button
+                type="button"
+                onClick={handleToggleUserStatus}
+                style={{
+                  width: "100%",
+                  marginTop: "24px",
+                  padding: "12px",
+                  border: "none",
+                  borderRadius: "8px",
+                  background:
+                    Number(selectedUser.is_active) === 1
+                      ? "#dc2626"
+                      : "#16a34a",
+                  color: "#ffffff",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                {Number(selectedUser.is_active) === 1
+                  ? "Deactivate User"
+                  : "Activate User"}
+              </button>
+            )}
 
             <button
               type="button"
@@ -2974,6 +2980,133 @@ function AdminDashboard() {
                 >
                   {selectedAgency.description || "No description provided."}
                 </div>
+              </div>
+
+              {/* Agency Documents */}
+
+              <div style={{ marginTop: "25px" }}>
+                <h3
+                  style={{
+                    margin: "0 0 12px",
+                    fontSize: "15px",
+                    fontWeight: "700",
+                    color: "#0f172a",
+                  }}
+                >
+                  Uploaded Verification Documents
+                </h3>
+
+                {selectedAgency.documents &&
+                selectedAgency.documents.length > 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                    }}
+                  >
+                    {selectedAgency.documents.map((document) => (
+                      <div
+                        key={document.document_id}
+                        style={{
+                          padding: "14px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "10px",
+                          background: "#f8fafc",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div>
+                            <strong
+                              style={{ fontSize: "13px", color: "#0f172a" }}
+                            >
+                              {document.document_type ||
+                                "Verification Document"}
+                            </strong>
+
+                            <p
+                              style={{
+                                margin: "5px 0 0",
+                                fontSize: "11px",
+                                color: "#64748b",
+                              }}
+                            >
+                              Uploaded:{" "}
+                              {document.uploaded_at
+                                ? new Date(
+                                    document.uploaded_at,
+                                  ).toLocaleDateString()
+                                : "Unknown"}
+                            </p>
+                          </div>
+
+                          <span
+                            style={{
+                              padding: "5px 9px",
+                              borderRadius: "20px",
+                              fontSize: "11px",
+                              fontWeight: "700",
+                              background:
+                                document.verification_status === "Verified"
+                                  ? "#dcfce7"
+                                  : document.verification_status === "Rejected"
+                                    ? "#fee2e2"
+                                    : "#fef3c7",
+                              color:
+                                document.verification_status === "Verified"
+                                  ? "#166534"
+                                  : document.verification_status === "Rejected"
+                                    ? "#991b1b"
+                                    : "#92400e",
+                            }}
+                          >
+                            {document.verification_status || "Pending"}
+                          </span>
+                        </div>
+
+                        <a
+                          href={`http://localhost:5000${document.document_path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-block",
+                            marginTop: "12px",
+                            padding: "8px 12px",
+                            background: "#2563eb",
+                            color: "#ffffff",
+                            borderRadius: "7px",
+                            textDecoration: "none",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          View Document
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: "15px",
+                      background: "#fff7ed",
+                      border: "1px solid #fed7aa",
+                      borderRadius: "9px",
+                      color: "#9a3412",
+                      fontSize: "12px",
+                    }}
+                  >
+                    No verification documents have been uploaded by this agency.
+                  </div>
+                )}
               </div>
             </div>
 

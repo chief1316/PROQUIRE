@@ -31,6 +31,11 @@ function AgencyProfileSetup() {
   });
 
   const [logoFile, setLogoFile] = useState(null);
+  const [documentType, setDocumentType] = useState("");
+  const [documentFile, setDocumentFile] = useState(null);
+  const [documentUploading, setDocumentUploading] = useState(false);
+  const [agencyDocuments, setAgencyDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,6 +113,7 @@ function AgencyProfileSetup() {
         const agency = response.data;
 
         setAgencyId(agency.agency_id);
+        fetchAgencyDocuments();
         setIsEditing(true);
         setExistingLogo(agency.logo || null);
 
@@ -157,6 +163,96 @@ function AgencyProfileSetup() {
     }
 
     setLogoFile(file);
+  };
+
+  const handleDocumentUpload = async () => {
+    setError("");
+    setSuccess("");
+
+    if (!documentType || !documentFile) {
+      setError("Please select a document type and PDF file.");
+      return;
+    }
+
+    if (documentFile.type !== "application/pdf") {
+      setError("Verification documents must be PDF files.");
+      return;
+    }
+
+    if (documentFile.size > 10 * 1024 * 1024) {
+      setError("The document must not exceed 10 MB.");
+      return;
+    }
+
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
+
+    if (!token) {
+      setError("Your session has expired. Please log in again.");
+      navigate("/login?role=agency");
+      return;
+    }
+
+    try {
+      setDocumentUploading(true);
+
+      const data = new FormData();
+      data.append("document_type", documentType);
+      data.append("document", documentFile);
+
+      const response = await axios.post(
+        "http://localhost:5000/api/agencies/documents/upload",
+        data,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setSuccess(response.data.message || "Document uploaded successfully.");
+      await fetchAgencyDocuments();
+      setDocumentFile(null);
+      setDocumentType("");
+
+      const fileInput = document.getElementById("agencyDocument");
+      if (fileInput) fileInput.value = "";
+    } catch (err) {
+      console.error("Agency document upload error:", err);
+
+      setError(
+        err.response?.data?.message ||
+          "Unable to upload verification document.",
+      );
+    } finally {
+      setDocumentUploading(false);
+    }
+  };
+
+  const fetchAgencyDocuments = async () => {
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      setDocumentsLoading(true);
+
+      const response = await axios.get(
+        "http://localhost:5000/api/agencies/documents/my",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setAgencyDocuments(response.data);
+    } catch (err) {
+      console.error("Failed to fetch agency documents:", err);
+    } finally {
+      setDocumentsLoading(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -437,6 +533,128 @@ function AgencyProfileSetup() {
               onChange={handleLogoChange}
             />
           </div>
+
+          {/* Agency Verification Documents */}
+
+          <div className="agency-profile-section">
+            <div className="agency-profile-section-title">
+              <FileText size={20} />
+
+              <div>
+                <h2>Agency Verification Documents</h2>
+                <p>Upload official documents for admin verification.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="agency-profile-form-group">
+            <label htmlFor="documentType">Document Type</label>
+
+            <select
+              id="documentType"
+              value={documentType}
+              onChange={(event) => setDocumentType(event.target.value)}
+            >
+              <option value="">Select document type</option>
+              <option value="Business Registration Certificate">
+                Business Registration Certificate
+              </option>
+              <option value="KRA PIN Certificate">KRA PIN Certificate</option>
+              <option value="National ID">National ID</option>
+              <option value="Other Supporting Document">
+                Other Supporting Document
+              </option>
+            </select>
+          </div>
+
+          <div className="agency-profile-upload-box">
+            <Upload size={28} />
+
+            <label htmlFor="agencyDocument">
+              <strong>
+                {documentFile
+                  ? documentFile.name
+                  : "Choose verification document"}
+              </strong>
+
+              <span>PDF only · Maximum size 10 MB</span>
+            </label>
+
+            <input
+              type="file"
+              id="agencyDocument"
+              name="document"
+              accept=".pdf,application/pdf"
+              onChange={(event) => {
+                const file = event.target.files[0];
+
+                if (file) {
+                  setDocumentFile(file);
+                }
+              }}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="agency-profile-submit"
+            disabled={
+              documentUploading || !documentFile || !documentType || !isEditing
+            }
+            onClick={handleDocumentUpload}
+          >
+            <Upload size={18} />
+            {documentUploading
+              ? "Uploading Document..."
+              : "Upload Verification Document"}
+          </button>
+
+          {/* Uploaded Verification Documents */}
+
+          <div className="agency-profile-form-group">
+            <label>Uploaded Verification Documents</label>
+
+            {documentsLoading ? (
+              <p>Loading documents...</p>
+            ) : agencyDocuments.length === 0 ? (
+              <p>No verification documents uploaded yet.</p>
+            ) : (
+              <div className="agency-document-list">
+                {agencyDocuments.map((document) => (
+                  <div
+                    key={document.document_id}
+                    className="agency-document-item"
+                  >
+                    <div>
+                      <strong>{document.document_type}</strong>
+
+                      <p>
+                        Uploaded:{" "}
+                        {new Date(document.uploaded_at).toLocaleDateString()}
+                      </p>
+
+                      <p>Status: {document.verification_status}</p>
+                    </div>
+
+                    <a
+                      href={`http://localhost:5000${document.document_path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View PDF
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {!isEditing && (
+            <p>
+              Save your agency profile first. You can upload verification
+              documents afterward.
+            </p>
+          )}
 
           {/* Submit */}
 
