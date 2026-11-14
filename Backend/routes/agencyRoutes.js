@@ -4,12 +4,10 @@ const router = express.Router();
 
 const agencyController = require("../controllers/agencyController");
 
+// Middleware
 const verifyToken = require("../middleware/authMiddleware");
-
 const isAdmin = require("../middleware/adminMiddleware");
-
 const upload = require("../middleware/uploadMiddleware");
-
 
 // ==========================================================
 // Create agency profile
@@ -80,6 +78,20 @@ router.get(
     "/documents/my",
     verifyToken,
     agencyController.getMyAgencyDocuments
+);
+
+router.patch(
+    "/documents/:id/approve",
+    verifyToken,
+    isAdmin,
+    agencyController.approveAgencyDocument
+);
+
+router.patch(
+    "/documents/:id/reject",
+    verifyToken,
+    isAdmin,
+    agencyController.rejectAgencyDocument
 );
 
 

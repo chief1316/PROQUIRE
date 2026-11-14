@@ -1,5 +1,8 @@
 const agencyModel = require("../models/agencyModel");
+
 const db = require("../config/db");
+
+const { analyzeDocument } = require("../services/geminiService");
 
 
 /*
@@ -473,6 +476,7 @@ const deleteAgency = (req, res) => {
 |--------------------------------------------------------------------------
 */
 
+
 const uploadAgencyDocument = (req, res) => {
 
     if (req.user.role !== "agency") {
@@ -495,12 +499,13 @@ const uploadAgencyDocument = (req, res) => {
         });
     }
 
-    // Find the agency profile belonging to the logged-in user.
     agencyModel.getAgencyByUserId(
         req.user.user_id,
         (err, agencies) => {
 
             if (err) {
+                console.error("Agency retrieval error:", err);
+
                 return res.status(500).json({
                     message: "Failed to retrieve agency profile.",
                     error: err
@@ -515,6 +520,12 @@ const uploadAgencyDocument = (req, res) => {
 
             const agencyId = agencies[0].agency_id;
 
+            const documentPath =
+                "/" + req.file.path.replace(/\\/g, "/");
+
+            // Save the document first.
+            // It remains Pending regardless of Gemini's recommendation.
+
             const sql = `
                 INSERT INTO documents (
                     agency_id,
@@ -527,15 +538,14 @@ const uploadAgencyDocument = (req, res) => {
 
             db.query(
                 sql,
-                [
-                    agencyId,
-                    documentType,
-                    "/" + req.file.path.replace(/\\/g, "/")
-                ],
+                [agencyId, documentType, documentPath],
                 (insertErr, result) => {
 
                     if (insertErr) {
-                        console.error("Agency document upload error:", insertErr);
+                        console.error(
+                            "Agency document upload error:",
+                            insertErr
+                        );
 
                         return res.status(500).json({
                             message: "Failed to save agency verification document.",
@@ -543,13 +553,139 @@ const uploadAgencyDocument = (req, res) => {
                         });
                     }
 
-                    return res.status(201).json({
-                        message: "Verification document uploaded successfully.",
-                        document_id: result.insertId,
-                        agency_id: agencyId,
-                        document_type: documentType,
-                        verification_status: "Pending"
-                    });
+                    const documentId = result.insertId;
+
+                    console.log(
+                        `Agency document ${documentId} saved successfully.`
+                    );
+
+                    // Reset agency verification so a newly uploaded
+                    // document enters the admin review queue.
+
+                    db.query(
+                        `
+                        UPDATE agency_profiles
+                        SET is_verified = 0
+                        WHERE agency_id = ?
+                        `,
+                        [agencyId],
+                        (updateErr) => {
+
+                            if (updateErr) {
+                                console.error(
+                                    "Failed to reset agency verification status:",
+                                    updateErr
+                                );
+                            }
+
+                            // Analyze the uploaded PDF using Gemini.
+                            // AI analysis must never determine final approval.
+
+                            (async () => {
+
+                                let aiResult = null;
+                                let aiSaved = false;
+
+                                try {
+
+                                    aiResult = await analyzeDocument(
+                                        req.file.path,
+                                        req.file.mimetype,
+                                        "agency"
+                                    );
+
+                                    // Save Gemini's recommendation separately.
+
+                                    const aiSql = `
+                                        INSERT INTO agency_ai_verifications (
+                                            document_id,
+                                            confidence_score,
+                                            verification_result,
+                                            verified_by,
+                                            remarks
+                                        )
+                                        VALUES (?, ?, ?, 'Gemini AI', ?)
+                                    `;
+
+                                    await new Promise((resolve, reject) => {
+
+                                        db.query(
+                                            aiSql,
+                                            [
+                                                documentId,
+                                                aiResult.confidence_score,
+                                                aiResult.verification_result,
+                                                aiResult.remarks
+                                            ],
+                                            (aiErr) => {
+
+                                                if (aiErr) {
+                                                    return reject(aiErr);
+                                                }
+
+                                                resolve();
+                                            }
+                                        );
+
+                                    });
+
+                                    aiSaved = true;
+
+                                } catch (aiError) {
+
+                                    console.error(
+                                        "Agency Gemini verification failed:",
+                                        aiError
+                                    );
+
+                                }
+
+                                // Respond after AI analysis.
+                                // The document always remains Pending
+                                // until an administrator reviews it.
+
+                                return res.status(201).json({
+
+                                    message: aiResult
+                                        ? "Document uploaded and AI analysis completed. Awaiting administrator verification."
+                                        : "Document uploaded successfully. AI analysis was unsuccessful; administrator review is required.",
+
+                                    document_id: documentId,
+
+                                    agency_id: agencyId,
+
+                                    document_type: documentType,
+
+                                    verification_status: "Pending",
+
+                                    ai_analysis: aiResult
+                                        ? {
+                                            saved: aiSaved,
+                                            verification_result:
+                                                aiResult.verification_result,
+                                            confidence_score:
+                                                aiResult.confidence_score,
+                                            document_type:
+                                                aiResult.document_type,
+                                            remarks:
+                                                aiResult.remarks
+                                        }
+                                        : {
+                                            saved: false,
+                                            verification_result: "review",
+                                            remarks: "AI analysis unavailable. Manual administrator review is required."
+                                        },
+
+                                    admin_verification_required: true,
+
+                                    agency_status_reset: !updateErr
+
+                                });
+
+                            })();
+
+                        }
+                    );
 
                 }
             );
@@ -558,6 +694,7 @@ const uploadAgencyDocument = (req, res) => {
     );
 
 };
+
 
 
 /*
@@ -635,6 +772,7 @@ const getMyAgencyDocuments = (req, res) => {
 */
 
 
+
 const getPendingAgencies = (req, res) => {
 
     const sql = `
@@ -679,17 +817,31 @@ const getPendingAgencies = (req, res) => {
             agency => agency.agency_id
         );
 
+        // Fetch agency documents together with Gemini AI results.
         const documentSql = `
             SELECT
-                document_id,
-                agency_id,
-                document_type,
-                document_path,
-                uploaded_at,
-                verification_status
-            FROM documents
-            WHERE agency_id IN (?)
-            ORDER BY uploaded_at DESC
+                d.document_id,
+                d.agency_id,
+                d.document_type,
+                d.document_path,
+                d.uploaded_at,
+                d.verification_status,
+
+                ai.verification_id AS ai_verification_id,
+                ai.confidence_score AS ai_confidence_score,
+                ai.verification_result AS ai_verification_result,
+                ai.verification_date AS ai_verification_date,
+                ai.verified_by AS ai_verified_by,
+                ai.remarks AS ai_remarks
+
+            FROM documents d
+
+            LEFT JOIN agency_ai_verifications ai
+                ON d.document_id = ai.document_id
+
+            WHERE d.agency_id IN (?)
+
+            ORDER BY d.uploaded_at DESC
         `;
 
         db.query(documentSql, [agencyIds], (docErr, documents) => {
@@ -728,6 +880,7 @@ const getPendingAgencies = (req, res) => {
     });
 
 };
+
 
 
 
@@ -826,6 +979,169 @@ const verifyAgency = (req, res) => {
 };
 
 
+const updateAgencyVerificationStatus = (agencyId, callback) => {
+    const sql = `
+        SELECT
+            COUNT(*) AS total_documents,
+            SUM(
+                CASE
+                    WHEN d.verification_status = 'Verified' THEN 1
+                    ELSE 0
+                END
+            ) AS approved_documents
+        FROM documents d
+        WHERE d.agency_id = ?
+        AND NOT EXISTS (
+            SELECT 1
+            FROM documents newer
+            WHERE newer.agency_id = d.agency_id
+            AND newer.document_type = d.document_type
+            AND (
+                newer.uploaded_at > d.uploaded_at
+                OR (
+                    newer.uploaded_at = d.uploaded_at
+                    AND newer.document_id > d.document_id
+                )
+            )
+        )
+    `;
+
+    db.query(sql, [agencyId], (err, results) => {
+        if (err) return callback(err);
+
+        const total = Number(results[0].total_documents || 0);
+        const approved = Number(results[0].approved_documents || 0);
+
+        // An agency needs at least one document, and all its
+        // latest documents must be approved.
+        const isVerified = total > 0 && total === approved ? 1 : 0;
+
+        db.query(
+            `UPDATE agency_profiles SET is_verified = ? WHERE agency_id = ?`,
+            [isVerified, agencyId],
+            callback
+        );
+    });
+};
+
+
+const approveAgencyDocument = (req, res) => {
+    const documentId = Number(req.params.id);
+
+    if (!Number.isInteger(documentId) || documentId <= 0) {
+        return res.status(400).json({ message: "Invalid document ID." });
+    }
+
+    db.query(
+        `SELECT agency_id FROM documents WHERE document_id = ? AND agency_id IS NOT NULL`,
+        [documentId],
+        (err, results) => {
+            if (err) {
+                return res.status(500).json({ message: "Failed to retrieve document." });
+            }
+
+            if (!results.length) {
+                return res.status(404).json({ message: "Agency document not found." });
+            }
+
+            const agencyId = results[0].agency_id;
+
+            db.query(
+                `UPDATE documents
+                 SET verification_status = 'Verified',
+                     admin_remarks = NULL,
+                     admin_reviewed_at = NOW(),
+                     admin_reviewed_by = ?
+                 WHERE document_id = ? AND agency_id = ?`,
+                [req.user.user_id, documentId, agencyId],
+                (updateErr) => {
+                    if (updateErr) {
+                        return res.status(500).json({ message: "Failed to approve document." });
+                    }
+
+                    updateAgencyVerificationStatus(agencyId, (statusErr) => {
+                        if (statusErr) {
+                            console.error("Agency status update error:", statusErr);
+                            return res.status(500).json({
+                                message: "Document approved, but agency status could not be updated."
+                            });
+                        }
+
+                        res.json({
+                            message: "Document approved successfully.",
+                            document_id: documentId
+                        });
+                    });
+                }
+            );
+        }
+    );
+};
+
+
+const rejectAgencyDocument = (req, res) => {
+    const documentId = Number(req.params.id);
+    const reason = (req.body.reason || "").trim();
+
+    if (!Number.isInteger(documentId) || documentId <= 0) {
+        return res.status(400).json({ message: "Invalid document ID." });
+    }
+
+    if (!reason) {
+        return res.status(400).json({
+            message: "Please provide a reason for rejecting this document."
+        });
+    }
+
+    db.query(
+        `SELECT agency_id FROM documents WHERE document_id = ? AND agency_id IS NOT NULL`,
+        [documentId],
+        (err, results) => {
+            if (err) {
+                return res.status(500).json({ message: "Failed to retrieve document." });
+            }
+
+            if (!results.length) {
+                return res.status(404).json({ message: "Agency document not found." });
+            }
+
+            const agencyId = results[0].agency_id;
+
+            db.query(
+                `UPDATE documents
+                 SET verification_status = 'Rejected',
+                     admin_remarks = ?,
+                     admin_reviewed_at = NOW(),
+                     admin_reviewed_by = ?
+                 WHERE document_id = ? AND agency_id = ?`,
+                [reason, req.user.user_id, documentId, agencyId],
+                (updateErr) => {
+                    if (updateErr) {
+                        return res.status(500).json({ message: "Failed to reject document." });
+                    }
+
+                    updateAgencyVerificationStatus(agencyId, (statusErr) => {
+                        if (statusErr) {
+                            console.error("Agency status update error:", statusErr);
+                            return res.status(500).json({
+                                message: "Document rejected, but agency status could not be updated."
+                            });
+                        }
+
+                        res.json({
+                            message: "Document rejected successfully.",
+                            document_id: documentId,
+                            rejection_reason: reason
+                        });
+                    });
+                }
+            );
+        }
+    );
+};
+
+
+
 /*
 |--------------------------------------------------------------------------
 | Export Controllers
@@ -843,6 +1159,8 @@ module.exports = {
     getPendingAgencies,
     verifyAgency,
     uploadAgencyDocument,
-    getMyAgencyDocuments
+    getMyAgencyDocuments,
+    approveAgencyDocument,
+    rejectAgencyDocument
 
 };

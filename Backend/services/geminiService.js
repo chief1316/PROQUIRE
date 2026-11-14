@@ -300,7 +300,8 @@ async function sendToGemini(
 
 async function analyzeDocument(
     filePath,
-    mimeType
+    mimeType,
+    documentContext = "technician"
 ) {
 
     try {
@@ -425,10 +426,70 @@ async function analyzeDocument(
 
 
         // ==================================================
-        // AI Prompt
-        // ==================================================
+// AI Prompt
+// ==================================================
 
-        const prompt = `
+let prompt;
+
+if (documentContext === "agency") {
+
+    prompt = `
+You are an AI document screening assistant for ProQuire,
+a technician and service marketplace operating in Kenya.
+
+Analyze the uploaded agency business verification document.
+
+The document may be one of the following:
+
+- Certificate of business registration.
+- Certificate of incorporation.
+- KRA PIN certificate.
+- County business permit.
+- Other legitimate business verification document.
+
+Determine:
+
+1. Whether the document appears to be a business or agency
+   verification document.
+2. What type of document it appears to be.
+3. Whether the document is clear and readable.
+4. Whether important business information is visible,
+   such as company name, registration number, KRA PIN,
+   issuing authority or relevant dates, where applicable.
+5. Whether there are obvious signs of alteration,
+   manipulation, suspicious inconsistencies or missing information.
+
+Important rules:
+
+- Do not invent information that cannot be seen.
+- Do not assume every document must contain the same information.
+- Assess the document according to its apparent document type.
+- Do not reject a document simply because it does not contain
+  information that is not normally required for that document type.
+- Do not make a final legal determination that a document
+  is genuine or fraudulent.
+- If the document is unrelated to agency or business verification,
+  return "rejected".
+- If the document is unclear or cannot confidently be assessed,
+  return "review".
+- If the document appears suitable for administrative verification,
+  return "approved".
+- An "approved" result is only an AI recommendation.
+  A ProQuire administrator must make the final verification decision.
+- Keep remarks short and explain the reason for the recommendation.
+
+- confidence_score must be a percentage from 0 to 100.
+- Do NOT return confidence_score as a decimal between 0 and 1.
+- For example, 75% confidence must be returned as 75.
+
+Return the assessment using the required JSON structure.
+`;
+
+} else {
+
+    // Preserve the existing technician identity-document prompt.
+
+    prompt = `
 You are an AI document screening assistant for ProQuire,
 a technician and service marketplace.
 
@@ -462,6 +523,8 @@ Important rules:
 
 Return the assessment using the required JSON structure.
 `;
+
+}
 
 
         // ==================================================

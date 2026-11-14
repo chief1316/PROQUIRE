@@ -15,6 +15,7 @@ import {
   MapPin,
   FileText,
   CheckCircle,
+  Sparkles,
   X,
   Eye,
 } from "lucide-react";
@@ -59,6 +60,10 @@ function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const [rejectingDocumentId, setRejectingDocumentId] = useState(null);
+
+  const [processingDocumentId, setProcessingDocumentId] = useState(null);
 
   const token = sessionStorage.getItem("token");
 
@@ -349,6 +354,62 @@ function AdminDashboard() {
       setError(err.response?.data?.message || "Unable to verify agency.");
     } finally {
       setVerifyingAgency(false);
+    }
+  };
+
+  const handleApproveAgencyDocument = async (documentId) => {
+    try {
+      setProcessingDocumentId(documentId);
+      setError("");
+      setSuccess("");
+
+      const response = await axios.patch(
+        `http://localhost:5000/api/agencies/documents/${documentId}/approve`,
+        {},
+        getAuthHeaders(),
+      );
+
+      setSuccess(response.data?.message || "Document approved successfully.");
+
+      setSelectedAgency(null);
+      await loadDashboardData();
+    } catch (err) {
+      console.error("Document approval error:", err);
+      setError(err.response?.data?.message || "Unable to approve document.");
+    } finally {
+      setProcessingDocumentId(null);
+    }
+  };
+
+  const handleRejectAgencyDocument = async (documentId) => {
+    if (!rejectionReason.trim()) {
+      setError("Please provide a reason for rejecting this document.");
+      return;
+    }
+
+    try {
+      setProcessingDocumentId(documentId);
+      setError("");
+      setSuccess("");
+
+      const response = await axios.patch(
+        `http://localhost:5000/api/agencies/documents/${documentId}/reject`,
+        { reason: rejectionReason.trim() },
+        getAuthHeaders(),
+      );
+
+      setSuccess(response.data?.message || "Document rejected successfully.");
+
+      setRejectingDocumentId(null);
+      setRejectionReason("");
+
+      setSelectedAgency(null);
+      await loadDashboardData();
+    } catch (err) {
+      console.error("Document rejection error:", err);
+      setError(err.response?.data?.message || "Unable to reject document.");
+    } finally {
+      setProcessingDocumentId(null);
     }
   };
 
@@ -3072,24 +3133,338 @@ function AdminDashboard() {
                           </span>
                         </div>
 
-                        <a
-                          href={`http://localhost:5000${document.document_path}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        {/* ======================================
+    GEMINI AI ASSESSMENT
+====================================== */}
+
+                        <div
                           style={{
-                            display: "inline-block",
-                            marginTop: "12px",
-                            padding: "8px 12px",
-                            background: "#2563eb",
-                            color: "#ffffff",
-                            borderRadius: "7px",
-                            textDecoration: "none",
-                            fontSize: "12px",
-                            fontWeight: "600",
+                            marginTop: "15px",
+                            padding: "15px",
+                            background: "#ffffff",
+                            border: "1px solid #dbeafe",
+                            borderRadius: "10px",
                           }}
                         >
-                          View Document
-                        </a>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                              gap: "8px",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            <strong
+                              style={{
+                                fontSize: "13px",
+                                color: "#1e3a8a",
+                              }}
+                            >
+                              <Sparkles
+                                size={15}
+                                style={{
+                                  marginRight: "6px",
+                                  verticalAlign: "middle",
+                                }}
+                              />
+                              Gemini AI Assessment
+                            </strong>
+
+                            <span
+                              style={{
+                                padding: "5px 9px",
+                                borderRadius: "20px",
+                                fontSize: "11px",
+                                fontWeight: "700",
+                                background:
+                                  document.ai_verification_result === "approved"
+                                    ? "#dcfce7"
+                                    : document.ai_verification_result ===
+                                        "rejected"
+                                      ? "#fee2e2"
+                                      : document.ai_verification_result ===
+                                          "review"
+                                        ? "#fef3c7"
+                                        : "#f1f5f9",
+                                color:
+                                  document.ai_verification_result === "approved"
+                                    ? "#166534"
+                                    : document.ai_verification_result ===
+                                        "rejected"
+                                      ? "#991b1b"
+                                      : document.ai_verification_result ===
+                                          "review"
+                                        ? "#92400e"
+                                        : "#475569",
+                              }}
+                            >
+                              {document.ai_verification_result
+                                ? document.ai_verification_result.toUpperCase()
+                                : "NOT ANALYZED"}
+                            </span>
+                          </div>
+
+                          {document.ai_verification_id ? (
+                            <>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  padding: "8px 0",
+                                  borderBottom: "1px solid #f1f5f9",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                <span style={{ color: "#64748b" }}>
+                                  AI Confidence
+                                </span>
+
+                                <strong style={{ color: "#0f172a" }}>
+                                  {document.ai_confidence_score ?? 0}%
+                                </strong>
+                              </div>
+
+                              <div
+                                style={{
+                                  marginTop: "10px",
+                                  padding: "9px",
+                                  background: "#f8fafc",
+                                  borderRadius: "7px",
+                                  fontSize: "12px",
+                                  color: "#475569",
+                                  lineHeight: "1.6",
+                                }}
+                              >
+                                <strong style={{ color: "#334155" }}>
+                                  Gemini Remarks:
+                                </strong>
+
+                                <p style={{ margin: "5px 0 0" }}>
+                                  {document.ai_remarks ||
+                                    "No AI remarks available."}
+                                </p>
+                              </div>
+
+                              <div
+                                style={{
+                                  marginTop: "10px",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  flexWrap: "wrap",
+                                  gap: "6px",
+                                  fontSize: "11px",
+                                  color: "#64748b",
+                                }}
+                              >
+                                <span>
+                                  Analyzed by:{" "}
+                                  {document.ai_verified_by || "Gemini AI"}
+                                </span>
+
+                                <span>
+                                  {document.ai_verification_date
+                                    ? new Date(
+                                        document.ai_verification_date,
+                                      ).toLocaleString()
+                                    : "Date unavailable"}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: "12px",
+                                color: "#92400e",
+                                lineHeight: "1.6",
+                              }}
+                            >
+                              Gemini AI results are not available for this
+                              document. Manual administrator review is required.
+                            </p>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            flexWrap: "wrap",
+                            marginTop: "15px",
+                          }}
+                        >
+                          {/* REVIEW BUTTON - KEEP AVAILABLE */}
+                          <a
+                            href={`http://localhost:5000${document.document_path}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: "9px 14px",
+                              background: "#2563eb",
+                              color: "#fff",
+                              borderRadius: "7px",
+                              textDecoration: "none",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                            }}
+                          >
+                            Review Document
+                          </a>
+
+                          {document.verification_status !== "Verified" && (
+                            <button
+                              type="button"
+                              disabled={
+                                processingDocumentId === document.document_id
+                              }
+                              onClick={() =>
+                                handleApproveAgencyDocument(
+                                  document.document_id,
+                                )
+                              }
+                              style={{
+                                padding: "9px 14px",
+                                background: "#16a34a",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "7px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "600",
+                              }}
+                            >
+                              {processingDocumentId === document.document_id
+                                ? "Processing..."
+                                : "Approve"}
+                            </button>
+                          )}
+
+                          {document.verification_status !== "Rejected" && (
+                            <button
+                              type="button"
+                              disabled={
+                                processingDocumentId === document.document_id
+                              }
+                              onClick={() => {
+                                setRejectingDocumentId(document.document_id);
+                                setRejectionReason("");
+                                setError("");
+                              }}
+                              style={{
+                                padding: "9px 14px",
+                                background: "#dc2626",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "7px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "600",
+                              }}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+
+                        {rejectingDocumentId === document.document_id && (
+                          <div
+                            style={{
+                              marginTop: "12px",
+                              padding: "12px",
+                              background: "#fff7ed",
+                              border: "1px solid #fed7aa",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <strong
+                              style={{ fontSize: "12px", color: "#9a3412" }}
+                            >
+                              Reason for rejection
+                            </strong>
+
+                            <textarea
+                              value={rejectionReason}
+                              onChange={(e) =>
+                                setRejectionReason(e.target.value)
+                              }
+                              placeholder="Explain why this document is being rejected..."
+                              rows={3}
+                              style={{
+                                width: "100%",
+                                boxSizing: "border-box",
+                                marginTop: "8px",
+                                padding: "9px",
+                                border: "1px solid #fdba74",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                              }}
+                            />
+
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "8px",
+                                marginTop: "8px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                disabled={
+                                  processingDocumentId === document.document_id
+                                }
+                                onClick={() =>
+                                  handleRejectAgencyDocument(
+                                    document.document_id,
+                                  )
+                                }
+                                style={{
+                                  padding: "8px 12px",
+                                  background: "#dc2626",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Confirm Rejection
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectingDocumentId(null);
+                                  setRejectionReason("");
+                                }}
+                                style={{
+                                  padding: "8px 12px",
+                                  background: "#e2e8f0",
+                                  color: "#334155",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {document.verification_status === "Rejected" &&
+                          document.admin_remarks && (
+                            <p
+                              style={{
+                                fontSize: "12px",
+                                color: "#991b1b",
+                                marginTop: "8px",
+                              }}
+                            >
+                              <strong>Admin rejection reason:</strong>{" "}
+                              {document.admin_remarks}
+                            </p>
+                          )}
                       </div>
                     ))}
                   </div>
@@ -3137,29 +3512,6 @@ function AdminDashboard() {
                 }}
               >
                 Close
-              </button>
-
-              <button
-                type="button"
-                onClick={handleVerifyAgency}
-                disabled={verifyingAgency}
-                style={{
-                  padding: "10px 17px",
-                  border: "none",
-                  background: verifyingAgency ? "#93c5fd" : "#16a34a",
-                  color: "#ffffff",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: verifyingAgency ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "7px",
-                }}
-              >
-                <CheckCircle size={16} />
-
-                {verifyingAgency ? "Verifying..." : "Approve & Verify"}
               </button>
             </div>
           </div>
