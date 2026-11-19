@@ -41,6 +41,12 @@ router.get(
     agencyController.getMyAgency
 );
 
+router.get(
+    "/notifications",
+    verifyToken,
+    agencyController.getAgencyNotifications
+);
+
 
 // ==========================================================
 // Get pending agencies

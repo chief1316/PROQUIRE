@@ -1,5 +1,12 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle, Eye, EyeOff, Lock } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Lock,
+} from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
 import "./Login.css";
@@ -146,7 +153,12 @@ function ResetPassword() {
         {/* Error message                     */}
         {/* -------------------------------- */}
 
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            <AlertCircle size={22} />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* -------------------------------- */}
         {/* Reset form                        */}

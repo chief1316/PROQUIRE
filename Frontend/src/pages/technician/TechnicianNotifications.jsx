@@ -198,7 +198,11 @@ function TechnicianNotifications({ notifications = [] }) {
   };
 
   return (
-    <div ref={notificationRef} style={styles.container}>
+    <div
+      ref={notificationRef}
+      style={styles.container}
+      className="technician-notifications-container"
+    >
       {/* Notification bell */}
 
       <button
@@ -221,7 +225,10 @@ function TechnicianNotifications({ notifications = [] }) {
       {/* Notification dropdown */}
 
       {open && (
-        <div style={styles.dropdown}>
+        <div
+          style={styles.dropdown}
+          className="technician-notifications-dropdown"
+        >
           <div style={styles.dropdownHeader}>
             <div>
               <h3 style={styles.dropdownTitle}>Notifications</h3>
@@ -261,7 +268,10 @@ function TechnicianNotifications({ notifications = [] }) {
             </div>
           )}
 
-          <div style={styles.notificationList}>
+          <div
+            style={styles.notificationList}
+            className="technician-notifications-list"
+          >
             {notifications.length === 0 ? (
               <div style={styles.emptyState}>
                 <div style={styles.emptyIcon}>

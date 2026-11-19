@@ -145,7 +145,7 @@ function AgencyDashboard() {
 
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/notifications/agency",
+          "http://localhost:5000/api/agencies/notifications",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -237,7 +237,7 @@ function AgencyDashboard() {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
 
-    navigate("/login?role=agency");
+    navigate("/");
   };
 
   const goToTechnicians = () => {

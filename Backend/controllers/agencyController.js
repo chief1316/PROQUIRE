@@ -1094,7 +1094,9 @@ const rejectAgencyDocument = (req, res) => {
     }
 
     db.query(
-        `SELECT agency_id FROM documents WHERE document_id = ? AND agency_id IS NOT NULL`,
+        `SELECT agency_id, document_type
+ FROM documents
+ WHERE document_id = ? AND agency_id IS NOT NULL`,
         [documentId],
         (err, results) => {
             if (err) {
@@ -1106,6 +1108,7 @@ const rejectAgencyDocument = (req, res) => {
             }
 
             const agencyId = results[0].agency_id;
+            const documentType = results[0].document_type;
 
             db.query(
                 `UPDATE documents
@@ -1128,11 +1131,37 @@ const rejectAgencyDocument = (req, res) => {
                             });
                         }
 
-                        res.json({
-                            message: "Document rejected successfully.",
-                            document_id: documentId,
-                            rejection_reason: reason
-                        });
+                        db.query(
+    `INSERT INTO notifications
+     (
+         agency_id,
+         document_id,
+         notification_type,
+         title,
+         message
+     )
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+        agencyId,
+        documentId,
+        "document_rejected",
+        "Document Rejected",
+        `Your ${documentType} has been rejected. Reason: ${reason}`
+    ],
+    (notificationErr) => {
+        if (notificationErr) {
+            console.error("Agency notification error:", notificationErr);
+        }
+
+        res.json({
+            message: notificationErr
+                ? "Document rejected successfully, but notification could not be created."
+                : "Document rejected and agency notified successfully.",
+            document_id: documentId,
+            rejection_reason: reason
+        });
+    }
+);
                     });
                 }
             );
@@ -1140,6 +1169,60 @@ const rejectAgencyDocument = (req, res) => {
     );
 };
 
+const getAgencyNotifications = (req, res) => {
+
+    agencyModel.getAgencyByUserId(
+        req.user.user_id,
+        (err, result) => {
+
+            if (err) {
+                return res.status(500).json(err);
+            }
+
+            if (result.length === 0) {
+                return res.status(404).json({
+                    message: "Agency profile not found."
+                });
+            }
+
+            const agencyId = result[0].agency_id;
+
+            db.query(
+                `SELECT
+                    notification_id,
+                    agency_id,
+                    document_id,
+                    notification_type,
+                    title,
+                    message,
+                    is_read,
+                    created_at
+                 FROM notifications
+                 WHERE agency_id = ?
+                 ORDER BY created_at DESC`,
+                [agencyId],
+                (notificationErr, notifications) => {
+
+                    if (notificationErr) {
+                        console.error(
+                            "Agency notifications error:",
+                            notificationErr
+                        );
+
+                        return res.status(500).json({
+                            message: "Failed to retrieve notifications."
+                        });
+                    }
+
+                    res.json(notifications);
+
+                }
+            );
+
+        }
+    );
+
+};
 
 
 /*
@@ -1161,6 +1244,7 @@ module.exports = {
     uploadAgencyDocument,
     getMyAgencyDocuments,
     approveAgencyDocument,
-    rejectAgencyDocument
+    rejectAgencyDocument,
+    getAgencyNotifications
 
 };

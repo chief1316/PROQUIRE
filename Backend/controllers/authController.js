@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const transporter = require("../config/email");
 
 
 // ==========================================
@@ -75,29 +76,99 @@ exports.register = async (req, res) => {
         `;
 
 
-        db.query(
-            sql,
-            [
-                full_name,
-                email,
-                phone,
-                profile_photo,
-                hashedPassword,
-                selectedRole
-            ],
-            (err, result) => {
+        
+            db.query(
+    sql,
+    [
+        full_name,
+        email,
+        phone,
+        profile_photo,
+        hashedPassword,
+        selectedRole
+    ],
+    async (err, result) => {
 
-                if (err) {
-                    return res.status(500).json(err);
-                }
+        if (err) {
+            return res.status(500).json(err);
+        }
 
+        // ------------------------------------------
+        // Send ProQuire welcome email
+        // ------------------------------------------
+        try {
 
-                res.status(201).json({
-                    message: "User registered successfully"
-                });
+            await transporter.sendMail({
 
-            }
-        );
+                from: `"ProQuire" <${process.env.EMAIL_USER}>`,
+
+                to: email,
+
+                subject: "Welcome to ProQuire!",
+
+                text: `
+Hello ${full_name},
+
+Welcome to ProQuire!
+
+Your account has been successfully created.
+
+We are excited to have you join our platform. ProQuire connects clients with skilled technicians and trusted service providers.
+
+Thank you for choosing ProQuire!
+
+Best regards,
+The ProQuire Team
+                `,
+
+                html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto;">
+
+                        <h2 style="color: #4f46e5;">
+                            Welcome to ProQuire!
+                        </h2>
+
+                        <p>Hello ${full_name},</p>
+
+                        <p>
+                            Your account has been successfully created.
+                        </p>
+
+                        <p>
+                            We are excited to have you join ProQuire!
+                            Our platform connects clients with skilled
+                            technicians and trusted service providers.
+                        </p>
+
+                        <p>
+                            Thank you for choosing ProQuire.
+                        </p>
+
+                        <p>
+                            Best regards,<br/>
+                            <strong>The ProQuire Team</strong>
+                        </p>
+
+                    </div>
+                `
+
+            });
+
+            console.log("Welcome email sent successfully to:", email);
+
+        } catch (emailError) {
+
+            console.error("Welcome email error:", emailError);
+
+        }
+
+        // Registration succeeds even if email delivery fails.
+        return res.status(201).json({
+            message: "User registered successfully"
+        });
+
+    }
+);
 
     } catch (error) {
 

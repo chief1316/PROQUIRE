@@ -381,7 +381,7 @@ function TechnicianDashboard() {
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
 
-    navigate("/login");
+    navigate("/");
   };
 
   const closeMobileMenu = () => {

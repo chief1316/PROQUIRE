@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
 import "./Login.css";
@@ -162,7 +162,12 @@ function Login() {
         )}
 
         {/* Error message */}
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            <AlertCircle size={22} />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Login form */}
         <form className="login-form" onSubmit={handleLogin}>

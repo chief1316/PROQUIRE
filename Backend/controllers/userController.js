@@ -379,14 +379,48 @@ exports.resetPassword = async (req, res) => {
 
         const resetRecord = resetTokens[0];
 
-        /*
-         * Hash the new password.
-         */
-        const hashedPassword =
-            await bcrypt.hash(
-                new_password,
-                10
-            );
+/*
+ * Get the user's current password.
+ */
+const [users] = await db.promise().query(
+    `
+        SELECT password
+        FROM users
+        WHERE user_id = ?
+        LIMIT 1
+    `,
+    [resetRecord.user_id]
+);
+
+if (users.length === 0) {
+    return res.status(404).json({
+        message: "User account not found."
+    });
+}
+
+/*
+ * Prevent reuse of the current password.
+ */
+const samePassword = await bcrypt.compare(
+    new_password,
+    users[0].password
+);
+
+if (samePassword) {
+    return res.status(400).json({
+        message:
+            "Your new password must be different from your current password."
+    });
+}
+
+/*
+ * Hash the new password.
+ */
+const hashedPassword =
+    await bcrypt.hash(
+        new_password,
+        10
+    );
 
         /*
          * Update the password.

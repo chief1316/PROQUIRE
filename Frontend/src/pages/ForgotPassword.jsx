@@ -78,16 +78,19 @@ function ForgotPassword() {
         </div>
 
         {message && (
-          <div
-            className="login-success"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <CheckCircle size={18} />
-            {message}
+          <div className="login-success forgot-success" role="status">
+            <div className="forgot-success-heading">
+              <CheckCircle size={22} />
+              <strong>Reset Link Requested</strong>
+            </div>
+
+            <p>{message}</p>
+
+            <p className="forgot-spam-reminder">
+              <Mail size={18} />
+              Please check your inbox and spam/junk folder for the password
+              reset email.
+            </p>
           </div>
         )}
 
