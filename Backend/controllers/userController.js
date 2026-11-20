@@ -353,6 +353,8 @@ exports.resetPassword = async (req, res) => {
             .update(token)
             .digest("hex");
 
+           
+
         /*
          * Find a valid unused token.
          */
@@ -369,6 +371,8 @@ exports.resetPassword = async (req, res) => {
             `,
             [tokenHash]
         );
+
+       
 
         if (resetTokens.length === 0) {
             return res.status(400).json({

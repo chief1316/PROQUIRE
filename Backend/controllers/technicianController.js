@@ -332,6 +332,8 @@ exports.verifyTechnician = (req, res) => {
 // ======================================================
 
 exports.uploadVerificationDocument = (req, res) => {
+    const documentFile = req.files?.document?.[0];
+const selfieFile = req.files?.selfie?.[0];
         if (req.user.role !== "technician") {
         return res.status(403).json({
             message:
@@ -349,13 +351,24 @@ exports.uploadVerificationDocument = (req, res) => {
     // Check that a file was uploaded
     // ---------------------------------------------
 
-    if (!req.file) {
+    if (!documentFile) {
+    return res.status(400).json({
+        message: "Please upload a verification document."
+    });
+}
 
-        return res.status(400).json({
-            message: "Please upload a verification document."
-        });
-
+// National ID submissions must include a selfie
+if (document_type === "National ID" && !selfieFile) {
+    try {
+        fs.unlinkSync(documentFile.path);
+    } catch (error) {
+        console.log("Could not delete uploaded document:", error);
     }
+
+    return res.status(400).json({
+        message: "Please upload a selfie holding your National ID."
+    });
+}
 
 
     // ---------------------------------------------
@@ -365,7 +378,11 @@ exports.uploadVerificationDocument = (req, res) => {
     if (!technician_id || !document_type) {
 
         try {
-            fs.unlinkSync(req.file.path);
+            fs.unlinkSync(documentFile.path);
+
+if (selfieFile) {
+    fs.unlinkSync(selfieFile.path);
+}
         } catch (error) {
             console.log(
                 "Could not delete uploaded file:",
@@ -402,22 +419,26 @@ exports.uploadVerificationDocument = (req, res) => {
 
             if (err) {
 
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (error) {
-                    console.log(
-                        "Could not delete uploaded file:",
-                        error
-                    );
-                }
+    try {
+        fs.unlinkSync(documentFile.path);
 
-                return res.status(500).json({
-                    message:
-                        "Error checking technician ownership.",
-                    error: err
-                });
+        if (selfieFile) {
+            fs.unlinkSync(selfieFile.path);
+        }
+    } catch (error) {
+        console.log(
+            "Could not delete uploaded files:",
+            error
+        );
+    }
 
-            }
+    return res.status(500).json({
+        message:
+            "Error checking technician ownership.",
+        error: err
+    });
+
+}
 
 
             // -----------------------------------------
@@ -427,13 +448,17 @@ exports.uploadVerificationDocument = (req, res) => {
             if (results.length === 0) {
 
                 try {
-                    fs.unlinkSync(req.file.path);
-                } catch (error) {
-                    console.log(
-                        "Could not delete uploaded file:",
-                        error
-                    );
-                }
+    fs.unlinkSync(documentFile.path);
+
+    if (selfieFile) {
+        fs.unlinkSync(selfieFile.path);
+    }
+} catch (error) {
+    console.log(
+        "Could not delete uploaded files:",
+        error
+    );
+}
 
                 return res.status(403).json({
                     message:
@@ -448,7 +473,11 @@ exports.uploadVerificationDocument = (req, res) => {
             // -----------------------------------------
 
             const document_path =
-              `uploads/documents/${req.file.filename}`;
+    `uploads/documents/${documentFile.filename}`;
+
+const selfie_path = selfieFile
+    ? `uploads/verification_selfies/${selfieFile.filename}`
+    : null;
 
 
             // -----------------------------------------
@@ -456,28 +485,36 @@ exports.uploadVerificationDocument = (req, res) => {
             // -----------------------------------------
 
             const sql = `
-                INSERT INTO verification_documents
-                (
-                    technician_id,
-                    document_type,
-                    document_path
-                )
-                VALUES (?, ?, ?)
-            `;
+    INSERT INTO verification_documents
+    (
+        technician_id,
+        document_type,
+        document_path,
+        selfie_path
+    )
+    VALUES (?, ?, ?, ?)
+`;
 
             db.query(
                 sql,
                 [
                     technician_id,
                     document_type,
-                    document_path
+                    document_path,
+                    selfie_path
                 ],
                 async (err, result) => {
 
                     if (err) {
 
                         try {
-                            fs.unlinkSync(req.file.path);
+                            if (documentFile && fs.existsSync(documentFile.path)) {
+    fs.unlinkSync(documentFile.path);
+}
+
+if (selfieFile && fs.existsSync(selfieFile.path)) {
+    fs.unlinkSync(selfieFile.path);
+}
                         } catch (error) {
                             console.log(
                                 "Could not delete uploaded file:",
@@ -514,9 +551,9 @@ exports.uploadVerificationDocument = (req, res) => {
                     try {
 
                         aiResult = await analyzeDocument(
-                            req.file.path,
-                            req.file.mimetype
-                        );
+    documentFile.path,
+    documentFile.mimetype
+);
 
                         console.log(
                             "Gemini AI verification completed."
@@ -539,6 +576,10 @@ exports.uploadVerificationDocument = (req, res) => {
                                 technician_id: Number(technician_id),
                                 document_type: document_type,
                                 document_path: document_path,
+                                selfie_path: selfie_path,
+                                selfie_url: selfie_path
+    ? `http://localhost:5000/${selfie_path}`
+    : null,
                                 verification_status: "pending",
 
                                 file_url:
@@ -619,14 +660,18 @@ exports.uploadVerificationDocument = (req, res) => {
                                     document_type:
                                         document_type,
 
-                                    document_path:
-                                        document_path,
+                                    document_path: document_path,
 
-                                    verification_status:
-                                        "pending",
+selfie_path: selfie_path,
 
-                                    file_url:
-                                        `http://localhost:5000/uploads/${document_path}`
+selfie_url: selfie_path
+    ? `http://localhost:5000/${selfie_path}`
+    : null,
+
+verification_status: "pending",
+
+file_url:
+    `http://localhost:5000/${document_path}`
 
                                 },
 

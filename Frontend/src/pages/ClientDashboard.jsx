@@ -118,6 +118,12 @@ function ClientDashboard() {
   const [selectedTechnician, setSelectedTechnician] = useState(null);
   const [selectedAgency, setSelectedAgency] = useState(null);
 
+  const [agencyAvailability, setAgencyAvailability] = useState(null);
+  const [agencyAvailabilityLoading, setAgencyAvailabilityLoading] =
+    useState(false);
+  const [agencyAvailabilityError, setAgencyAvailabilityError] = useState("");
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState("");
+
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
   const [serviceDate, setServiceDate] = useState("");
@@ -732,8 +738,45 @@ function ClientDashboard() {
     setAddress("");
     setServiceDate("");
     setServiceTime("");
+
+    setSelectedServiceCategory("");
+    setAgencyAvailability(null);
+    setAgencyAvailabilityLoading(false);
+    setAgencyAvailabilityError("");
+
     setTechnicianAvailability([]);
     setAvailabilityError("");
+  };
+
+  const checkAgencyAvailability = async (categoryId) => {
+    if (!selectedAgency || !categoryId) {
+      setAgencyAvailability(null);
+      return;
+    }
+
+    setAgencyAvailability(null);
+    setAgencyAvailabilityError("");
+    setAgencyAvailabilityLoading(true);
+
+    try {
+      const response = await axios.get(
+        `${API}/agencies/technicians/${selectedAgency.agency_id}/availability`,
+        {
+          params: { category_id: categoryId },
+        },
+      );
+
+      setAgencyAvailability(response.data);
+    } catch (error) {
+      console.error("Agency availability check failed:", error);
+
+      setAgencyAvailabilityError(
+        error.response?.data?.message ||
+          "Unable to check this agency's technician availability.",
+      );
+    } finally {
+      setAgencyAvailabilityLoading(false);
+    }
   };
 
   const closeRequestForm = () => {
@@ -756,6 +799,33 @@ function ClientDashboard() {
     event.preventDefault();
 
     if (!selectedTechnician && !selectedAgency) return;
+
+    // Agency requests require a confirmed matching technician
+    if (selectedAgency) {
+      if (!selectedServiceCategory) {
+        setRequestError("Please select a service category.");
+        return;
+      }
+
+      if (agencyAvailabilityLoading) {
+        setRequestError("Please wait while we check agency availability.");
+        return;
+      }
+
+      if (agencyAvailabilityError) {
+        setRequestError(
+          "Unable to verify agency availability. Please try again.",
+        );
+        return;
+      }
+
+      if (!agencyAvailability?.available) {
+        setRequestError(
+          "This agency does not have a technician in the selected category. Please choose another agency.",
+        );
+        return;
+      }
+    }
 
     if (
       !description.trim() ||
@@ -783,8 +853,14 @@ function ClientDashboard() {
     setSuccess("");
 
     try {
+      const selectedCategoryName = categories.find(
+        (item) => String(item.category_id) === String(selectedServiceCategory),
+      )?.category_name;
+
       const requestData = {
-        service_description: description.trim(),
+        service_description: selectedAgency
+          ? `Service category: ${selectedCategoryName}\n\n${description.trim()}`
+          : description.trim(),
         service_address: address.trim(),
         service_date: serviceDate,
         service_time: serviceTime,
@@ -796,6 +872,7 @@ function ClientDashboard() {
 
       if (selectedAgency) {
         requestData.agency_id = selectedAgency.agency_id;
+        requestData.category_id = selectedServiceCategory;
       }
 
       await axios.post(`${API}/service-requests`, requestData, authConfig);
@@ -1755,6 +1832,63 @@ function ClientDashboard() {
               className="client-request-form"
               onSubmit={submitServiceRequest}
             >
+              {selectedAgency && (
+                <div className="client-form-group">
+                  <label htmlFor="agency-service-category">
+                    Select the service you need
+                  </label>
+
+                  <select
+                    id="agency-service-category"
+                    value={selectedServiceCategory}
+                    onChange={(event) => {
+                      const categoryId = event.target.value;
+
+                      setSelectedServiceCategory(categoryId);
+                      setServiceTime("");
+                      setRequestError("");
+
+                      checkAgencyAvailability(categoryId);
+                    }}
+                    required
+                  >
+                    <option value="">Choose a service category</option>
+
+                    {categories.map((item) => (
+                      <option key={item.category_id} value={item.category_id}>
+                        {item.category_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {agencyAvailabilityLoading && (
+                    <p className="agency-availability-message agency-availability-loading">
+                      Checking agency technicians...
+                    </p>
+                  )}
+
+                  {!agencyAvailabilityLoading &&
+                    agencyAvailability?.available === true && (
+                      <p className="agency-availability-message agency-availability-success">
+                        ✓ This agency has a technician in this category.
+                      </p>
+                    )}
+
+                  {!agencyAvailabilityLoading &&
+                    agencyAvailability?.available === false && (
+                      <p className="agency-availability-message agency-availability-unavailable">
+                        ✕ This agency does not currently have a technician in
+                        this category.
+                      </p>
+                    )}
+
+                  {agencyAvailabilityError && (
+                    <p style={{ color: "red", marginTop: "8px" }}>
+                      {agencyAvailabilityError}
+                    </p>
+                  )}
+                </div>
+              )}
               <label>
                 Service description
                 <textarea
@@ -1884,9 +2018,15 @@ function ClientDashboard() {
                   disabled={
                     submitting ||
                     availabilityLoading ||
+                    agencyAvailabilityLoading ||
                     !serviceDate ||
                     !serviceTime ||
-                    (selectedTechnician && technicianAvailability.length === 0)
+                    (selectedTechnician &&
+                      technicianAvailability.length === 0) ||
+                    (selectedAgency &&
+                      (!selectedServiceCategory ||
+                        !agencyAvailability?.available ||
+                        !!agencyAvailabilityError))
                   }
                 >
                   {submitting ? "Submitting..." : "Submit Service Request"}

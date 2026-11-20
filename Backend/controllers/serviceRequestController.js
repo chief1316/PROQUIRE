@@ -5,13 +5,14 @@ exports.createServiceRequest = (req, res) => {
     const client_id = req.user.user_id;
 
     const {
-        agency_id,
-        technician_id,
-        service_description,
-        service_address,
-        service_date,
-        service_time
-    } = req.body;
+    agency_id,
+    technician_id,
+    category_id,
+    service_description,
+    service_address,
+    service_date,
+    service_time
+} = req.body;
 
 
     // --------------------------------------------------
@@ -39,6 +40,13 @@ exports.createServiceRequest = (req, res) => {
         });
 
     }
+
+    // Agency requests must include a service category
+if (agency_id && !category_id) {
+    return res.status(400).json({
+        message: "Please select a service category."
+    });
+}
 
         // --------------------------------------------------
     // Agency must be verified before receiving requests
@@ -80,7 +88,40 @@ exports.createServiceRequest = (req, res) => {
 
                 }
 
-                createRequest();
+                // Check whether the agency has a technician in this category
+const availabilitySql = `
+    SELECT COUNT(*) AS technician_count
+    FROM technician_profiles
+    WHERE agency_id = ?
+    AND category_id = ?
+    AND employment_type = 'Agency'
+`;
+
+db.query(
+    availabilitySql,
+    [agency_id, category_id],
+    (availabilityErr, availabilityResults) => {
+
+        if (availabilityErr) {
+            console.error(
+                "Error checking agency technician availability:",
+                availabilityErr
+            );
+
+            return res.status(500).json({
+                message: "Unable to verify agency technician availability."
+            });
+        }
+
+        if (availabilityResults[0].technician_count === 0) {
+            return res.status(400).json({
+                message: "This agency does not have a technician in the selected category."
+            });
+        }
+
+        createRequest();
+    }
+);
 
             }
         );

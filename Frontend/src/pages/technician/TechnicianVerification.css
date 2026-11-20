@@ -621,3 +621,26 @@
   }
 
 }
+
+.verification-selfie-preview {
+  margin-top: 16px;
+}
+
+.verification-selfie-preview img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  max-height: 350px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #dce3ef;
+  margin-bottom: 12px;
+}
+
+.verification-selfie-preview button {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+}

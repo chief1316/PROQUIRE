@@ -8,9 +8,14 @@ import {
   ArrowRight,
   MapPin,
   Wrench,
+  Mail,
+  Phone,
+  Camera,
 } from "lucide-react";
 
 import logo from "./assets/proquire-logo.png";
+
+import heroTechnicians from "./assets/proquire-hero-technicians.png";
 
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -69,12 +74,8 @@ function Home() {
           </div>
 
           <div className="nav-actions">
-            <Link to="/role-selection" className="login-button">
-              Log In
-            </Link>
-
             <Link to="/role-selection" className="signup-button">
-              Get Started
+              LOGIN/SIGNUP
             </Link>
           </div>
         </div>
@@ -130,57 +131,12 @@ function Home() {
               </div>
             </div>
           </div>
-
-          {/* =========================
-              SEARCH CARD
-          ========================= */}
-          <div className="hero-card-wrapper">
-            <div className="hero-card">
-              <div className="hero-card-header">
-                <div>
-                  <div className="small-label">FIND A PROFESSIONAL</div>
-
-                  <h3>What service do you need?</h3>
-                </div>
-
-                <Wrench size={25} />
-              </div>
-
-              <div className="search-box">
-                <Search size={19} />
-
-                <span>Search for a service</span>
-              </div>
-
-              <div className="search-box">
-                <MapPin size={19} />
-
-                <span>Your location</span>
-              </div>
-
-              <Link to="/role-selection" className="search-button">
-                Search Professionals
-                <ArrowRight size={18} />
-              </Link>
-
-              <div className="rating-preview">
-                <div className="stars">
-                  <Star size={14} fill="currentColor" />
-
-                  <Star size={14} fill="currentColor" />
-
-                  <Star size={14} fill="currentColor" />
-
-                  <Star size={14} fill="currentColor" />
-
-                  <Star size={14} fill="currentColor" />
-                </div>
-
-                <span>
-                  Find trusted professionals through ratings and reviews
-                </span>
-              </div>
-            </div>
+          <div className="hero-visual">
+            <img
+              src={heroTechnicians}
+              alt="Male and female ProQuire technicians"
+              className="hero-technicians-image"
+            />
           </div>
         </div>
       </section>
@@ -194,74 +150,54 @@ function Home() {
             <span className="section-label">OUR SERVICES</span>
 
             <h2>
-              Professional Services You Can <span>Trust</span>
+              Explore Our <span>Services</span>
             </h2>
 
             <p>
-              Find skilled professionals across a wide range of service
-              categories.
+              From everyday repairs to major projects, find the right
+              professional for your needs.
             </p>
           </div>
 
           <div className="service-cards">
-            <div className="service-card">
+            <Link to="/role-selection" className="service-card">
               <div className="service-icon">🔧</div>
-
               <h3>Plumbing</h3>
+              <p>Installation, repairs and maintenance.</p>
+            </Link>
 
-              <p>
-                Find qualified plumbers for installation, repair and
-                maintenance.
-              </p>
-
-              <button>
-                Find Professionals
-                <ArrowRight size={15} />
-              </button>
-            </div>
-
-            <div className="service-card">
+            <Link to="/role-selection" className="service-card">
               <div className="service-icon">⚡</div>
-
               <h3>Electrical</h3>
+              <p>Electrical installation and repairs.</p>
+            </Link>
 
-              <p>
-                Connect with professional electricians for safe electrical work.
-              </p>
-
-              <button>
-                Find Professionals
-                <ArrowRight size={15} />
-              </button>
-            </div>
-
-            <div className="service-card">
+            <Link to="/role-selection" className="service-card">
               <div className="service-icon">🏗️</div>
-
               <h3>Construction</h3>
+              <p>Building and construction projects.</p>
+            </Link>
 
-              <p>Get skilled construction professionals for your projects.</p>
-
-              <button>
-                Find Professionals
-                <ArrowRight size={15} />
-              </button>
-            </div>
-
-            <div className="service-card">
+            <Link to="/role-selection" className="service-card">
               <div className="service-icon">🛠️</div>
-
               <h3>Mechanical</h3>
+              <p>Vehicle and equipment repairs.</p>
+            </Link>
+          </div>
 
-              <p>
-                Find experienced mechanics for vehicle and equipment repairs.
-              </p>
+          <div className="services-more">
+            <h3>Looking for something else?</h3>
 
-              <button>
-                Find Professionals
-                <ArrowRight size={15} />
-              </button>
-            </div>
+            <p>
+              These are just some of the services available on ProQuire.
+              Discover more skilled professionals across different service
+              categories.
+            </p>
+
+            <Link to="/role-selection" className="services-explore-button">
+              Explore More Services
+              <ArrowRight size={16} />
+            </Link>
           </div>
         </div>
       </section>
@@ -376,8 +312,8 @@ function Home() {
       </section>
 
       {/* =========================
-          FOOTER
-      ========================= */}
+    FOOTER
+========================= */}
       <footer className="footer">
         <div className="footer-container">
           <div className="footer-brand">
@@ -390,15 +326,39 @@ function Home() {
           </div>
 
           <div className="footer-links">
+            <h3>Quick Links</h3>
             <a href="#home">Home</a>
-
             <a href="#services">Services</a>
-
             <a href="#how-it-works">How It Works</a>
-
             <a href="#about">About</a>
-
             <Link to="/login">Professional Login</Link>
+          </div>
+
+          <div className="footer-contact">
+            <h3>Contact Us</h3>
+
+            <a href="mailto:proquire.est2026@gmail.com">
+              <Mail size={17} />
+              proquire.est2026@gmail.com
+            </a>
+
+            <a href="tel:+254757641698">
+              <Phone size={17} />
+              0757641698
+            </a>
+          </div>
+
+          <div className="footer-socials">
+            <h3>Follow Us</h3>
+
+            <a
+              href="https://www.instagram.com/proquire_?lqvp=YmJocnB5MWk0ZGtz"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Camera size={19} />
+              Instagram
+            </a>
           </div>
         </div>
 

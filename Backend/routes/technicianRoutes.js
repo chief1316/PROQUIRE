@@ -111,7 +111,10 @@ router.patch(
 router.post(
     "/verification/upload",
     verifyToken,
-    upload.single("document"),
+    upload.fields([
+        { name: "document", maxCount: 1 },
+        { name: "selfie", maxCount: 1 }
+    ]),
     uploadVerificationDocument
 );
 

@@ -196,6 +196,48 @@ const getTechnicianById = (req, res) => {
 
 };
 
+
+// Check whether an agency has a technician in a selected category
+const checkAgencyCategoryAvailability = (req, res) => {
+    const { agencyId } = req.params;
+    const { category_id } = req.query;
+
+    if (!category_id) {
+        return res.status(400).json({
+            message: "Please select a service category."
+        });
+    }
+
+    const sql = `
+        SELECT COUNT(*) AS technician_count
+        FROM technician_profiles
+        WHERE agency_id = ?
+        AND category_id = ?
+        AND employment_type = 'Agency'
+    `;
+
+    db.query(sql, [agencyId, category_id], (err, results) => {
+        if (err) {
+            console.error("Agency category availability error:", err);
+
+            return res.status(500).json({
+                message: "Unable to check agency availability."
+            });
+        }
+
+        const available = results[0].technician_count > 0;
+
+        return res.status(200).json({
+            available,
+            technician_count: results[0].technician_count,
+            message: available
+                ? "This agency has a technician in the selected category."
+                : "This agency does not currently have a technician in the selected category."
+        });
+    });
+};
+
+
 /*
 |--------------------------------------------------------------------------
 | Update Technician
@@ -335,11 +377,10 @@ const deleteTechnician = (req, res) => {
 };
 
 module.exports = {
-
     createTechnician,
     getAgencyTechnicians,
     getTechnicianById,
     updateTechnician,
-    deleteTechnician
-
+    deleteTechnician,
+    checkAgencyCategoryAvailability
 };

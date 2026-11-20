@@ -50,12 +50,8 @@ app.use(cors());
 app.use(express.json());
 const path = require("path");
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-app.use(
-    "/uploads",
-    express.static("uploads")
-);
+// Verification documents and selfies must not be publicly accessible.
+// We will serve them through authenticated admin routes.
 
 app.use("/api/auth", authRoutes);
 app.use("/api/protected", protectedRoutes);

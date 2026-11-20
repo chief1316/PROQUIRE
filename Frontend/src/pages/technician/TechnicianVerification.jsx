@@ -18,6 +18,11 @@ function TechnicianVerification() {
   const navigate = useNavigate();
 
   const fileInputRef = useRef(null);
+  const selfieInputRef = useRef(null);
+
+  const [selectedSelfie, setSelectedSelfie] = useState(null);
+
+  const [selfiePreview, setSelfiePreview] = useState("");
 
   const [technicianProfile, setTechnicianProfile] = useState(null);
 
@@ -126,6 +131,32 @@ function TechnicianVerification() {
     setError("");
     setSuccess("");
     setAiResult(null);
+  };
+
+  /* =====================================================
+   SELFIE SELECTION
+===================================================== */
+
+  const handleSelfieChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a JPG, PNG or WEBP selfie.");
+      setSelectedSelfie(null);
+      setSelfiePreview("");
+      event.target.value = "";
+      return;
+    }
+
+    setSelectedSelfie(file);
+    setSelfiePreview(URL.createObjectURL(file));
+
+    setError("");
+    setSuccess("");
   };
 
   /* =====================================================
@@ -471,6 +502,65 @@ function TechnicianVerification() {
               onChange={handleDocumentChange}
               disabled={submitting}
             />
+          </div>
+
+          {/* SELFIE WITH NATIONAL ID */}
+
+          <div className="verification-field">
+            <label htmlFor="verification-selfie">
+              Selfie Holding Your National ID
+            </label>
+
+            <p>
+              Take a clear photo of yourself holding your National ID beside
+              your face. Make sure your face and ID photograph are visible.
+            </p>
+
+            <label
+              htmlFor="verification-selfie"
+              className="verification-upload-area"
+            >
+              <Upload size={28} />
+
+              <strong>
+                {selectedSelfie ? selectedSelfie.name : "Choose your selfie"}
+              </strong>
+
+              <span>JPG, PNG or WEBP files only</span>
+            </label>
+
+            <input
+              ref={selfieInputRef}
+              id="verification-selfie"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="user"
+              onChange={handleSelfieChange}
+              disabled={submitting}
+            />
+
+            {selfiePreview && (
+              <div className="verification-selfie-preview">
+                <img
+                  src={selfiePreview}
+                  alt="Preview of selfie holding National ID"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSelfie(null);
+                    setSelfiePreview("");
+
+                    if (selfieInputRef.current) {
+                      selfieInputRef.current.value = "";
+                    }
+                  }}
+                >
+                  Remove selfie
+                </button>
+              </div>
+            )}
           </div>
 
           {/* SUBMIT */}

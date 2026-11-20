@@ -34,6 +34,12 @@ router.get(
     agencyTechnicianController.getAgencyTechnicians
 );
 
+// Check whether an agency has a technician in a selected category
+router.get(
+    "/:agencyId/availability",
+    agencyTechnicianController.checkAgencyCategoryAvailability
+);
+
 
 /*
 |--------------------------------------------------------------------------

@@ -22,6 +22,9 @@ const storage = multer.diskStorage({
         else if (file.fieldname === "document") {
             folder = "uploads/documents/";
         }
+        else if (file.fieldname === "selfie") {
+    folder = "uploads/verification_selfies/";
+}
 
         // Create folder automatically if it doesn't exist
         fs.mkdirSync(folder, { recursive: true });
@@ -71,6 +74,26 @@ const fileFilter = (req, file, cb) => {
         );
 
     }
+    /*
+ * Identity verification selfies must be images only.
+ */
+if (file.fieldname === "selfie") {
+    const allowedSelfieTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    ];
+
+    if (allowedSelfieTypes.includes(file.mimetype)) {
+        return cb(null, true);
+    }
+
+    return cb(
+        new Error(
+            "Selfie must be a JPG, PNG or WEBP image."
+        )
+    );
+}
 
 
     /*
