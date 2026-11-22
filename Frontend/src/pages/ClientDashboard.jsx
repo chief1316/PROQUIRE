@@ -31,6 +31,30 @@ import logo from "../assets/proquire-logo.png";
 
 // IMPORTANT: Use a normal URL here.
 const API = "http://localhost:5000/api";
+const SERVER_URL = "http://localhost:5000";
+
+function getImageUrl(imagePath) {
+  if (!imagePath) return "";
+
+  if (imagePath.startsWith("http")) {
+    return imagePath;
+  }
+
+  const cleanPath = imagePath.replace(/^\/+/, "");
+
+  // Existing paths that already contain uploads/
+  if (cleanPath.startsWith("uploads/")) {
+    return `${SERVER_URL}/${cleanPath}`;
+  }
+
+  // Profile photos stored as filenames
+  if (!cleanPath.includes("/")) {
+    return `${SERVER_URL}/uploads/profile_photos/${cleanPath}`;
+  }
+
+  // Other paths such as portfolios/profile_photos
+  return `${SERVER_URL}/uploads/${cleanPath}`;
+}
 
 function getToken() {
   return sessionStorage.getItem("token");
@@ -117,6 +141,7 @@ function ClientDashboard() {
 
   const [selectedTechnician, setSelectedTechnician] = useState(null);
   const [selectedAgency, setSelectedAgency] = useState(null);
+  const [profileToView, setProfileToView] = useState(null);
 
   const [agencyAvailability, setAgencyAvailability] = useState(null);
   const [agencyAvailabilityLoading, setAgencyAvailabilityLoading] =
@@ -1239,7 +1264,14 @@ function ClientDashboard() {
                     >
                       <div className="client-card-top">
                         <div className="client-technician-avatar">
-                          <User size={27} />
+                          {technician.profile_photo ? (
+                            <img
+                              src={getImageUrl(technician.profile_photo)}
+                              alt={technician.full_name}
+                            />
+                          ) : (
+                            <User size={27} />
+                          )}
                         </div>
 
                         <div className="client-verified">
@@ -1271,20 +1303,52 @@ function ClientDashboard() {
                         {technician.bio ||
                           "This professional has not added a description yet."}
                       </p>
+                      {technician.portfolio?.length > 0 && (
+                        <div className="client-portfolio-preview">
+                          <h4>Recent work</h4>
+
+                          <div className="client-portfolio-images">
+                            {technician.portfolio.slice(0, 3).map((item) => (
+                              <img
+                                key={item.portfolio_id}
+                                src={getImageUrl(item.image_path)}
+                                alt={item.title}
+                                title={item.title}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="client-card-footer">
                         <span className="client-rating">
                           <Star size={16} fill="currentColor" />
-                          Ratings coming soon
+
+                          {Number(technician.review_count) > 0
+                            ? `${Number(technician.average_rating).toFixed(1)} (${technician.review_count} reviews)`
+                            : "No reviews yet"}
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={() => openRequestForm(technician)}
-                        >
-                          Request Service
-                          <ArrowRight size={16} />
-                        </button>
+                        <div className="client-profile-card-actions">
+                          <button
+                            type="button"
+                            className="client-view-profile-button"
+                            onClick={() =>
+                              setProfileToView({
+                                type: "technician",
+                                data: technician,
+                              })
+                            }
+                          >
+                            View Profile
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openRequestForm(technician)}
+                          >
+                            Request Service <ArrowRight size={16} />
+                          </button>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -1330,13 +1394,23 @@ function ClientDashboard() {
                           Verified Agency
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={() => openAgencyRequestForm(agency)}
-                        >
-                          Request Service
-                          <ArrowRight size={16} />
-                        </button>
+                        <div className="client-profile-card-actions">
+                          <button
+                            type="button"
+                            className="client-view-profile-button"
+                            onClick={() =>
+                              setProfileToView({ type: "agency", data: agency })
+                            }
+                          >
+                            View Agency
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openAgencyRequestForm(agency)}
+                          >
+                            Request Service <ArrowRight size={16} />
+                          </button>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -2036,6 +2110,231 @@ function ClientDashboard() {
           </div>
         </div>
       )}
+
+      {/* TECHNICIAN / AGENCY PROFILE DETAILS */}
+      {profileToView && (
+        <div
+          className="client-profile-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setProfileToView(null);
+          }}
+        >
+          <section
+            className="client-profile-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="client-profile-title"
+          >
+            <header className="client-profile-modal-header">
+              <div>
+                <span className="client-profile-eyebrow">
+                  {profileToView.type === "technician"
+                    ? "Verified professional"
+                    : "Verified agency"}
+                </span>
+                <h2 id="client-profile-title">
+                  {profileToView.type === "technician"
+                    ? profileToView.data.full_name || "Professional"
+                    : profileToView.data.company_name || "Professional Agency"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="client-profile-close"
+                aria-label="Close profile"
+                onClick={() => setProfileToView(null)}
+              >
+                <X size={22} />
+              </button>
+            </header>
+
+            <div className="client-profile-modal-body">
+              <div className="client-profile-summary">
+                <div className="client-profile-large-avatar">
+                  {profileToView.type === "technician" &&
+                  profileToView.data.profile_photo ? (
+                    <img
+                      src={getImageUrl(profileToView.data.profile_photo)}
+                      alt={profileToView.data.full_name || "Technician"}
+                    />
+                  ) : (
+                    <ShieldCheck size={38} />
+                  )}
+                </div>
+                <div>
+                  <span className="client-profile-verified">
+                    <ShieldCheck size={15} /> Verified
+                  </span>
+                  <p>
+                    {profileToView.type === "technician"
+                      ? profileToView.data.category_name ||
+                        "Skilled Professional"
+                      : "Professional Agency"}
+                  </p>
+                </div>
+              </div>
+
+              <section className="client-profile-section">
+                <h3>About</h3>
+                <p>
+                  {profileToView.type === "technician"
+                    ? profileToView.data.bio ||
+                      "No biography has been added yet."
+                    : profileToView.data.description ||
+                      "This agency has not added an about description yet."}
+                </p>
+              </section>
+
+              <div className="client-profile-facts">
+                <div>
+                  <MapPin size={17} />
+                  <span>
+                    <strong>Location</strong>
+                    {profileToView.type === "technician"
+                      ? profileToView.data.location || "Not provided"
+                      : profileToView.data.county ||
+                        profileToView.data.address ||
+                        "Not provided"}
+                  </span>
+                </div>
+                {profileToView.type === "technician" && (
+                  <>
+                    <div>
+                      <Briefcase size={17} />
+                      <span>
+                        <strong>Experience</strong>
+                        {profileToView.data.years_experience ?? 0} years
+                      </span>
+                    </div>
+                    <div>
+                      <Star size={17} />
+                      <span>
+                        <strong>Reviews</strong>
+                        {Number(profileToView.data.review_count) > 0
+                          ? `${Number(profileToView.data.average_rating).toFixed(1)} / 5 (${profileToView.data.review_count} reviews)`
+                          : "No reviews yet"}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <section className="client-profile-section">
+                <h3>Contact</h3>
+                <div className="client-profile-contact-list">
+                  {profileToView.data.email ? (
+                    <a href={`mailto:${profileToView.data.email}`}>
+                      <Mail size={17} />
+                      {profileToView.data.email}
+                    </a>
+                  ) : (
+                    <p>
+                      <Mail size={17} />
+                      Email not provided
+                    </p>
+                  )}
+                  {profileToView.data.phone ? (
+                    <a href={`tel:${profileToView.data.phone}`}>
+                      <Phone size={17} />
+                      {profileToView.data.phone}
+                    </a>
+                  ) : (
+                    <p>
+                      <Phone size={17} />
+                      Phone number not provided
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              {Array.isArray(profileToView.data.portfolio) &&
+                profileToView.data.portfolio.length > 0 && (
+                  <section className="client-profile-section">
+                    <h3>Portfolio / Recent work</h3>
+                    <div className="client-profile-portfolio">
+                      {profileToView.data.portfolio.map((item, index) => (
+                        <article key={item.portfolio_id || index}>
+                          {item.image_path && (
+                            <img
+                              src={getImageUrl(item.image_path)}
+                              alt={item.title || "Project"}
+                            />
+                          )}
+                          <div>
+                            <strong>{item.title || "Project"}</strong>
+                            {item.project_description && (
+                              <p>{item.project_description}</p>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+            </div>
+
+            <footer className="client-profile-modal-actions">
+              <button
+                type="button"
+                className="client-cancel-button"
+                onClick={() => setProfileToView(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="client-submit-request"
+                onClick={() => {
+                  const selected = profileToView;
+                  setProfileToView(null);
+                  if (selected.type === "technician")
+                    openRequestForm(selected.data);
+                  else openAgencyRequestForm(selected.data);
+                }}
+              >
+                Request Service <ArrowRight size={16} />
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      <style>{`
+        .client-profile-card-actions{display:flex;gap:10px;width:100%;flex-wrap:wrap}
+        .client-profile-card-actions>button{flex:1 1 130px;justify-content:center}
+        .client-profile-card-actions .client-view-profile-button{background:#fff;color:#175bd7;border:1px solid #175bd7}
+        .client-profile-overlay{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.62)}
+        .client-profile-modal{width:min(720px,100%);max-height:88vh;overflow:hidden;display:flex;flex-direction:column;background:#fff;border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+        .client-profile-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 26px;border-bottom:1px solid #e8edf5}
+        .client-profile-modal-header h2{margin:5px 0 0;color:#14213d}
+        .client-profile-eyebrow{color:#07845f;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+        .client-profile-close{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:9px;background:#f1f5f9;color:#334155;cursor:pointer}
+        .client-profile-modal-body{padding:24px 26px;overflow-y:auto}
+        .client-profile-summary{display:flex;align-items:center;gap:16px;margin-bottom:24px}
+        .client-profile-large-avatar{width:76px;height:76px;flex:0 0 76px;display:grid;place-items:center;overflow:hidden;border-radius:16px;background:#edf3ff;color:#2162d5}
+        .client-profile-large-avatar img{width:100%;height:100%;object-fit:cover}
+        .client-profile-verified{display:inline-flex;align-items:center;gap:6px;color:#07845f;font-weight:700}
+        .client-profile-summary p{margin:7px 0 0;color:#175bd7;font-weight:700}
+        .client-profile-section{margin-top:22px}
+        .client-profile-section h3{margin:0 0 10px;color:#17243b}
+        .client-profile-section>p{margin:0;color:#64748b;line-height:1.7;white-space:pre-wrap}
+        .client-profile-facts{display:flex;flex-wrap:wrap;gap:12px;padding:16px;border-radius:12px;background:#f7f9fc}
+        .client-profile-facts>div{display:flex;align-items:flex-start;gap:9px;min-width:150px;color:#64748b}
+        .client-profile-facts svg{color:#2162d5;flex:0 0 auto;margin-top:2px}
+        .client-profile-facts span{display:grid;gap:4px}
+        .client-profile-facts strong{color:#26364f;font-size:13px}
+        .client-profile-contact-list{display:grid;gap:10px}
+        .client-profile-contact-list a,.client-profile-contact-list p{display:flex;align-items:center;gap:9px;margin:0;color:#175bd7;text-decoration:none;overflow-wrap:anywhere}
+        .client-profile-contact-list p{color:#64748b}
+        .client-profile-portfolio{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+        .client-profile-portfolio article{overflow:hidden;border:1px solid #e7edf5;border-radius:12px}
+        .client-profile-portfolio img{display:block;width:100%;height:150px;object-fit:cover;background:#f1f5f9}
+        .client-profile-portfolio article>div{padding:12px}
+        .client-profile-portfolio strong{color:#26364f}
+        .client-profile-portfolio p{margin:6px 0 0;color:#64748b;line-height:1.5}
+        .client-profile-modal-actions{display:flex;justify-content:flex-end;gap:10px;padding:16px 26px;border-top:1px solid #e8edf5}
+        @media(max-width:560px){.client-profile-overlay{padding:10px}.client-profile-modal-header,.client-profile-modal-body{padding-left:18px;padding-right:18px}.client-profile-modal-actions{padding:14px 18px}.client-profile-modal-actions button{flex:1}}
+      `}</style>
     </div>
   );
 }

@@ -19,6 +19,7 @@ function TechnicianVerification() {
 
   const fileInputRef = useRef(null);
   const selfieInputRef = useRef(null);
+  const uploadFormRef = useRef(null);
 
   const [selectedSelfie, setSelectedSelfie] = useState(null);
 
@@ -39,6 +40,12 @@ function TechnicianVerification() {
   const [success, setSuccess] = useState("");
 
   const [aiResult, setAiResult] = useState(null);
+
+  const [verificationDocuments, setVerificationDocuments] = useState([]);
+
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+
+  const [replacingDocumentId, setReplacingDocumentId] = useState(null);
 
   /* =====================================================
      GET LOGGED-IN TECHNICIAN PROFILE
@@ -92,6 +99,45 @@ function TechnicianVerification() {
 
     loadProfile();
   }, [navigate]);
+
+  /* =====================================================
+     GET MY VERIFICATION DOCUMENTS
+  ===================================================== */
+
+  useEffect(() => {
+    const loadVerificationDocuments = async () => {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+
+      if (!token) return;
+
+      try {
+        setLoadingDocuments(true);
+
+        const response = await axios.get(
+          `${API}/technicians/my-verification-documents`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        setVerificationDocuments(response.data || []);
+      } catch (err) {
+        console.error("Error loading verification documents:", err);
+
+        setError(
+          err.response?.data?.message ||
+            "Unable to load your verification documents.",
+        );
+      } finally {
+        setLoadingDocuments(false);
+      }
+    };
+
+    loadVerificationDocuments();
+  }, []);
 
   /* =====================================================
      FILE SELECTION
@@ -204,6 +250,11 @@ function TechnicianVerification() {
       return;
     }
 
+    if (documentType === "National ID" && !selectedSelfie) {
+      setError("Please upload a selfie holding your National ID.");
+      return;
+    }
+
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
 
@@ -223,6 +274,12 @@ function TechnicianVerification() {
       formData.append("document_type", documentType);
 
       formData.append("document", selectedDocument);
+      if (replacingDocumentId) {
+        formData.append("replaces_document_id", replacingDocumentId);
+      }
+      if (selectedSelfie) {
+        formData.append("selfie", selectedSelfie);
+      }
 
       const response = await axios.post(
         `${API}/technicians/verification/upload`,
@@ -245,6 +302,31 @@ function TechnicianVerification() {
 
       setSelectedDocument(null);
       setDocumentType("");
+
+      setReplacingDocumentId(null);
+
+      setSelectedSelfie(null);
+      setSelfiePreview("");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      if (selfieInputRef.current) {
+        selfieInputRef.current.value = "";
+      }
+
+      // Refresh verification document history
+      const documentsResponse = await axios.get(
+        `${API}/technicians/my-verification-documents`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      setVerificationDocuments(documentsResponse.data || []);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -342,6 +424,79 @@ function TechnicianVerification() {
           </div>
         </div>
 
+        {/* EXISTING VERIFICATION DOCUMENTS */}
+
+        <div className="verification-form-card">
+          <div className="verification-form-header">
+            <div>
+              <span className="verification-section-label">
+                YOUR SUBMISSIONS
+              </span>
+
+              <h2>My Verification Documents</h2>
+
+              <p>
+                View the documents you have previously submitted and their
+                current review status.
+              </p>
+            </div>
+          </div>
+
+          {loadingDocuments ? (
+            <p>Loading your verification documents...</p>
+          ) : verificationDocuments.length === 0 ? (
+            <p>You have not submitted any verification documents yet.</p>
+          ) : (
+            verificationDocuments.map((document) => (
+              <div
+                key={document.document_id}
+                className="verification-profile-card"
+              >
+                <div className="verification-profile-icon">
+                  <FileCheck2 size={22} />
+                </div>
+
+                <div>
+                  <strong>{document.document_type}</strong>
+
+                  <small>
+                    Submitted:{" "}
+                    {new Date(document.uploaded_at).toLocaleDateString()}
+                  </small>
+
+                  <small>
+                    Status: {document.verification_status?.toUpperCase()}
+                  </small>
+
+                  {document.rejection_reason && (
+                    <small>Rejection reason: {document.rejection_reason}</small>
+                  )}
+                </div>
+                {document.verification_status === "approved" &&
+                  Number(document.is_current) === 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplacingDocumentId(document.document_id);
+                        setDocumentType(document.document_type);
+                        setSelectedDocument(null);
+                        setSelectedSelfie(null);
+                        setSelfiePreview("");
+
+                        uploadFormRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                      }}
+                    >
+                      Replace Document
+                    </button>
+                  )}
+              </div>
+            ))
+          )}
+        </div>
+
         {/* INFORMATION */}
 
         <div className="verification-info-card">
@@ -429,14 +584,22 @@ function TechnicianVerification() {
 
         {/* UPLOAD FORM */}
 
-        <form className="verification-form-card" onSubmit={handleSubmit}>
+        <form
+          ref={uploadFormRef}
+          className="verification-form-card"
+          onSubmit={handleSubmit}
+        >
           <div className="verification-form-header">
             <div>
               <span className="verification-section-label">
                 DOCUMENT SUBMISSION
               </span>
 
-              <h2>Upload a verification document</h2>
+              <h2>
+                {replacingDocumentId
+                  ? `Replace ${documentType}`
+                  : "Upload a verification document"}
+              </h2>
 
               <p>
                 Select the type of document you are submitting and upload a

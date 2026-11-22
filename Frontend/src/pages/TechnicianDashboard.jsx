@@ -452,6 +452,15 @@ function TechnicianDashboard() {
                 My Profile
               </Link>
 
+              <Link
+                to="/technician/verification"
+                style={styles.navItem}
+                onClick={closeMobileMenu}
+              >
+                <ShieldCheck size={19} />
+                Verification Documents
+              </Link>
+
               <button
                 type="button"
                 style={styles.navButton}

@@ -210,3 +210,41 @@
     font-size: 24px;
   }
 }
+
+/* =================================
+   LEGAL CONSENT
+================================= */
+
+.register-legal-consent {
+  margin: 5px 0 20px;
+  width: 100%;
+}
+
+.register-legal-consent label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+.register-legal-consent input {
+  width: 17px;
+  height: 17px;
+  margin-top: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: #175bd5;
+}
+
+.register-legal-consent a {
+  color: #175bd5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-legal-consent a:hover {
+  text-decoration: underline;
+}

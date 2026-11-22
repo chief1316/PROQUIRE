@@ -3,110 +3,113 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const transporter = require("../config/email");
 
+const TERMS_VERSION = "1.0";
+const PRIVACY_VERSION = "1.0";
 
 // ==========================================
 // REGISTER USER
 // ==========================================
 exports.register = async (req, res) => {
-    try {
+  try {
+    const {
+      full_name,
+      email,
+      phone,
+      password,
+      role,
+      accepted_terms,
+      accepted_privacy_policy,
+    } = req.body;
 
-        const {
-            full_name,
-            email,
-            phone,
-            password,
-            role
-        } = req.body;
+    // ------------------------------------------
+    // Validate legal consent
+    // ------------------------------------------
+    if (accepted_terms !== true || accepted_privacy_policy !== true) {
+      return res.status(400).json({
+        message:
+          "You must agree to the Terms of Service and acknowledge the Privacy Policy before registering.",
+      });
+    }
 
+    // ------------------------------------------
+    // Only these roles can be created publicly
+    // ------------------------------------------
+    const allowedRoles = ["client", "technician", "agency"];
 
-        // ------------------------------------------
-        // Only these roles can be created publicly
-        // ------------------------------------------
-        const allowedRoles = [
-            "client",
-            "technician",
-            "agency"
-        ];
+    // If no role is provided, default to client
+    const selectedRole = role || "client";
 
+    // Prevent anyone from registering as admin
+    if (!allowedRoles.includes(selectedRole)) {
+      return res.status(403).json({
+        message: "Invalid registration role.",
+      });
+    }
 
-        // If no role is provided, default to client
-        const selectedRole = role || "client";
+    // ------------------------------------------
+    // Profile photo
+    // ------------------------------------------
+    const profile_photo = req.file
+      ? `profile_photos/${req.file.filename}`
+      : null;
 
+    // ------------------------------------------
+    // Hash password
+    // ------------------------------------------
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Prevent anyone from registering as admin
-        if (!allowedRoles.includes(selectedRole)) {
-            return res.status(403).json({
-                message: "Invalid registration role."
-            });
-        }
+    // ------------------------------------------
+    // Insert user
+    // ------------------------------------------
+    const sql = `
+    INSERT INTO users
+    (
+        full_name,
+        email,
+        phone,
+        profile_photo,
+        password,
+        role,
+        accepted_terms,
+        accepted_privacy_policy,
+        legal_accepted_at,
+        terms_version,
+        privacy_version
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)
+`;
 
-
-        // ------------------------------------------
-        // Profile photo
-        // ------------------------------------------
-        const profile_photo =
-            req.file
-                ? `profile_photos/${req.file.filename}`
-                : null;
-
-
-        // ------------------------------------------
-        // Hash password
-        // ------------------------------------------
-        const hashedPassword = await bcrypt.hash(
-            password,
-            10
-        );
-
-
-        // ------------------------------------------
-        // Insert user
-        // ------------------------------------------
-        const sql = `
-            INSERT INTO users
-            (
-                full_name,
-                email,
-                phone,
-                profile_photo,
-                password,
-                role
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-        `;
-
-
-        
-            db.query(
-    sql,
-    [
+    db.query(
+      sql,
+      [
         full_name,
         email,
         phone,
         profile_photo,
         hashedPassword,
-        selectedRole
-    ],
-    async (err, result) => {
-
+        selectedRole,
+        1,
+        1,
+        TERMS_VERSION,
+        PRIVACY_VERSION,
+      ],
+      async (err, result) => {
         if (err) {
-            return res.status(500).json(err);
+          return res.status(500).json(err);
         }
 
         // ------------------------------------------
         // Send ProQuire welcome email
         // ------------------------------------------
         try {
+          await transporter.sendMail({
+            from: `"ProQuire" <${process.env.EMAIL_USER}>`,
 
-            await transporter.sendMail({
+            to: email,
 
-                from: `"ProQuire" <${process.env.EMAIL_USER}>`,
+            subject: "Welcome to ProQuire!",
 
-                to: email,
-
-                subject: "Welcome to ProQuire!",
-
-                text: `
+            text: `
 Hello ${full_name},
 
 Welcome to ProQuire!
@@ -121,7 +124,7 @@ Best regards,
 The ProQuire Team
                 `,
 
-                html: `
+            html: `
                     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto;">
 
                         <h2 style="color: #4f46e5;">
@@ -150,329 +153,227 @@ The ProQuire Team
                         </p>
 
                     </div>
-                `
+                `,
+          });
 
-            });
-
-            console.log("Welcome email sent successfully to:", email);
-
+          console.log("Welcome email sent successfully to:", email);
         } catch (emailError) {
-
-            console.error("Welcome email error:", emailError);
-
+          console.error("Welcome email error:", emailError);
         }
 
         // Registration succeeds even if email delivery fails.
         return res.status(201).json({
-            message: "User registered successfully"
+          message: "User registered successfully",
         });
-
-    }
-);
-
-    } catch (error) {
-
-        res.status(500).json(error);
-
-    }
+      },
+    );
+  } catch (error) {
+    res.status(500).json(error);
+  }
 };
-
-
 
 // ==========================================
 // LOGIN USER
 // ==========================================
 exports.login = (req, res) => {
+  const { email, password } = req.body;
 
-    const {
-        email,
-        password
-    } = req.body;
+  db.query(
+    "SELECT * FROM users WHERE email = ?",
+    [email],
+    async (err, results) => {
+      if (err) {
+        return res.status(500).json(err);
+      }
 
+      // ------------------------------------------
+      // User not found
+      // ------------------------------------------
+      if (results.length === 0) {
+        return res.status(401).json({
+          message: "Invalid credentials",
+        });
+      }
 
-    db.query(
-        "SELECT * FROM users WHERE email = ?",
-        [email],
-        async (err, results) => {
+      const user = results[0];
 
-            if (err) {
-                return res.status(500).json(err);
-            }
+      // Block deactivated accounts
+      if (Number(user.is_active) !== 1) {
+        return res.status(403).json({
+          message:
+            "Your account has been deactivated. Please contact the administrator.",
+        });
+      }
 
+      // ------------------------------------------
+      // Compare password
+      // ------------------------------------------
+      const match = await bcrypt.compare(password, user.password);
 
-            // ------------------------------------------
-            // User not found
-            // ------------------------------------------
-            if (results.length === 0) {
+      if (!match) {
+        return res.status(401).json({
+          message: "Invalid credentials",
+        });
+      }
 
-                return res.status(401).json({
-                    message: "Invalid credentials"
-                });
+      // ------------------------------------------
+      // Generate JWT
+      // ------------------------------------------
+      const token = jwt.sign(
+        {
+          user_id: user.user_id,
+          role: user.role,
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: "1d",
+        },
+      );
 
-            }
+      // ------------------------------------------
+      // Return login information
+      // ------------------------------------------
+      res.json({
+        message: "Login successful",
 
+        token,
 
-            const user = results[0];
+        user: {
+          user_id: user.user_id,
 
-        // Block deactivated accounts
-if (Number(user.is_active) !== 1) {
-    return res.status(403).json({
-        message: "Your account has been deactivated. Please contact the administrator."
-    });
-}
+          full_name: user.full_name,
 
+          email: user.email,
 
-            // ------------------------------------------
-            // Compare password
-            // ------------------------------------------
-            const match = await bcrypt.compare(
-                password,
-                user.password
-            );
+          phone: user.phone,
 
+          role: user.role,
 
-            if (!match) {
-
-                return res.status(401).json({
-                    message: "Invalid credentials"
-                });
-
-            }
-
-
-            // ------------------------------------------
-            // Generate JWT
-            // ------------------------------------------
-            const token = jwt.sign(
-                {
-                    user_id: user.user_id,
-                    role: user.role
-                },
-                process.env.JWT_SECRET,
-                {
-                    expiresIn: "1d"
-                }
-            );
-
-
-            // ------------------------------------------
-            // Return login information
-            // ------------------------------------------
-            res.json({
-
-                message: "Login successful",
-
-                token,
-
-                user: {
-
-                    user_id: user.user_id,
-
-                    full_name: user.full_name,
-
-                    email: user.email,
-
-                    phone: user.phone,
-
-                    role: user.role,
-
-                    profile_photo:
-                        user.profile_photo
-                            ? `http://localhost:5000/uploads/${user.profile_photo}`
-                            : null
-                }
-
-            });
-
-        }
-    );
-
+          profile_photo: user.profile_photo
+            ? `http://localhost:5000/uploads/${user.profile_photo}`
+            : null,
+        },
+      });
+    },
+  );
 };
 
 // ==========================================
 // CHANGE PASSWORD
 // ==========================================
 exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
 
-    try {
+    const { current_password, new_password } = req.body;
 
-        const userId = req.user.user_id;
+    // ------------------------------------------
+    // Validate required fields
+    // ------------------------------------------
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        message: "Current password and new password are required.",
+      });
+    }
 
-        const {
-            current_password,
-            new_password
-        } = req.body;
+    // ------------------------------------------
+    // Validate new password length
+    // ------------------------------------------
+    if (new_password.length < 8) {
+      return res.status(400).json({
+        message: "New password must be at least 8 characters long.",
+      });
+    }
 
-
-        // ------------------------------------------
-        // Validate required fields
-        // ------------------------------------------
-        if (!current_password || !new_password) {
-
-            return res.status(400).json({
-                message:
-                    "Current password and new password are required."
-            });
-
-        }
-
-
-        // ------------------------------------------
-        // Validate new password length
-        // ------------------------------------------
-        if (new_password.length < 8) {
-
-            return res.status(400).json({
-                message:
-                    "New password must be at least 8 characters long."
-            });
-
-        }
-
-
-        // ------------------------------------------
-        // Get current password
-        // ------------------------------------------
-        db.query(
-            `
+    // ------------------------------------------
+    // Get current password
+    // ------------------------------------------
+    db.query(
+      `
                 SELECT password
                 FROM users
                 WHERE user_id = ?
             `,
-            [userId],
-            async (err, results) => {
+      [userId],
+      async (err, results) => {
+        if (err) {
+          console.error("Error retrieving password:", err);
 
-                if (err) {
+          return res.status(500).json({
+            message: "Unable to change password.",
+          });
+        }
 
-                    console.error(
-                        "Error retrieving password:",
-                        err
-                    );
+        if (results.length === 0) {
+          return res.status(404).json({
+            message: "User account not found.",
+          });
+        }
 
-                    return res.status(500).json({
-                        message:
-                            "Unable to change password."
-                    });
+        const user = results[0];
 
-                }
+        // ------------------------------------------
+        // Verify current password
+        // ------------------------------------------
+        const passwordMatches = await bcrypt.compare(
+          current_password,
+          user.password,
+        );
 
+        if (!passwordMatches) {
+          return res.status(401).json({
+            message: "Current password is incorrect.",
+          });
+        }
 
-                if (results.length === 0) {
+        // ------------------------------------------
+        // Prevent using the same password
+        // ------------------------------------------
+        const samePassword = await bcrypt.compare(new_password, user.password);
 
-                    return res.status(404).json({
-                        message:
-                            "User account not found."
-                    });
+        if (samePassword) {
+          return res.status(400).json({
+            message:
+              "Your new password must be different from your current password.",
+          });
+        }
 
-                }
+        // ------------------------------------------
+        // Hash new password
+        // ------------------------------------------
+        const hashedPassword = await bcrypt.hash(new_password, 10);
 
-
-                const user = results[0];
-
-
-                // ------------------------------------------
-                // Verify current password
-                // ------------------------------------------
-                const passwordMatches =
-                    await bcrypt.compare(
-                        current_password,
-                        user.password
-                    );
-
-
-                if (!passwordMatches) {
-
-                    return res.status(401).json({
-                        message:
-                            "Current password is incorrect."
-                    });
-
-                }
-
-
-                // ------------------------------------------
-                // Prevent using the same password
-                // ------------------------------------------
-                const samePassword =
-                    await bcrypt.compare(
-                        new_password,
-                        user.password
-                    );
-
-
-                if (samePassword) {
-
-                    return res.status(400).json({
-                        message:
-                            "Your new password must be different from your current password."
-                    });
-
-                }
-
-
-                // ------------------------------------------
-                // Hash new password
-                // ------------------------------------------
-                const hashedPassword =
-                    await bcrypt.hash(
-                        new_password,
-                        10
-                    );
-
-
-                // ------------------------------------------
-                // Update password
-                // ------------------------------------------
-                db.query(
-                    `
+        // ------------------------------------------
+        // Update password
+        // ------------------------------------------
+        db.query(
+          `
                         UPDATE users
                         SET password = ?
                         WHERE user_id = ?
                     `,
-                    [
-                        hashedPassword,
-                        userId
-                    ],
-                    (updateError) => {
+          [hashedPassword, userId],
+          (updateError) => {
+            if (updateError) {
+              console.error("Error updating password:", updateError);
 
-                        if (updateError) {
-
-                            console.error(
-                                "Error updating password:",
-                                updateError
-                            );
-
-                            return res.status(500).json({
-                                message:
-                                    "Unable to change password."
-                            });
-
-                        }
-
-
-                        return res.status(200).json({
-                            message:
-                                "Password changed successfully."
-                        });
-
-                    }
-                );
-
+              return res.status(500).json({
+                message: "Unable to change password.",
+              });
             }
+
+            return res.status(200).json({
+              message: "Password changed successfully.",
+            });
+          },
         );
+      },
+    );
+  } catch (error) {
+    console.error("Change password error:", error);
 
-    } catch (error) {
-
-        console.error(
-            "Change password error:",
-            error
-        );
-
-        return res.status(500).json({
-            message:
-                "Unable to change password."
-        });
-
-    }
-
+    return res.status(500).json({
+      message: "Unable to change password.",
+    });
+  }
 };

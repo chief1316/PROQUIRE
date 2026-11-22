@@ -9,6 +9,7 @@ const {
     getAllTechnicians,
     getTechnicianById,
     getMyProfile,
+    getMyVerificationDocuments,
     updateMyProfile,
     getTechniciansByCategory,
     verifyTechnician,
@@ -72,6 +73,17 @@ router.put(
     updateMyProfile
 );
 console.log("PUT MY-PROFILE ROUTE REGISTERED");
+
+// ======================================================
+// Get My Verification Documents
+// Logged-in Technician
+// ======================================================
+
+router.get(
+    "/my-verification-documents",
+    verifyToken,
+    getMyVerificationDocuments
+);
 
 
 router.get(

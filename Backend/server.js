@@ -4,8 +4,7 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const portfolioRoutes =
-require("./routes/portfolioRoutes");
+const portfolioRoutes = require("./routes/portfolioRoutes");
 
 require("./config/db");
 
@@ -17,38 +16,60 @@ const serviceRequestRoutes = require("./routes/serviceRequestRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const agencyRoutes = require("./routes/agencyRoutes");
 const documentRoutes = require("./routes/documentRoutes");
-const agencyTechnicianRoutes =
-require("./routes/agencyTechnicianRoutes");
+const agencyTechnicianRoutes = require("./routes/agencyTechnicianRoutes");
 const userRoutes = require("./routes/userRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
-
 // Subscription routes
-const subscriptionRoutes =
-require("./routes/subscriptionRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
-const paymentRoutes =
-require("./routes/paymentRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 
-const availabilityRoutes =
-require("./routes/availabilityRoutes");
+const availabilityRoutes = require("./routes/availabilityRoutes");
 
 // Report routes
-const reportRoutes =
-require("./routes/reportRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 // Client routes
-const clientRoutes =
-require("./routes/clientRoutes");
+const clientRoutes = require("./routes/clientRoutes");
 
 const categoryRoutes = require("./routes/categoryRoutes");
-
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 const path = require("path");
+// Serve public images only
+app.use(
+  "/uploads/agency_logos",
+  express.static(path.join(__dirname, "uploads", "agency_logos")),
+);
+
+app.use(
+  "/uploads/portfolios",
+  express.static(path.join(__dirname, "uploads", "portfolios")),
+);
+
+app.use(
+  "/uploads/profile_photos",
+  express.static(path.join(__dirname, "uploads", "profile_photos")),
+);
+
+// Serve image files stored directly in the uploads root folder
+app.get("/uploads/:filename", (req, res) => {
+  const filename = path.basename(req.params.filename);
+
+  if (filename !== req.params.filename) {
+    return res.status(400).send("Invalid filename");
+  }
+
+  res.sendFile(path.join(__dirname, "uploads", filename), (err) => {
+    if (err && !res.headersSent) {
+      res.sendStatus(404);
+    }
+  });
+});
 
 // Verification documents and selfies must not be publicly accessible.
 // We will serve them through authenticated admin routes.
@@ -62,52 +83,32 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/portfolios", portfolioRoutes);
 app.use("/api/documents", documentRoutes);
 
-app.use(
-    "/api/agencies/technicians",
-    agencyTechnicianRoutes
-);
+app.use("/api/agencies/technicians", agencyTechnicianRoutes);
 
 app.use("/api/agencies", agencyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/categories", categoryRoutes);
 
-
 // Subscription module
-app.use(
-    "/api/subscriptions",
-    subscriptionRoutes
-);
+app.use("/api/subscriptions", subscriptionRoutes);
 
-app.use(
-    "/api/payments",
-    paymentRoutes
-);
+app.use("/api/payments", paymentRoutes);
 
-app.use(
-    "/api/availability",
-    availabilityRoutes
-);
+app.use("/api/availability", availabilityRoutes);
 
 // Report module
-app.use(
-    "/api/reports",
-    reportRoutes
-);
+app.use("/api/reports", reportRoutes);
 
 // Client module
-app.use(
-    "/api/clients",
-    clientRoutes
-);
+app.use("/api/clients", clientRoutes);
 
 app.get("/", (req, res) => {
-    res.send("ProQuire API Running");
+  res.send("ProQuire API Running");
 });
-
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

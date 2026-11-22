@@ -42,6 +42,11 @@ function AdminDashboard() {
 
   const [selectedDocument, setSelectedDocument] = useState(null);
 
+  const [documentPreviewUrl, setDocumentPreviewUrl] = useState("");
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+
   const [loading, setLoading] = useState(true);
 
   const [verifying, setVerifying] = useState(false);
@@ -72,6 +77,92 @@ function AdminDashboard() {
       Authorization: `Bearer ${token}`,
     },
   });
+
+  useEffect(() => {
+    if (!selectedDocument) {
+      setDocumentPreviewUrl("");
+      setSelfiePreviewUrl("");
+      setPreviewError("");
+      return;
+    }
+
+    let cancelled = false;
+    let documentUrl = "";
+    let selfieUrl = "";
+
+    const loadPreviews = async () => {
+      setPreviewLoading(true);
+      setPreviewError("");
+      setDocumentPreviewUrl("");
+      setSelfiePreviewUrl("");
+
+      const token = sessionStorage.getItem("token");
+
+      const fetchFile = async (fileType) => {
+        const response = await axios.get(
+          `http://localhost:5000/api/admin/verification-documents/${selectedDocument.document_id}/${fileType}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            responseType: "blob",
+          },
+        );
+
+        return URL.createObjectURL(response.data);
+      };
+
+      try {
+        const results = await Promise.allSettled([
+          fetchFile("document"),
+          selectedDocument.selfie_path
+            ? fetchFile("selfie")
+            : Promise.resolve(null),
+        ]);
+
+        if (cancelled) {
+          results.forEach((result) => {
+            if (result.status === "fulfilled" && result.value) {
+              URL.revokeObjectURL(result.value);
+            }
+          });
+          return;
+        }
+
+        if (results[0].status === "fulfilled") {
+          documentUrl = results[0].value;
+          setDocumentPreviewUrl(documentUrl);
+        } else {
+          setPreviewError("Unable to load the verification document.");
+        }
+
+        if (results[1].status === "fulfilled" && results[1].value) {
+          selfieUrl = results[1].value;
+          setSelfiePreviewUrl(selfieUrl);
+        } else if (selectedDocument.selfie_path) {
+          setPreviewError("Unable to load the selfie. Please try again.");
+        }
+      } catch (err) {
+        console.error("Verification preview error:", err);
+        if (!cancelled) {
+          setPreviewError("Unable to load verification files.");
+        }
+      } finally {
+        if (!cancelled) {
+          setPreviewLoading(false);
+        }
+      }
+    };
+
+    loadPreviews();
+
+    return () => {
+      cancelled = true;
+
+      if (documentUrl) URL.revokeObjectURL(documentUrl);
+      if (selfieUrl) URL.revokeObjectURL(selfieUrl);
+    };
+  }, [selectedDocument]);
   // ==========================================
   // ACTIVATE / DEACTIVATE USER
   // ==========================================
@@ -191,6 +282,7 @@ function AdminDashboard() {
           document_id: technician.document_id,
           document_type: technician.document_type,
           document_path: technician.document_path,
+          selfie_path: technician.selfie_path,
           verification_status: technician.verification_status,
 
           confidence_score: technician.confidence_score,
@@ -3640,58 +3732,86 @@ function AdminDashboard() {
                   boxSizing: "border-box",
                 }}
               >
-                {selectedDocument.document_path ? (
-                  /\.(jpg|jpeg|png|gif|webp)$/i.test(
-                    selectedDocument.document_path,
-                  ) ? (
-                    <img
-                      src={`http://localhost:5000/uploads/documents/${selectedDocument.document_path
-                        .replace(/^\/+/, "")
-                        .replace(/^(?:uploads\/)+/i, "")
-                        .replace(/^documents\//i, "")}`}
-                      alt={
-                        selectedDocument.document_type ||
-                        "Verification document"
-                      }
-                      style={{
-                        maxWidth: "100%",
-                        maxHeight: "55vh",
-                        width: "auto",
-                        height: "auto",
-                        objectFit: "contain",
-                        display: "block",
-                      }}
-                    />
-                  ) : (
-                    <iframe
-                      src={`http://localhost:5000/uploads/documents/${selectedDocument.document_path
-                        .replace(/^\/+/, "")
-                        .replace(/^(?:uploads\/)+/i, "")
-                        .replace(/^documents\//i, "")}`}
-                      title="Verification Document"
-                      style={{
-                        width: "100%",
-                        height: "55vh",
-                        minHeight: "350px",
-                        border: "none",
-                        display: "block",
-                      }}
-                    />
-                  )
+                {previewLoading ? (
+                  <p>Loading verification files...</p>
                 ) : (
-                  <div
-                    style={{
-                      padding: "40px 20px",
-                      textAlign: "center",
-                      color: "#64748b",
-                      fontSize: "13px",
-                    }}
-                  >
-                    Document file is not available.
+                  <div>
+                    {previewError && (
+                      <p className="verification-message verification-error">
+                        {previewError}
+                      </p>
+                    )}
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(250px, 1fr))",
+                        gap: "20px",
+                        alignItems: "start",
+                      }}
+                    >
+                      {/* NATIONAL ID / DOCUMENT */}
+                      <div>
+                        <h4>Submitted Verification Document</h4>
+
+                        {documentPreviewUrl ? (
+                          /\.(jpg|jpeg|png|gif|webp)$/i.test(
+                            selectedDocument.document_path || "",
+                          ) ? (
+                            <img
+                              src={documentPreviewUrl}
+                              alt="Technician verification document"
+                              style={{
+                                maxWidth: "100%",
+                                maxHeight: "55vh",
+                                objectFit: "contain",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <iframe
+                              src={documentPreviewUrl}
+                              title="Verification Document"
+                              style={{
+                                width: "100%",
+                                height: "55vh",
+                                minHeight: "350px",
+                                border: "none",
+                              }}
+                            />
+                          )
+                        ) : (
+                          <p>Document preview unavailable.</p>
+                        )}
+                      </div>
+
+                      {/* SELFIE */}
+                      {selectedDocument.document_type === "National ID" && (
+                        <div>
+                          <h4>Selfie Holding National ID</h4>
+
+                          {selfiePreviewUrl ? (
+                            <img
+                              src={selfiePreviewUrl}
+                              alt="Technician holding their National ID"
+                              style={{
+                                maxWidth: "100%",
+                                maxHeight: "55vh",
+                                objectFit: "contain",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <p>No selfie available for this submission.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-              </div>
-
+              </div>{" "}
+              {/* Close Uploaded Document wrapper */}
               {/* AI Verification Analysis */}
               <div
                 style={{

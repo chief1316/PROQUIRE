@@ -17,6 +17,9 @@ import logo from "./assets/proquire-logo.png";
 
 import heroTechnicians from "./assets/proquire-hero-technicians.png";
 
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -332,6 +335,9 @@ function Home() {
             <a href="#how-it-works">How It Works</a>
             <a href="#about">About</a>
             <Link to="/login">Professional Login</Link>
+            <Link to="/privacy-policy">Privacy Policy</Link>
+
+            <Link to="/terms-of-service">Terms of Service</Link>
           </div>
 
           <div className="footer-contact">
@@ -380,6 +386,10 @@ function App() {
       <Routes>
         {/* Landing Page */}
         <Route path="/" element={<Home />} />
+
+        {/* Legal Documents */}
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
 
         {/* Role Selection */}
         <Route path="/role-selection" element={<RoleSelection />} />
