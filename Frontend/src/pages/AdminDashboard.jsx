@@ -794,7 +794,45 @@ function AdminDashboard() {
 
           {/* Technicians */}
 
+          {/*<button
+            onClick={() =>
+              document
+                .getElementById("pending-technicians-section")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+            }
+            style={{
+              width: "100%",
+              border: "none",
+              background: "transparent",
+              color: "#475569",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "12px",
+              borderRadius: "9px",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: "pointer",
+              marginBottom: "5px",
+              textAlign: "left",
+            }}
+          >
+            <Wrench size={18} />
+            Technicians
+          </button>*/}
+
           <button
+            onClick={() =>
+              document
+                .getElementById("pending-verification-section")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+            }
             style={{
               width: "100%",
               border: "none",
@@ -850,7 +888,7 @@ function AdminDashboard() {
 
           {/* Verification */}
 
-          <button
+          {/*<button
             onClick={() =>
               document
                 .getElementById("pending-verification-section")
@@ -878,7 +916,7 @@ function AdminDashboard() {
           >
             <ShieldCheck size={18} />
             Verification
-          </button>
+          </button>*/}
         </div>
 
         {/* Logout */}
