@@ -17,7 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 
 function AgencyTechnicians() {
   const navigate = useNavigate();
@@ -40,8 +40,7 @@ function AgencyTechnicians() {
   // DELETE STATE
   // ------------------------------------------------------------
 
-  const [deletingTechnicianId, setDeletingTechnicianId] =
-    useState(null);
+  const [deletingTechnicianId, setDeletingTechnicianId] = useState(null);
 
   const [deleteError, setDeleteError] = useState("");
 
@@ -57,10 +56,7 @@ function AgencyTechnicians() {
   });
 
   const getToken = () => {
-    return (
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token")
-    );
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
   };
 
   // ------------------------------------------------------------
@@ -79,14 +75,11 @@ function AgencyTechnicians() {
       setLoading(true);
       setError("");
 
-      const response = await axios.get(
-        "http://localhost:5000/api/agencies/technicians",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.get("/agencies/technicians", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       setTechnicians(response.data || []);
     } catch (err) {
@@ -103,7 +96,7 @@ function AgencyTechnicians() {
 
       setError(
         err.response?.data?.message ||
-          "Unable to load your technicians. Please try again."
+          "Unable to load your technicians. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -119,17 +112,14 @@ function AgencyTechnicians() {
       setCategoriesLoading(true);
       setCategoryError("");
 
-      const response = await axios.get(
-        "http://localhost:5000/api/categories"
-      );
+      const response = await api.get("/categories");
 
       setCategories(response.data || []);
     } catch (err) {
       console.error("Error loading categories:", err);
 
       setCategoryError(
-        err.response?.data?.message ||
-          "Unable to load technician categories."
+        err.response?.data?.message || "Unable to load technician categories.",
       );
     } finally {
       setCategoriesLoading(false);
@@ -227,8 +217,8 @@ function AgencyTechnicians() {
     try {
       setAddingTechnician(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/agencies/technicians",
+      const response = await api.post(
+        "/agencies/technicians",
         {
           full_name: formData.full_name,
           email: formData.email,
@@ -244,13 +234,10 @@ function AgencyTechnicians() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
-      console.log(
-        "Technician created successfully:",
-        response.data
-      );
+      console.log("Technician created successfully:", response.data);
 
       setAddSuccess("Technician added successfully.");
 
@@ -274,7 +261,7 @@ function AgencyTechnicians() {
 
       setAddError(
         err.response?.data?.message ||
-          "Unable to add technician. Please try again."
+          "Unable to add technician. Please try again.",
       );
     } finally {
       setAddingTechnician(false);
@@ -289,7 +276,7 @@ function AgencyTechnicians() {
     const technicianId = technician.technician_id;
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete ${technician.full_name || "this technician"}?\n\nThis action cannot be undone.`
+      `Are you sure you want to delete ${technician.full_name || "this technician"}?\n\nThis action cannot be undone.`,
     );
 
     if (!confirmed) {
@@ -307,20 +294,17 @@ function AgencyTechnicians() {
       setDeleteError("");
       setDeletingTechnicianId(technicianId);
 
-      await axios.delete(
-        `http://localhost:5000/api/agencies/technicians/${technicianId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.delete(`/agencies/technicians/${technicianId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       // Remove the deleted technician from the current list.
       setTechnicians((previousTechnicians) =>
         previousTechnicians.filter(
-          (item) => item.technician_id !== technicianId
-        )
+          (item) => item.technician_id !== technicianId,
+        ),
       );
     } catch (err) {
       console.error("Error deleting technician:", err);
@@ -336,7 +320,7 @@ function AgencyTechnicians() {
 
       setDeleteError(
         err.response?.data?.message ||
-          "Unable to delete technician. Please try again."
+          "Unable to delete technician. Please try again.",
       );
     } finally {
       setDeletingTechnicianId(null);
@@ -553,8 +537,7 @@ function AgencyTechnicians() {
               >
                 {
                   technicians.filter(
-                    (technician) =>
-                      Number(technician.is_verified) === 1
+                    (technician) => Number(technician.is_verified) === 1,
                   ).length
                 }
               </strong>
@@ -610,8 +593,7 @@ function AgencyTechnicians() {
               >
                 {
                   technicians.filter(
-                    (technician) =>
-                      Number(technician.is_verified) !== 1
+                    (technician) => Number(technician.is_verified) !== 1,
                   ).length
                 }
               </strong>
@@ -721,15 +703,12 @@ function AgencyTechnicians() {
               <RefreshCw
                 size={30}
                 style={{
-                  animation:
-                    "agencyTechnicianSpin 1s linear infinite",
+                  animation: "agencyTechnicianSpin 1s linear infinite",
                   marginBottom: "12px",
                 }}
               />
 
-              <p style={{ margin: 0 }}>
-                Loading technicians...
-              </p>
+              <p style={{ margin: 0 }}>Loading technicians...</p>
             </div>
           )}
 
@@ -820,19 +799,16 @@ function AgencyTechnicians() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(280px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
                 gap: "16px",
                 paddingTop: "20px",
               }}
             >
               {technicians.map((technician) => {
-                const verified =
-                  Number(technician.is_verified) === 1;
+                const verified = Number(technician.is_verified) === 1;
 
                 const isDeleting =
-                  deletingTechnicianId ===
-                  technician.technician_id;
+                  deletingTechnicianId === technician.technician_id;
 
                 return (
                   <div
@@ -885,8 +861,7 @@ function AgencyTechnicians() {
                             textOverflow: "ellipsis",
                           }}
                         >
-                          {technician.full_name ||
-                            "Unnamed Technician"}
+                          {technician.full_name || "Unnamed Technician"}
                         </h3>
 
                         <span
@@ -897,8 +872,7 @@ function AgencyTechnicians() {
                             color: "#7b879d",
                           }}
                         >
-                          {technician.category_name ||
-                            "Technician"}
+                          {technician.category_name || "Technician"}
                         </span>
                       </div>
                     </div>
@@ -912,12 +886,8 @@ function AgencyTechnicians() {
                         gap: "6px",
                         padding: "6px 9px",
                         borderRadius: "7px",
-                        background: verified
-                          ? "#e9f8ef"
-                          : "#fff3df",
-                        color: verified
-                          ? "#21784b"
-                          : "#a56a14",
+                        background: verified ? "#e9f8ef" : "#fff3df",
+                        color: verified ? "#21784b" : "#a56a14",
                         fontSize: "11px",
                         fontWeight: 600,
                         marginBottom: "15px",
@@ -957,8 +927,7 @@ function AgencyTechnicians() {
                         <BriefcaseBusiness size={15} />
 
                         <span>
-                          {technician.years_experience ?? 0} years
-                          experience
+                          {technician.years_experience ?? 0} years experience
                         </span>
                       </div>
 
@@ -974,8 +943,7 @@ function AgencyTechnicians() {
                         <MapPin size={15} />
 
                         <span>
-                          {technician.location ||
-                            "Location not provided"}
+                          {technician.location || "Location not provided"}
                         </span>
                       </div>
                     </div>
@@ -985,7 +953,7 @@ function AgencyTechnicians() {
                     <button
                       onClick={() =>
                         navigate(
-                          `/agency/technicians/${technician.technician_id}`
+                          `/agency/technicians/${technician.technician_id}`,
                         )
                       }
                       disabled={isDeleting}
@@ -999,9 +967,7 @@ function AgencyTechnicians() {
                         color: "#2166d1",
                         fontSize: "12px",
                         fontWeight: 600,
-                        cursor: isDeleting
-                          ? "not-allowed"
-                          : "pointer",
+                        cursor: isDeleting ? "not-allowed" : "pointer",
                       }}
                     >
                       View Technician
@@ -1010,9 +976,7 @@ function AgencyTechnicians() {
                     {/* DELETE BUTTON */}
 
                     <button
-                      onClick={() =>
-                        handleDeleteTechnician(technician)
-                      }
+                      onClick={() => handleDeleteTechnician(technician)}
                       disabled={isDeleting}
                       style={{
                         width: "100%",
@@ -1028,17 +992,13 @@ function AgencyTechnicians() {
                         alignItems: "center",
                         justifyContent: "center",
                         gap: "7px",
-                        cursor: isDeleting
-                          ? "not-allowed"
-                          : "pointer",
+                        cursor: isDeleting ? "not-allowed" : "pointer",
                         opacity: isDeleting ? 0.65 : 1,
                       }}
                     >
                       <Trash2 size={15} />
 
-                      {isDeleting
-                        ? "Deleting..."
-                        : "Delete Technician"}
+                      {isDeleting ? "Deleting..." : "Delete Technician"}
                     </button>
                   </div>
                 );
@@ -1128,9 +1088,7 @@ function AgencyTechnicians() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  cursor: addingTechnician
-                    ? "not-allowed"
-                    : "pointer",
+                  cursor: addingTechnician ? "not-allowed" : "pointer",
                 }}
               >
                 <X size={19} />
@@ -1407,10 +1365,7 @@ function AgencyTechnicians() {
                       background: "#ffffff",
                     }}
                   >
-                    <BriefcaseBusiness
-                      size={17}
-                      color="#8190a7"
-                    />
+                    <BriefcaseBusiness size={17} color="#8190a7" />
 
                     <select
                       id="category_id"
@@ -1427,9 +1382,7 @@ function AgencyTechnicians() {
                         fontSize: "13px",
                         color: "#182640",
                         background: "transparent",
-                        cursor: categoriesLoading
-                          ? "not-allowed"
-                          : "pointer",
+                        cursor: categoriesLoading ? "not-allowed" : "pointer",
                       }}
                     >
                       <option value="">
@@ -1485,10 +1438,7 @@ function AgencyTechnicians() {
                       padding: "0 13px",
                     }}
                   >
-                    <BriefcaseBusiness
-                      size={17}
-                      color="#8190a7"
-                    />
+                    <BriefcaseBusiness size={17} color="#8190a7" />
 
                     <input
                       type="number"
@@ -1633,9 +1583,7 @@ function AgencyTechnicians() {
                     borderRadius: "9px",
                     fontSize: "13px",
                     fontWeight: 600,
-                    cursor: addingTechnician
-                      ? "not-allowed"
-                      : "pointer",
+                    cursor: addingTechnician ? "not-allowed" : "pointer",
                   }}
                 >
                   Cancel
@@ -1643,9 +1591,7 @@ function AgencyTechnicians() {
 
                 <button
                   type="submit"
-                  disabled={
-                    addingTechnician || categoriesLoading
-                  }
+                  disabled={addingTechnician || categoriesLoading}
                   style={{
                     border: "none",
                     background:
@@ -1668,9 +1614,7 @@ function AgencyTechnicians() {
                 >
                   <Save size={17} />
 
-                  {addingTechnician
-                    ? "Adding Technician..."
-                    : "Add Technician"}
+                  {addingTechnician ? "Adding Technician..." : "Add Technician"}
                 </button>
               </div>
             </form>

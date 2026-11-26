@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import {
   Bell,
   CheckCircle,
@@ -75,8 +75,8 @@ function TechnicianNotifications({ notifications = [] }) {
         return;
       }
 
-      await axios.patch(
-        `http://localhost:5000/api/notifications/${notificationId}/read`,
+      await api.patch(
+        `/notifications/${notificationId}/read`,
         {},
         {
           headers: {
@@ -112,8 +112,8 @@ function TechnicianNotifications({ notifications = [] }) {
         return;
       }
 
-      await axios.patch(
-        "http://localhost:5000/api/notifications/read-all",
+      await api.patch(
+        "/notifications/read-all",
         {},
         {
           headers: {

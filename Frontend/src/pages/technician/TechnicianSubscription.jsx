@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import {
   ArrowLeft,
   Check,
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000/api";
+const API = "https://proquire.onrender.com/api";
 
 const TechnicianSubscription = () => {
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ const TechnicianSubscription = () => {
     try {
       setLoadingPlans(true);
 
-      const response = await axios.get(`${API}/subscriptions/plans`);
+      const response = await api.get(`/subscriptions/plans`);
 
       setPlans(response.data);
     } catch (error) {
@@ -67,8 +67,8 @@ const TechnicianSubscription = () => {
     try {
       setLoadingSubscription(true);
 
-      const response = await axios.get(
-        `${API}/subscriptions/my-subscription`,
+      const response = await api.get(
+        `/subscriptions/my-subscription`,
         authConfig,
       );
 
@@ -96,8 +96,8 @@ const TechnicianSubscription = () => {
       setMessage("");
       setError("");
 
-      const response = await axios.post(
-        `${API}/subscriptions/subscribe`,
+      const response = await api.post(
+        `/subscriptions/subscribe`,
         {
           plan_id: planId,
         },
@@ -143,8 +143,8 @@ const TechnicianSubscription = () => {
       setMpesaMessage("");
       setMpesaError("");
 
-      const response = await axios.post(
-        `${API}/payments/mpesa/stkpush`,
+      const response = await api.post(
+        `/payments/mpesa/stkpush`,
         {
           subscription_id: subscription.subscription_id,
           phone_number: mpesaPhone.trim(),

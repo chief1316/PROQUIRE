@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   BarChart3,
   Bell,
@@ -58,18 +58,15 @@ function AgencyDashboard() {
       }
 
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/agencies/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const response = await api.get("/agencies/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         setAgency(response.data);
-        const subscriptionResponse = await axios
-          .get("http://localhost:5000/api/subscriptions/my-subscription", {
+        const subscriptionResponse = await api
+          .get("/subscriptions/my-subscription", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -83,14 +80,11 @@ function AgencyDashboard() {
 
         setSubscription(subscriptionResponse.data);
 
-        const techniciansResponse = await axios.get(
-          "http://localhost:5000/api/agencies/technicians",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const techniciansResponse = await api.get("/agencies/technicians", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         setTechnicians(
           Array.isArray(techniciansResponse.data)
@@ -98,8 +92,8 @@ function AgencyDashboard() {
             : techniciansResponse.data.technicians || [],
         );
 
-        const requestsResponse = await axios.get(
-          "http://localhost:5000/api/service-requests/agency/my-requests",
+        const requestsResponse = await api.get(
+          "/service-requests/agency/my-requests",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -144,14 +138,11 @@ function AgencyDashboard() {
       if (!token) return;
 
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/agencies/notifications",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const response = await api.get("/agencies/notifications", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         setNotifications(
           Array.isArray(response.data)
@@ -179,8 +170,8 @@ function AgencyDashboard() {
     if (!token) return;
 
     try {
-      await axios.patch(
-        `http://localhost:5000/api/notifications/agency/${notification.notification_id}/read`,
+      await api.patch(
+        `/notifications/agency/${notification.notification_id}/read`,
         {},
         {
           headers: {
@@ -212,8 +203,8 @@ function AgencyDashboard() {
     if (!token) return;
 
     try {
-      await axios.patch(
-        "http://localhost:5000/api/notifications/agency/read-all",
+      await api.patch(
+        "/notifications/agency/read-all",
         {},
         {
           headers: {

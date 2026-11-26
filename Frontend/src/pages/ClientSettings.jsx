@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import "./ClientSettings.css";
 
-const API_URL = "http://localhost:5000/api/clients";
-const SERVER_URL = "http://localhost:5000";
+const API_URL = "https://proquire.onrender.com/api/clients";
+const SERVER_URL = "https://proquire.onrender.com";
 
 const emptyProfile = {
   full_name: "",
@@ -77,7 +77,7 @@ function ClientSettings() {
 
     const fetchProfile = async () => {
       try {
-        const response = await axios.get(`${API_URL}/my-profile`, authConfig);
+        const response = await api.get(`/my-profile`, authConfig);
 
         const data = response.data.profile || response.data;
 
@@ -167,8 +167,8 @@ function ClientSettings() {
     setMessage("");
 
     try {
-      const response = await axios.patch(
-        `${API_URL}/profile`,
+      const response = await api.patch(
+        `/profile`,
         {
           ...profile,
           phone: normalizedPhone,
@@ -239,7 +239,7 @@ function ClientSettings() {
     setMessage("");
 
     try {
-      const response = await axios.post(`${API_URL}/profile/photo`, formData, {
+      const response = await api.post(`/profile/photo`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -309,8 +309,8 @@ function ClientSettings() {
     setChangingPassword(true);
 
     try {
-      const response = await axios.put(
-        `${SERVER_URL}/api/auth/change-password`,
+      const response = await api.put(
+        "/auth/change-password",
         {
           current_password: currentPassword,
           new_password: newPassword,

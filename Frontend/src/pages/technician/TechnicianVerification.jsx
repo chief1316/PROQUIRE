@@ -8,11 +8,11 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import axios from "axios";
+import api from "../api";
 
 import "./TechnicianVerification.css";
 
-const API = "http://localhost:5000/api";
+const API = "https://proquire.onrender.com/api";
 
 function TechnicianVerification() {
   const navigate = useNavigate();
@@ -66,7 +66,7 @@ function TechnicianVerification() {
         setLoadingProfile(true);
         setError("");
 
-        const response = await axios.get(`${API}/technicians/my-profile`, {
+        const response = await api.get(`/technicians/my-profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -114,8 +114,8 @@ function TechnicianVerification() {
       try {
         setLoadingDocuments(true);
 
-        const response = await axios.get(
-          `${API}/technicians/my-verification-documents`,
+        const response = await api.get(
+          `/technicians/my-verification-documents`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -281,8 +281,8 @@ function TechnicianVerification() {
         formData.append("selfie", selectedSelfie);
       }
 
-      const response = await axios.post(
-        `${API}/technicians/verification/upload`,
+      const response = await api.post(
+        `/technicians/verification/upload`,
         formData,
         {
           headers: {
@@ -317,8 +317,8 @@ function TechnicianVerification() {
       }
 
       // Refresh verification document history
-      const documentsResponse = await axios.get(
-        `${API}/technicians/my-verification-documents`,
+      const documentsResponse = await api.get(
+        `/technicians/my-verification-documents`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   ArrowLeft,
   Building2,
@@ -46,14 +46,11 @@ function AgencyProfile() {
       }
 
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/agencies/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const response = await api.get("/agencies/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         setAgency(response.data);
       } catch (err) {
@@ -119,8 +116,7 @@ function AgencyProfile() {
     }
 
     const cleanPath = agency.logo.replace(/\\/g, "/").replace(/^\/+/, "");
-
-    return `http://localhost:5000/${cleanPath}`;
+    return `https://proquire.onrender.com/${cleanPath}`;
   };
 
   /*

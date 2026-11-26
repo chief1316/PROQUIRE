@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   LayoutDashboard,
   Users,
@@ -99,8 +99,8 @@ function AdminDashboard() {
       const token = sessionStorage.getItem("token");
 
       const fetchFile = async (fileType) => {
-        const response = await axios.get(
-          `http://localhost:5000/api/admin/verification-documents/${selectedDocument.document_id}/${fileType}`,
+        const response = await api.get(
+          `/admin/verification-documents/${selectedDocument.document_id}/${fileType}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -182,8 +182,8 @@ function AdminDashboard() {
     try {
       const userId = selectedUser.user_id;
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/admin/users/${userId}/status`,
+      const response = await api.patch(
+        `/admin/users/${userId}/status`,
         { is_active: newStatus },
         getAuthHeaders(),
       );
@@ -236,17 +236,12 @@ function AdminDashboard() {
 
       const [usersResponse, pendingResponse, pendingAgenciesResponse] =
         await Promise.all([
-          axios.get("http://localhost:5000/api/admin/users", getAuthHeaders()),
+          api.get("/admin/users"),
+          getAuthHeaders(),
 
-          axios.get(
-            "http://localhost:5000/api/technicians/pending/list",
-            getAuthHeaders(),
-          ),
+          api.get("/technicians/pending/list", getAuthHeaders()),
 
-          axios.get(
-            "http://localhost:5000/api/agencies/pending/list",
-            getAuthHeaders(),
-          ),
+          api.get("/agencies/pending/list", getAuthHeaders()),
         ]);
 
       setUsers(usersResponse.data || []);
@@ -379,8 +374,8 @@ function AdminDashboard() {
       setError("");
       setSuccess("");
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/admin/verify-technician/${technicianId}`,
+      const response = await api.patch(
+        `/admin/verify-technician/${technicianId}`,
         {},
         getAuthHeaders(),
       );
@@ -424,8 +419,8 @@ function AdminDashboard() {
 
       setSuccess("");
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/agencies/verify/${agencyId}`,
+      const response = await api.patch(
+        `/agencies/verify/${agencyId}`,
         {},
         getAuthHeaders(),
       );
@@ -455,8 +450,8 @@ function AdminDashboard() {
       setError("");
       setSuccess("");
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/agencies/documents/${documentId}/approve`,
+      const response = await api.patch(
+        `/agencies/documents/${documentId}/approve`,
         {},
         getAuthHeaders(),
       );
@@ -484,8 +479,8 @@ function AdminDashboard() {
       setError("");
       setSuccess("");
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/agencies/documents/${documentId}/reject`,
+      const response = await api.patch(
+        `/agencies/documents/${documentId}/reject`,
         { reason: rejectionReason.trim() },
         getAuthHeaders(),
       );
@@ -521,8 +516,8 @@ function AdminDashboard() {
       setError("");
       setSuccess("");
 
-      const response = await axios.patch(
-        `http://localhost:5000/api/technicians/verification/review/${selectedDocument.document_id}`,
+      const response = await api.patch(
+        `/technicians/verification/review/${selectedDocument.document_id}`,
         {
           decision,
           rejection_reason:
@@ -3427,7 +3422,7 @@ function AdminDashboard() {
                         >
                           {/* REVIEW BUTTON - KEEP AVAILABLE */}
                           <a
-                            href={`http://localhost:5000${document.document_path}`}
+                            href={`https://proquire.onrender.com${document.document_path}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{

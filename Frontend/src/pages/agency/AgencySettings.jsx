@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   ArrowLeft,
   Building2,
@@ -13,7 +13,7 @@ import {
   EyeOff,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api/users";
+const API_URL = "https://proquire.onrender.com/api/users";
 
 const cardStyle = {
   background: "#fff",
@@ -87,7 +87,7 @@ function AgencySettings() {
       }
 
       try {
-        const response = await axios.get(`${API_URL}/me`, {
+        const response = await api.get(`/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -135,14 +135,14 @@ function AgencySettings() {
       formData.append("full_name", fullName.trim());
       formData.append("phone", phone.trim());
 
-      await axios.put(`${API_URL}/me`, formData, {
+      await api.put(`/me`, formData, {
         headers: {
           ...authConfig().headers,
           "Content-Type": "multipart/form-data",
         },
       });
 
-      const response = await axios.get(`${API_URL}/me`, authConfig());
+      const response = await api.get(`/me`, authConfig());
 
       setUser(response.data);
       setFullName(response.data.full_name || "");
@@ -183,8 +183,8 @@ function AgencySettings() {
     setChangingPassword(true);
 
     try {
-      const response = await axios.put(
-        `${API_URL}/change-password`,
+      const response = await api.put(
+        "/change-password",
         {
           current_password: currentPassword,
           new_password: newPassword,

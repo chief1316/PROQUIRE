@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import { useNavigate } from "react-router-dom";
 import {
   Settings,
@@ -18,7 +18,7 @@ import {
   EyeOff,
 } from "lucide-react";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API = import.meta.env.VITE_API_URL || "https://proquire.onrender.com/api";
 
 const TechnicianSettings = () => {
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ const TechnicianSettings = () => {
       }
 
       try {
-        const response = await axios.get(`${API}/users/me`, {
+        const response = await api.get(`/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -170,7 +170,7 @@ const TechnicianSettings = () => {
         formData.append("profile_photo", profilePhoto);
       }
 
-      const response = await axios.put(`${API}/users/me`, formData, {
+      const response = await api.put(`/users/me`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
@@ -248,8 +248,8 @@ const TechnicianSettings = () => {
     try {
       setPasswordLoading(true);
 
-      const response = await axios.put(
-        `${API}/users/change-password`,
+      const response = await api.put(
+        `/users/change-password`,
         {
           current_password: currentPassword,
           new_password: newPassword,
@@ -305,7 +305,7 @@ const TechnicianSettings = () => {
       setDeleteAccountLoading(true);
       setDeleteAccountError("");
 
-      await axios.delete(`${API}/users/me`, {
+      await api.delete(`/users/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

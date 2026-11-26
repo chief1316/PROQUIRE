@@ -15,7 +15,7 @@ import {
   Save,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 
 function AgencyTechnicianDetails() {
   const navigate = useNavigate();
@@ -40,10 +40,7 @@ function AgencyTechnicianDetails() {
   });
 
   const getToken = () => {
-    return (
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token")
-    );
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
   };
 
   const fetchTechnician = async () => {
@@ -58,14 +55,11 @@ function AgencyTechnicianDetails() {
       setLoading(true);
       setError("");
 
-      const response = await axios.get(
-        `http://localhost:5000/api/agencies/technicians/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.get(`/agencies/technicians/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       setTechnician(response.data);
     } catch (err) {
@@ -81,8 +75,7 @@ function AgencyTechnicianDetails() {
       }
 
       setError(
-        err.response?.data?.message ||
-          "Unable to load technician information."
+        err.response?.data?.message || "Unable to load technician information.",
       );
     } finally {
       setLoading(false);
@@ -91,9 +84,7 @@ function AgencyTechnicianDetails() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:5000/api/categories"
-      );
+      const response = await api.get("/categories");
 
       setCategories(response.data || []);
     } catch (err) {
@@ -163,8 +154,8 @@ function AgencyTechnicianDetails() {
     try {
       setSaving(true);
 
-      const response = await axios.put(
-        `http://localhost:5000/api/agencies/technicians/${id}`,
+      const response = await api.put(
+        `/agencies/technicians/${id}`,
         {
           category_id: Number(editForm.category_id),
           years_experience: Number(editForm.years_experience),
@@ -176,7 +167,7 @@ function AgencyTechnicianDetails() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       console.log("Technician updated successfully:", response.data);
@@ -203,7 +194,7 @@ function AgencyTechnicianDetails() {
 
       setEditError(
         err.response?.data?.message ||
-          "Unable to update technician information."
+          "Unable to update technician information.",
       );
     } finally {
       setSaving(false);
@@ -226,16 +217,13 @@ function AgencyTechnicianDetails() {
           <RefreshCw
             size={32}
             style={{
-              animation:
-                "agencyTechnicianDetailsSpin 1s linear infinite",
+              animation: "agencyTechnicianDetailsSpin 1s linear infinite",
               marginBottom: "12px",
               color: "#2166d1",
             }}
           />
 
-          <p style={{ margin: 0 }}>
-            Loading technician information...
-          </p>
+          <p style={{ margin: 0 }}>Loading technician information...</p>
         </div>
       </div>
     );
@@ -462,12 +450,8 @@ function AgencyTechnicianDetails() {
                   marginTop: "10px",
                   padding: "6px 10px",
                   borderRadius: "7px",
-                  background: verified
-                    ? "#e9f8ef"
-                    : "#fff3df",
-                  color: verified
-                    ? "#21784b"
-                    : "#a56a14",
+                  background: verified ? "#e9f8ef" : "#fff3df",
+                  color: verified ? "#21784b" : "#a56a14",
                   fontSize: "11px",
                   fontWeight: 600,
                 }}
@@ -692,10 +676,7 @@ function AgencyTechnicianDetails() {
                     fontSize: "13px",
                   }}
                 >
-                  <BriefcaseBusiness
-                    size={15}
-                    color="#7b879d"
-                  />
+                  <BriefcaseBusiness size={15} color="#7b879d" />
                   {technician.years_experience ?? 0} years
                 </div>
               </div>
@@ -927,8 +908,7 @@ function AgencyTechnicianDetails() {
                     color: "#7b879d",
                   }}
                 >
-                  Update professional information for{" "}
-                  {technician.full_name}.
+                  Update professional information for {technician.full_name}.
                 </p>
               </div>
 
@@ -1179,9 +1159,7 @@ function AgencyTechnicianDetails() {
                     borderRadius: "9px",
                     fontSize: "13px",
                     fontWeight: 600,
-                    cursor: saving
-                      ? "not-allowed"
-                      : "pointer",
+                    cursor: saving ? "not-allowed" : "pointer",
                   }}
                 >
                   Cancel
@@ -1192,9 +1170,7 @@ function AgencyTechnicianDetails() {
                   disabled={saving}
                   style={{
                     border: "none",
-                    background: saving
-                      ? "#91addb"
-                      : "#2166d1",
+                    background: saving ? "#91addb" : "#2166d1",
                     color: "#ffffff",
                     padding: "11px 20px",
                     borderRadius: "9px",
@@ -1203,16 +1179,12 @@ function AgencyTechnicianDetails() {
                     gap: "8px",
                     fontSize: "13px",
                     fontWeight: 600,
-                    cursor: saving
-                      ? "not-allowed"
-                      : "pointer",
+                    cursor: saving ? "not-allowed" : "pointer",
                   }}
                 >
                   <Save size={17} />
 
-                  {saving
-                    ? "Saving Changes..."
-                    : "Save Changes"}
+                  {saving ? "Saving Changes..." : "Save Changes"}
                 </button>
               </div>
             </form>

@@ -9,7 +9,7 @@ import {
   Save,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api";
 import "./AgencyProfileSetup.css";
 
 import logo from "../assets/proquire-logo.png";
@@ -101,14 +101,11 @@ function AgencyProfileSetup() {
       }
 
       try {
-        const response = await axios.get(
-          "http://localhost:5000/api/agencies/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const response = await api.get("/agencies/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         const agency = response.data;
 
@@ -200,15 +197,11 @@ function AgencyProfileSetup() {
       data.append("document_type", documentType);
       data.append("document", documentFile);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/agencies/documents/upload",
-        data,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await api.post("/agencies/documents/upload", data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       setSuccess(response.data.message || "Document uploaded successfully.");
       await fetchAgencyDocuments();
@@ -238,14 +231,11 @@ function AgencyProfileSetup() {
     try {
       setDocumentsLoading(true);
 
-      const response = await axios.get(
-        "http://localhost:5000/api/agencies/documents/my",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await api.get("/agencies/documents/my", {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       setAgencyDocuments(response.data);
     } catch (err) {
@@ -297,11 +287,9 @@ function AgencyProfileSetup() {
         data.append("logo", logoFile);
       }
 
-      const requestUrl = isEditing
-        ? `http://localhost:5000/api/agencies/${agencyId}`
-        : "http://localhost:5000/api/agencies";
+      const requestUrl = isEditing ? `/agencies/${agencyId}` : "/agencies";
 
-      const response = await axios({
+      const response = await api({
         method: isEditing ? "put" : "post",
         url: requestUrl,
         data,
@@ -637,7 +625,7 @@ function AgencyProfileSetup() {
                     </div>
 
                     <a
-                      href={`http://localhost:5000${document.document_path}`}
+                      href={`https://proquire.onrender.com${document.document_path}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   Search,
   MapPin,
@@ -30,8 +30,8 @@ import "./ClientDashboard.css";
 import logo from "../assets/proquire-logo.png";
 
 // IMPORTANT: Use a normal URL here.
-const API = "http://localhost:5000/api";
-const SERVER_URL = "http://localhost:5000";
+const API = "https://proquire.onrender.com/api";
+const SERVER_URL = "https://proquire.onrender.com";
 
 function getImageUrl(imagePath) {
   if (!imagePath) return "";
@@ -282,8 +282,8 @@ function ClientDashboard() {
 
         const dayName = weekdays[selectedDay.getUTCDay()];
 
-        const response = await axios.get(
-          `${API}/availability/technician/${selectedTechnician.technician_id}`,
+        const response = await api.get(
+          `/availability/technician/${selectedTechnician.technician_id}`,
         );
 
         if (cancelled) return;
@@ -339,9 +339,9 @@ function ClientDashboard() {
     try {
       const [technicianResponse, categoryResponse, agencyResponse] =
         await Promise.all([
-          axios.get(`${API}/technicians`),
-          axios.get(`${API}/categories`),
-          axios.get(`${API}/agencies`),
+          api.get(`/technicians`),
+          api.get(`/categories`),
+          api.get(`/agencies`),
         ]);
 
       setTechnicians(
@@ -378,7 +378,7 @@ function ClientDashboard() {
     setProfileSuccess("");
 
     try {
-      const response = await axios.get(`${API}/clients/my-profile`, authConfig);
+      const response = await api.get(`/clients/my-profile`, authConfig);
 
       const data = response.data;
 
@@ -510,18 +510,10 @@ function ClientDashboard() {
 
       if (profileExists) {
         // Update the existing profile.
-        response = await axios.patch(
-          `${API}/clients/profile`,
-          profileData,
-          authConfig,
-        );
+        response = await api.patch(`/clients/profile`, profileData, authConfig);
       } else {
         // Create a new client profile.
-        response = await axios.post(
-          `${API}/clients/profile`,
-          profileData,
-          authConfig,
-        );
+        response = await api.post(`/clients/profile`, profileData, authConfig);
       }
 
       const returnedData =
@@ -582,8 +574,8 @@ function ClientDashboard() {
     setRequestError("");
 
     try {
-      const response = await axios.get(
-        `${API}/service-requests/my-requests`,
+      const response = await api.get(
+        `/service-requests/my-requests`,
         authConfig,
       );
 
@@ -648,8 +640,8 @@ function ClientDashboard() {
     setReviewError("");
 
     try {
-      await axios.post(
-        `${API}/reviews`,
+      await api.post(
+        `/reviews`,
         {
           request_id: selectedReviewRequest.request_id,
           rating: Number(reviewRating),
@@ -784,8 +776,8 @@ function ClientDashboard() {
     setAgencyAvailabilityLoading(true);
 
     try {
-      const response = await axios.get(
-        `${API}/agencies/technicians/${selectedAgency.agency_id}/availability`,
+      const response = await api.get(
+        `/agencies/technicians/${selectedAgency.agency_id}/availability`,
         {
           params: { category_id: categoryId },
         },
@@ -900,7 +892,7 @@ function ClientDashboard() {
         requestData.category_id = selectedServiceCategory;
       }
 
-      await axios.post(`${API}/service-requests`, requestData, authConfig);
+      await api.post(`/service-requests`, requestData, authConfig);
 
       setSelectedTechnician(null);
       setSelectedAgency(null);
@@ -964,7 +956,7 @@ function ClientDashboard() {
                     src={
                       user.profile_photo.startsWith("http")
                         ? user.profile_photo
-                        : `http://localhost:5000/uploads/${user.profile_photo.replace(/^\/+/, "")}`
+                        : `https://proquire.onrender.com/uploads/${user.profile_photo.replace(/^\/+/, "")}`
                     }
                     alt="Client profile"
                   />

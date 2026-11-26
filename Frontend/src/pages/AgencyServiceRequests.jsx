@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import { useNavigate } from "react-router-dom";
 import "./AgencyServiceRequests.css";
 
-const API = "http://localhost:5000/api";
+const API = "https://proquire.onrender.com/api";
 
 function getToken() {
   return sessionStorage.getItem("token");
@@ -26,14 +26,11 @@ const AgencyServiceRequests = () => {
 
       const token = getToken();
 
-      const response = await axios.get(
-        `${API}/service-requests/agency/my-requests`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await api.get("/service-requests/agency/my-requests", {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       const formattedRequests = response.data.map((request) => ({
         id: request.request_id,
@@ -63,14 +60,11 @@ const AgencyServiceRequests = () => {
     try {
       const token = getToken();
 
-      const response = await axios.get(
-        `${API}/technicians/agency/my-technicians`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await api.get("/technicians/agency/my-technicians", {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       setTechnicians(response.data);
     } catch (err) {
@@ -94,8 +88,8 @@ const AgencyServiceRequests = () => {
     try {
       const token = getToken();
 
-      await axios.patch(
-        `${API}/service-requests/agency/${requestId}/status`,
+      await api.patch(
+        `/service-requests/agency/${requestId}/status`,
         {
           request_status: "accepted",
         },
@@ -120,8 +114,8 @@ const AgencyServiceRequests = () => {
     try {
       const token = getToken();
 
-      await axios.patch(
-        `${API}/service-requests/agency/${requestId}/status`,
+      await api.patch(
+        `/service-requests/agency/${requestId}/status`,
         {
           request_status: "rejected",
         },
@@ -150,8 +144,8 @@ const AgencyServiceRequests = () => {
     try {
       const token = getToken();
 
-      await axios.patch(
-        `${API}/service-requests/agency/${requestId}/assign-technician`,
+      await api.patch(
+        `/service-requests/agency/${requestId}/assign-technician`,
         {
           technician_id: technicianId,
         },

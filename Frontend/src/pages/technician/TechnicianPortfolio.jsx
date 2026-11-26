@@ -8,7 +8,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import axios from "axios";
+import api from "../api";
 
 import "./TechnicianPortfolio.css";
 
@@ -55,14 +55,11 @@ function TechnicianPortfolio() {
            GET MY PROFILE
         ========================= */
 
-        const profileResponse = await axios.get(
-          "http://localhost:5000/api/technicians/my-profile",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const profileResponse = await api.get("/technicians/my-profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         const technicianId = profileResponse.data.technician_id;
 
@@ -76,9 +73,7 @@ function TechnicianPortfolio() {
            GET PORTFOLIO
         ========================= */
 
-        const portfolioResponse = await axios.get(
-          `http://localhost:5000/api/portfolios/${technicianId}`,
-        );
+        const portfolioResponse = await api.get(`/portfolios/${technicianId}`);
 
         setPortfolio(portfolioResponse.data || []);
       } catch (err) {
@@ -149,7 +144,7 @@ function TechnicianPortfolio() {
         formData.append("image", image);
       }
 
-      await axios.post("http://localhost:5000/api/portfolios", formData, {
+      await api.post("/portfolios", formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -172,20 +167,15 @@ function TechnicianPortfolio() {
          RELOAD PORTFOLIO
       ========================= */
 
-      const profileResponse = await axios.get(
-        "http://localhost:5000/api/technicians/my-profile",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const profileResponse = await api.get("/technicians/my-profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       const technicianId = profileResponse.data.technician_id;
 
-      const portfolioResponse = await axios.get(
-        `http://localhost:5000/api/portfolios/${technicianId}`,
-      );
+      const portfolioResponse = await api.get(`/portfolios/${technicianId}`);
 
       setPortfolio(portfolioResponse.data || []);
     } catch (err) {
@@ -227,14 +217,11 @@ function TechnicianPortfolio() {
       setError("");
       setSuccess("");
 
-      await axios.delete(
-        `http://localhost:5000/api/portfolios/${portfolioId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      await api.delete(`/portfolios/${portfolioId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       /*
        * Remove the deleted project immediately
@@ -526,7 +513,7 @@ function TechnicianPortfolio() {
                     src={
                       item.image_path.startsWith("http")
                         ? item.image_path
-                        : `http://localhost:5000/${item.image_path.replace(/^\/+/, "")}`
+                        : `https://proquire.onrender.com/${item.image_path.replace(/^\/+/, "")}`
                     }
                     alt={item.title}
                     onError={(e) => {

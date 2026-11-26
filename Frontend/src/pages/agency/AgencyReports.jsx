@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -136,8 +136,8 @@ export default function AgencyReports() {
         setLoading(true);
         setError("");
 
-        const requestsResponse = await axios.get(
-          "http://localhost:5000/api/service-requests/agency/my-requests",
+        const requestsResponse = await api.get(
+          "/service-requests/agency/my-requests",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -151,14 +151,11 @@ export default function AgencyReports() {
             : requestsResponse.data.requests || [],
         );
 
-        const techniciansResponse = await axios.get(
-          "http://localhost:5000/api/agencies/technicians",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const techniciansResponse = await api.get("/agencies/technicians", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         setTechnicians(
           Array.isArray(techniciansResponse.data)
@@ -166,14 +163,11 @@ export default function AgencyReports() {
             : techniciansResponse.data.technicians || [],
         );
 
-        const agencyResponse = await axios.get(
-          "http://localhost:5000/api/agencies/me",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        const agencyResponse = await api.get("/agencies/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
+        });
 
         setAgency(agencyResponse.data);
       } catch (err) {

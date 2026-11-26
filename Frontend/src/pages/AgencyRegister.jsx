@@ -9,7 +9,7 @@ import {
   User,
 } from "lucide-react";
 import { useState } from "react";
-import axios from "axios";
+import api from "../api";
 import "./AgencyRegister.css";
 
 import logo from "../assets/proquire-logo.png";
@@ -68,10 +68,7 @@ function AgencyRegister() {
         role: "agency",
       };
 
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/register",
-        registrationData
-      );
+      const response = await api.post("/auth/register", registrationData);
 
       console.log(
         "Agency registration response:",

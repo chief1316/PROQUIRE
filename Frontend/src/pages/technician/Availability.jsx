@@ -1,7 +1,6 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import {
   ArrowLeft,
   CalendarDays,
@@ -18,7 +17,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-const API = "http://localhost:5000/api";
+const API = "https://proquire.onrender.com/api";
 
 const DAYS = [
   "Monday",
@@ -51,23 +50,19 @@ function Availability() {
   const [message, setMessage] = useState("");
 
   const token =
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token");
+    localStorage.getItem("token") || sessionStorage.getItem("token");
 
   const user = (() => {
     try {
       return JSON.parse(
-        localStorage.getItem("user") ||
-          sessionStorage.getItem("user") ||
-          "{}"
+        localStorage.getItem("user") || sessionStorage.getItem("user") || "{}",
       );
     } catch {
       return {};
     }
   })();
 
-  const technicianName =
-    user.full_name || user.name || "Technician";
+  const technicianName = user.full_name || user.name || "Technician";
 
   const authHeaders = {
     Authorization: `Bearer ${token}`,
@@ -94,18 +89,11 @@ function Availability() {
       setLoading(true);
       setError("");
 
-      const response = await axios.get(
-        `${API}/availability/my-availability`,
-        {
-          headers: authHeaders,
-        }
-      );
+      const response = await api.get(`/availability/my-availability`, {
+        headers: authHeaders,
+      });
 
-      setAvailability(
-        Array.isArray(response.data)
-          ? response.data
-          : []
-      );
+      setAvailability(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.error("Availability fetch error:", err);
 
@@ -120,8 +108,7 @@ function Availability() {
       }
 
       setError(
-        err.response?.data?.message ||
-          "Unable to load your availability."
+        err.response?.data?.message || "Unable to load your availability.",
       );
     } finally {
       setLoading(false);
@@ -149,12 +136,8 @@ function Availability() {
   const handleEdit = (item) => {
     setForm({
       available_day: item.available_day,
-      available_from: String(
-        item.available_from
-      ).slice(0, 5),
-      available_to: String(
-        item.available_to
-      ).slice(0, 5),
+      available_from: String(item.available_from).slice(0, 5),
+      available_to: String(item.available_to).slice(0, 5),
     });
 
     setEditingId(item.availability_id);
@@ -173,21 +156,13 @@ function Availability() {
     setError("");
     setMessage("");
 
-    if (
-      !form.available_day ||
-      !form.available_from ||
-      !form.available_to
-    ) {
+    if (!form.available_day || !form.available_from || !form.available_to) {
       setError("Please complete all fields.");
       return;
     }
 
-    if (
-      form.available_from >= form.available_to
-    ) {
-      setError(
-        "Ending time must be later than starting time."
-      );
+    if (form.available_from >= form.available_to) {
+      setError("Ending time must be later than starting time.");
       return;
     }
 
@@ -197,27 +172,16 @@ function Availability() {
       let response;
 
       if (editingId) {
-        response = await axios.patch(
-          `${API}/availability/${editingId}`,
-          form,
-          {
-            headers: authHeaders,
-          }
-        );
+        response = await api.patch(`/availability/${editingId}`, form, {
+          headers: authHeaders,
+        });
       } else {
-        response = await axios.post(
-          `${API}/availability/create`,
-          form,
-          {
-            headers: authHeaders,
-          }
-        );
+        response = await api.post(`/availability/create`, form, {
+          headers: authHeaders,
+        });
       }
 
-      setMessage(
-        response.data?.message ||
-          "Availability saved successfully."
-      );
+      setMessage(response.data?.message || "Availability saved successfully.");
 
       resetForm();
 
@@ -227,7 +191,7 @@ function Availability() {
 
       setError(
         err.response?.data?.message ||
-          "Unable to save availability. Please try again."
+          "Unable to save availability. Please try again.",
       );
     } finally {
       setSaving(false);
@@ -237,10 +201,8 @@ function Availability() {
   const handleDelete = async (item) => {
     const confirmed = window.confirm(
       `Delete your availability for ${item.available_day}, ${String(
-        item.available_from
-      ).slice(0, 5)} - ${String(
-        item.available_to
-      ).slice(0, 5)}?`
+        item.available_from,
+      ).slice(0, 5)} - ${String(item.available_to).slice(0, 5)}?`,
     );
 
     if (!confirmed) return;
@@ -251,19 +213,17 @@ function Availability() {
     try {
       setDeletingId(item.availability_id);
 
-      const response = await axios.delete(
-        `${API}/availability/${item.availability_id}`,
+      const response = await api.delete(
+        `/availability/${item.availability_id}`,
         {
           headers: authHeaders,
-        }
+        },
       );
 
       setAvailability((previous) =>
         previous.filter(
-          (entry) =>
-            entry.availability_id !==
-            item.availability_id
-        )
+          (entry) => entry.availability_id !== item.availability_id,
+        ),
       );
 
       if (editingId === item.availability_id) {
@@ -271,16 +231,12 @@ function Availability() {
       }
 
       setMessage(
-        response.data?.message ||
-          "Availability deleted successfully."
+        response.data?.message || "Availability deleted successfully.",
       );
     } catch (err) {
       console.error("Availability delete error:", err);
 
-      setError(
-        err.response?.data?.message ||
-          "Unable to delete availability."
-      );
+      setError(err.response?.data?.message || "Unable to delete availability.");
     } finally {
       setDeletingId(null);
     }
@@ -289,10 +245,7 @@ function Availability() {
   const formatTime = (time) => {
     if (!time) return "";
 
-    const [hours, minutes] = String(time)
-      .slice(0, 5)
-      .split(":")
-      .map(Number);
+    const [hours, minutes] = String(time).slice(0, 5).split(":").map(Number);
 
     const date = new Date();
     date.setHours(hours, minutes, 0, 0);
@@ -305,9 +258,7 @@ function Availability() {
 
   const groupedAvailability = DAYS.map((day) => ({
     day,
-    slots: availability.filter(
-      (item) => item.available_day === day
-    ),
+    slots: availability.filter((item) => item.available_day === day),
   }));
 
   return (
@@ -694,25 +645,18 @@ function Availability() {
 
       <div className="availability-page">
         <header className="availability-topbar">
-          <Link
-            to="/"
-            className="availability-logo"
-          >
+          <Link to="/" className="availability-logo">
             <span className="availability-logo-icon">
               <Wrench size={21} />
             </span>
 
             <span>
-              Pro<span style={{ color: "#172033" }}>
-                Quire
-              </span>
+              Pro<span style={{ color: "#172033" }}>Quire</span>
             </span>
           </Link>
 
           <div className="availability-top-actions">
-            <span className="availability-user">
-              {technicianName}
-            </span>
+            <span className="availability-user">{technicianName}</span>
 
             <button
               className="availability-logout"
@@ -726,10 +670,7 @@ function Availability() {
         </header>
 
         <main className="availability-container">
-          <Link
-            to="/technician"
-            className="availability-back"
-          >
+          <Link to="/technician" className="availability-back">
             <ArrowLeft size={17} />
             Back to Dashboard
           </Link>
@@ -738,9 +679,8 @@ function Availability() {
             <h1>Manage Availability</h1>
 
             <p>
-              Set your working days and hours so clients
-              know when you are available for service
-              requests.
+              Set your working days and hours so clients know when you are
+              available for service requests.
             </p>
           </div>
 
@@ -761,22 +701,15 @@ function Availability() {
           <div className="availability-grid">
             {/* Create or edit availability */}
             <section className="availability-panel">
-              <h2>
-                {editingId
-                  ? "Edit Working Hours"
-                  : "Add Working Hours"}
-              </h2>
+              <h2>{editingId ? "Edit Working Hours" : "Add Working Hours"}</h2>
 
               <p className="availability-panel-subtitle">
-                Choose a day and the hours you are
-                available to accept work.
+                Choose a day and the hours you are available to accept work.
               </p>
 
               <form onSubmit={handleSubmit}>
                 <div className="availability-field">
-                  <label htmlFor="available_day">
-                    Day of the week
-                  </label>
+                  <label htmlFor="available_day">Day of the week</label>
 
                   <select
                     id="available_day"
@@ -795,9 +728,7 @@ function Availability() {
 
                 <div className="availability-time-row">
                   <div className="availability-field">
-                    <label htmlFor="available_from">
-                      Start time
-                    </label>
+                    <label htmlFor="available_from">Start time</label>
 
                     <input
                       id="available_from"
@@ -810,9 +741,7 @@ function Availability() {
                   </div>
 
                   <div className="availability-field">
-                    <label htmlFor="available_to">
-                      End time
-                    </label>
+                    <label htmlFor="available_to">End time</label>
 
                     <input
                       id="available_to"
@@ -873,8 +802,7 @@ function Availability() {
               <h2>Your Weekly Schedule</h2>
 
               <p className="availability-panel-subtitle">
-                View, edit, or remove your saved working
-                hours.
+                View, edit, or remove your saved working hours.
               </p>
 
               {loading ? (
@@ -884,35 +812,26 @@ function Availability() {
                 </div>
               ) : availability.length === 0 ? (
                 <div className="availability-empty">
-                  <CalendarDays
-                    size={35}
-                    color="#a0aaba"
-                  />
+                  <CalendarDays size={35} color="#a0aaba" />
 
                   <h3>No availability added yet</h3>
 
                   <p>
-                    Add your working days and hours using
-                    the form. Your saved schedule will
-                    appear here.
+                    Add your working days and hours using the form. Your saved
+                    schedule will appear here.
                   </p>
                 </div>
               ) : (
                 groupedAvailability
                   .filter((group) => group.slots.length > 0)
                   .map((group) => (
-                    <div
-                      className="availability-day"
-                      key={group.day}
-                    >
+                    <div className="availability-day" key={group.day}>
                       <div className="availability-day-header">
                         <strong>{group.day}</strong>
 
                         <span className="availability-day-count">
                           {group.slots.length}{" "}
-                          {group.slots.length === 1
-                            ? "slot"
-                            : "slots"}
+                          {group.slots.length === 1 ? "slot" : "slots"}
                         </span>
                       </div>
 
@@ -922,10 +841,7 @@ function Availability() {
                           key={item.availability_id}
                         >
                           <div className="availability-slot-time">
-                            <Clock
-                              size={16}
-                              color="#1769e0"
-                            />
+                            <Clock size={16} color="#1769e0" />
 
                             <span>
                               {formatTime(item.available_from)}
@@ -950,14 +866,10 @@ function Availability() {
                               className="availability-icon-button delete"
                               title="Delete availability"
                               aria-label="Delete availability"
-                              disabled={
-                                deletingId ===
-                                item.availability_id
-                              }
+                              disabled={deletingId === item.availability_id}
                               onClick={() => handleDelete(item)}
                             >
-                              {deletingId ===
-                              item.availability_id ? (
+                              {deletingId === item.availability_id ? (
                                 <LoaderCircle size={15} />
                               ) : (
                                 <Trash2 size={15} />

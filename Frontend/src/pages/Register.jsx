@@ -1,7 +1,7 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
 import { useState } from "react";
-import axios from "axios";
+import api from "../api";
 import "./Register.css";
 
 import logo from "../assets/proquire-logo.png";
@@ -65,19 +65,16 @@ function Register() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/register",
-        {
-          full_name: fullName,
-          phone,
-          email,
-          password,
-          role: selectedRole,
+      const response = await api.post("/auth/register", {
+        full_name: fullName,
+        phone,
+        email,
+        password,
+        role: selectedRole,
 
-          accepted_terms: true,
-          accepted_privacy_policy: true,
-        },
-      );
+        accepted_terms: true,
+        accepted_privacy_policy: true,
+      });
 
       console.log("Registration successful:", response.data);
 

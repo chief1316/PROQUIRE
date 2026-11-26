@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Mail, CheckCircle } from "lucide-react";
 import { useState } from "react";
-import axios from "axios";
+import api from "../api";
 import "./Login.css";
 
 import logo from "../assets/proquire-logo.png";
@@ -30,12 +30,9 @@ function ForgotPassword() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/users/forgot-password",
-        {
-          email,
-        },
-      );
+      const response = await api.post("/users/forgot-password", {
+        email,
+      });
 
       setMessage(
         response.data?.message ||

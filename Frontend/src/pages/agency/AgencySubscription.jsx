@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import { ArrowLeft, CheckCircle, CreditCard, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import "./AgencySubscription.css";
 
-const API = "http://localhost:5000/api";
+const API = "https://proquire.onrender.com/api";
 
 const getToken = () => sessionStorage.getItem("token");
 
@@ -41,10 +41,10 @@ const AgencySubscription = () => {
       try {
         const [plansResponse, subscriptionResponse, paymentsResponse] =
           await Promise.all([
-            axios.get(`${API}/subscriptions/plans?type=agency`),
+            api.get(`/subscriptions/plans?type=agency`),
 
-            axios
-              .get(`${API}/subscriptions/my-subscription`, authConfig)
+            api
+              .get(`/subscriptions/my-subscription`, authConfig)
               .catch((err) => {
                 if (err.response?.status === 404) {
                   return { data: null };
@@ -52,7 +52,7 @@ const AgencySubscription = () => {
                 throw err;
               }),
 
-            axios.get(`${API}/payments/my-payments`, authConfig),
+            api.get(`/payments/my-payments`, authConfig),
           ]);
 
         setPlans(Array.isArray(plansResponse.data) ? plansResponse.data : []);
@@ -101,8 +101,8 @@ const AgencySubscription = () => {
       setMessage("");
       setError("");
 
-      const response = await axios.post(
-        `${API}/subscriptions/subscribe`,
+      const response = await api.post(
+        `/subscriptions/subscribe`,
         { plan_id: planId },
         authConfig,
       );
@@ -148,8 +148,8 @@ const AgencySubscription = () => {
       setMpesaMessage("");
       setMpesaError("");
 
-      const response = await axios.post(
-        `${API}/payments/mpesa/stkpush`,
+      const response = await api.post(
+        "/payments/mpesa/stkpush",
         {
           subscription_id: subscription.subscription_id,
           phone_number: mpesaPhone.trim(),

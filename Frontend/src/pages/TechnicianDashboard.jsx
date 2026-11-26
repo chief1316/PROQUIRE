@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import "./TechnicianDashboard.css";
 import TechnicianNotifications from "./technician/TechnicianNotifications";
 import {
@@ -26,7 +26,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const API = "http://localhost:5000/api";
+const API = "https://proquire.onrender.com/api";
 
 function TechnicianDashboard() {
   const navigate = useNavigate();
@@ -71,7 +71,7 @@ function TechnicianDashboard() {
       }
 
       try {
-        const response = await axios.get(`${API}/technicians/my-profile`, {
+        const response = await api.get("/technicians/my-profile", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -111,8 +111,8 @@ function TechnicianDashboard() {
         setLoadingRequests(true);
         setRequestError("");
 
-        const response = await axios.get(
-          `${API}/service-requests/technician/${technicianProfile.technician_id}`,
+        const response = await api.get(
+          `/service-requests/technician/${technicianProfile.technician_id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -152,9 +152,9 @@ function TechnicianDashboard() {
         const technicianId = technicianProfile.technician_id;
 
         const [reviewsResponse, ratingResponse] = await Promise.all([
-          axios.get(`${API}/reviews/technician/${technicianId}`),
+          api.get(`/reviews/technician/${technicianId}`),
 
-          axios.get(`${API}/reviews/technician/${technicianId}/rating`),
+          api.get(`/reviews/technician/${technicianId}/rating`),
         ]);
 
         setReviews(
@@ -188,7 +188,7 @@ function TechnicianDashboard() {
       }
 
       try {
-        const response = await axios.get(`${API}/notifications`, {
+        const response = await api.get("/notifications", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -276,8 +276,8 @@ function TechnicianDashboard() {
       setRequestMessage("");
       setRequestError("");
 
-      const response = await axios.patch(
-        `${API}/service-requests/${requestId}/status`,
+      const response = await api.patch(
+        `/service-requests/${requestId}/status`,
         {
           request_status: status,
         },
@@ -303,8 +303,8 @@ function TechnicianDashboard() {
       // Reload requests so the accepted request receives the
       // client's phone and email from the backend response.
       if (status === "accepted" && technicianProfile?.technician_id) {
-        const refreshedRequests = await axios.get(
-          `${API}/service-requests/technician/${technicianProfile.technician_id}`,
+        const refreshedRequests = await api.get(
+          `/service-requests/technician/${technicianProfile.technician_id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -343,8 +343,8 @@ function TechnicianDashboard() {
       setRequestMessage("");
       setRequestError("");
 
-      const response = await axios.patch(
-        `${API}/service-requests/${requestId}/complete`,
+      const response = await api.patch(
+        `/service-requests/${requestId}/complete`,
         {},
         {
           headers: {
@@ -885,9 +885,9 @@ function TechnicianDashboard() {
                       setRequestError("");
                       setLoadingRequests(true);
 
-                      axios
+                      api
                         .get(
-                          `${API}/service-requests/technician/${technicianProfile?.technician_id}`,
+                          `/service-requests/technician/${technicianProfile?.technician_id}`,
                           {
                             headers: {
                               Authorization: `Bearer ${token}`,
