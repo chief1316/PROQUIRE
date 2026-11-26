@@ -1,9 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import axios from "axios";
-import "./AdminLogin.css";
 import api from "../api";
+import "./AdminLogin.css";
 
 import logo from "../assets/proquire-logo.png";
 
