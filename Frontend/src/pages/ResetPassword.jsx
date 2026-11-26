@@ -8,7 +8,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useState } from "react";
-import axios from "axios";
+import api from "../api";
 import "./Login.css";
 
 import logo from "../assets/proquire-logo.png";
@@ -73,13 +73,10 @@ function ResetPassword() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/users/reset-password",
-        {
-          token,
-          new_password: newPassword,
-        },
-      );
+      const response = await api.post("/users/reset-password", {
+        token,
+        new_password: newPassword,
+      });
 
       setMessage(
         response.data?.message || "Your password has been reset successfully.",

@@ -3,6 +3,7 @@ import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
 import "./AdminLogin.css";
+import api from "../api";
 
 import logo from "../assets/proquire-logo.png";
 
@@ -28,13 +29,10 @@ function AdminLogin() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        {
-          email,
-          password,
-        },
-      );
+      const response = await api.post("/auth/login", {
+        email,
+        password,
+      });
 
       const data = response.data;
 

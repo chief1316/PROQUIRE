@@ -3,6 +3,7 @@ import { AlertCircle, ArrowLeft, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
 import "./Login.css";
+import api from "../api";
 
 import logo from "../assets/proquire-logo.png";
 
@@ -41,13 +42,10 @@ function Login() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        {
-          email,
-          password,
-        },
-      );
+      const response = await api.post("/auth/login", {
+        email,
+        password,
+      });
 
       const data = response.data;
 
@@ -85,7 +83,7 @@ function Login() {
         const token = data.token;
 
         try {
-          await axios.get("http://localhost:5000/api/agencies/me", {
+          await api.get("/agencies/me", {
             headers: {
               Authorization: `Bearer ${token}`,
             },

@@ -14,8 +14,14 @@ const db = mysql.createPool({
   maxIdle: 5,
   idleTimeout: 60000,
   queueLimit: 0,
+
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+});
+
+// Handle connection pool errors
+db.on("error", (err) => {
+  console.error("MySQL Pool Error:", err);
 });
 
 // Test database connection
