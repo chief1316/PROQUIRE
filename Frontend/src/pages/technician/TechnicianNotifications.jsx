@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import api from "../api";
+import api from "../../api";
 import {
   Bell,
   CheckCircle,
