@@ -116,6 +116,7 @@ function AgencyProfile() {
     }
 
     const cleanPath = agency.logo.replace(/\\/g, "/").replace(/^\/+/, "");
+
     return `https://proquire.onrender.com/${cleanPath}`;
   };
 

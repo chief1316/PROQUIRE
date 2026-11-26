@@ -234,14 +234,23 @@ function AdminDashboard() {
         return;
       }
 
+      const token = sessionStorage.getItem("token");
+
+      if (!token) {
+        throw new Error("Admin authentication token not found.");
+      }
+
+      const adminAuthConfig = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+
       const [usersResponse, pendingResponse, pendingAgenciesResponse] =
         await Promise.all([
-          api.get("/admin/users"),
-          getAuthHeaders(),
-
-          api.get("/technicians/pending/list", getAuthHeaders()),
-
-          api.get("/agencies/pending/list", getAuthHeaders()),
+          api.get("/admin/users", adminAuthConfig),
+          api.get("/technicians/pending/list", adminAuthConfig),
+          api.get("/agencies/pending/list", adminAuthConfig),
         ]);
 
       setUsers(usersResponse.data || []);

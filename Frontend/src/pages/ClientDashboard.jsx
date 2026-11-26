@@ -33,26 +33,23 @@ import logo from "../assets/proquire-logo.png";
 const API = "https://proquire.onrender.com/api";
 const SERVER_URL = "https://proquire.onrender.com";
 
-function getImageUrl(imagePath) {
+function getImageUrl(imagePath, folder = "") {
   if (!imagePath) return "";
 
-  if (imagePath.startsWith("http")) {
+  if (/^https?:\/\//i.test(imagePath)) {
     return imagePath;
   }
 
-  const cleanPath = imagePath.replace(/^\/+/, "");
+  const cleanPath = imagePath.replace(/\\/g, "/").replace(/^\/+/, "");
 
-  // Existing paths that already contain uploads/
   if (cleanPath.startsWith("uploads/")) {
     return `${SERVER_URL}/${cleanPath}`;
   }
 
-  // Profile photos stored as filenames
-  if (!cleanPath.includes("/")) {
-    return `${SERVER_URL}/uploads/profile_photos/${cleanPath}`;
+  if (folder) {
+    return `${SERVER_URL}/uploads/${folder}/${cleanPath}`;
   }
 
-  // Other paths such as portfolios/profile_photos
   return `${SERVER_URL}/uploads/${cleanPath}`;
 }
 
@@ -953,11 +950,7 @@ function ClientDashboard() {
               <div className="client-avatar">
                 {user?.profile_photo ? (
                   <img
-                    src={
-                      user.profile_photo.startsWith("http")
-                        ? user.profile_photo
-                        : `https://proquire.onrender.com/uploads/${user.profile_photo.replace(/^\/+/, "")}`
-                    }
+                    src={getImageUrl(user.profile_photo, "profile_photos")}
                     alt="Client profile"
                   />
                 ) : (
@@ -1258,7 +1251,10 @@ function ClientDashboard() {
                         <div className="client-technician-avatar">
                           {technician.profile_photo ? (
                             <img
-                              src={getImageUrl(technician.profile_photo)}
+                              src={getImageUrl(
+                                technician.profile_photo,
+                                "profile_photos",
+                              )}
                               alt={technician.full_name}
                             />
                           ) : (
@@ -1303,7 +1299,7 @@ function ClientDashboard() {
                             {technician.portfolio.slice(0, 3).map((item) => (
                               <img
                                 key={item.portfolio_id}
-                                src={getImageUrl(item.image_path)}
+                                src={getImageUrl(item.image_path, "portfolios")}
                                 alt={item.title}
                                 title={item.title}
                               />
