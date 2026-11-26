@@ -8,7 +8,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import api from "../api";
+import api from "../../api";
 
 import "./TechnicianPortfolio.css";
 
