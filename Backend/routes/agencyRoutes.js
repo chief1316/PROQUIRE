@@ -14,39 +14,29 @@ const upload = require("../middleware/uploadMiddleware");
 // ==========================================================
 
 router.post(
-    "/",
-    verifyToken,
-    upload.single("logo"),
-    agencyController.createAgency
+  "/",
+  verifyToken,
+  upload.single("logo"),
+  agencyController.createAgency,
 );
-
 
 // ==========================================================
 // Get all agencies
 // ==========================================================
 
-router.get(
-    "/",
-    agencyController.getAllAgencies
-);
-
+router.get("/", agencyController.getAllAgencies);
 
 // ==========================================================
 // Get logged-in agency
 // ==========================================================
 
-router.get(
-    "/me",
-    verifyToken,
-    agencyController.getMyAgency
-);
+router.get("/me", verifyToken, agencyController.getMyAgency);
 
 router.get(
-    "/notifications",
-    verifyToken,
-    agencyController.getAgencyNotifications
+  "/notifications",
+  verifyToken,
+  agencyController.getAgencyNotifications,
 );
-
 
 // ==========================================================
 // Get pending agencies
@@ -54,12 +44,23 @@ router.get(
 // ==========================================================
 
 router.get(
-    "/pending/list",
-    verifyToken,
-    isAdmin,
-    agencyController.getPendingAgencies
+  "/pending/list",
+  verifyToken,
+  isAdmin,
+  agencyController.getPendingAgencies,
 );
 
+// ==========================================================
+// View agency verification document
+// ADMIN ONLY
+// ==========================================================
+
+router.get(
+  "/documents/:id/file",
+  verifyToken,
+  isAdmin,
+  agencyController.getAgencyDocumentFile,
+);
 
 // ==========================================================
 // Verify agency
@@ -67,71 +68,56 @@ router.get(
 // ==========================================================
 
 router.patch(
-    "/verify/:id",
-    verifyToken,
-    isAdmin,
-    agencyController.verifyAgency
+  "/verify/:id",
+  verifyToken,
+  isAdmin,
+  agencyController.verifyAgency,
 );
 
 router.post(
-    "/documents/upload",
-    verifyToken,
-    upload.single("document"),
-    agencyController.uploadAgencyDocument
+  "/documents/upload",
+  verifyToken,
+  upload.single("document"),
+  agencyController.uploadAgencyDocument,
 );
 
-router.get(
-    "/documents/my",
-    verifyToken,
-    agencyController.getMyAgencyDocuments
+router.get("/documents/my", verifyToken, agencyController.getMyAgencyDocuments);
+
+router.patch(
+  "/documents/:id/approve",
+  verifyToken,
+  isAdmin,
+  agencyController.approveAgencyDocument,
 );
 
 router.patch(
-    "/documents/:id/approve",
-    verifyToken,
-    isAdmin,
-    agencyController.approveAgencyDocument
+  "/documents/:id/reject",
+  verifyToken,
+  isAdmin,
+  agencyController.rejectAgencyDocument,
 );
-
-router.patch(
-    "/documents/:id/reject",
-    verifyToken,
-    isAdmin,
-    agencyController.rejectAgencyDocument
-);
-
 
 // ==========================================================
 // Get agency by ID
 // ==========================================================
 
-router.get(
-    "/:id",
-    agencyController.getAgencyById
-);
-
+router.get("/:id", agencyController.getAgencyById);
 
 // ==========================================================
 // Update agency
 // ==========================================================
 
 router.put(
-    "/:id",
-    verifyToken,
-    upload.single("logo"),
-    agencyController.updateAgency
+  "/:id",
+  verifyToken,
+  upload.single("logo"),
+  agencyController.updateAgency,
 );
-
 
 // ==========================================================
 // Delete agency
 // ==========================================================
 
-router.delete(
-    "/:id",
-    verifyToken,
-    agencyController.deleteAgency
-);
-
+router.delete("/:id", verifyToken, agencyController.deleteAgency);
 
 module.exports = router;

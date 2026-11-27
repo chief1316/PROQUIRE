@@ -70,6 +70,14 @@ function AdminDashboard() {
 
   const [processingDocumentId, setProcessingDocumentId] = useState(null);
 
+  const [agencyDocumentPreviewUrl, setAgencyDocumentPreviewUrl] =
+    useState(null);
+
+  const [previewingDocumentId, setPreviewingDocumentId] = useState(null);
+  const [loadingAgencyDocument, setLoadingAgencyDocument] = useState(false);
+  const [agencyDocumentPreviewError, setAgencyDocumentPreviewError] =
+    useState("");
+
   const token = sessionStorage.getItem("token");
 
   const getAuthHeaders = () => ({
@@ -163,6 +171,15 @@ function AdminDashboard() {
       if (selfieUrl) URL.revokeObjectURL(selfieUrl);
     };
   }, [selectedDocument]);
+
+  useEffect(() => {
+    return () => {
+      if (agencyDocumentPreviewUrl) {
+        URL.revokeObjectURL(agencyDocumentPreviewUrl);
+      }
+    };
+  }, [agencyDocumentPreviewUrl]);
+
   // ==========================================
   // ACTIVATE / DEACTIVATE USER
   // ==========================================
@@ -435,6 +452,41 @@ function AdminDashboard() {
     }
   };
 
+  const handlePreviewAgencyDocument = async (documentId) => {
+    try {
+      setAgencyDocumentPreviewError("");
+
+      if (previewingDocumentId === documentId) {
+        setAgencyDocumentPreviewUrl(null);
+        setPreviewingDocumentId(null);
+        return;
+      }
+
+      setLoadingAgencyDocument(true);
+      setAgencyDocumentPreviewUrl(null);
+      setPreviewingDocumentId(documentId);
+
+      const response = await api.get(`/agencies/documents/${documentId}/file`, {
+        responseType: "blob",
+      });
+
+      const fileUrl = URL.createObjectURL(response.data);
+
+      setAgencyDocumentPreviewUrl(fileUrl);
+    } catch (error) {
+      console.error("Agency document preview error:", error);
+
+      setAgencyDocumentPreviewError(
+        error.response?.data?.message ||
+          "Unable to load this document. Please try again.",
+      );
+
+      setPreviewingDocumentId(null);
+    } finally {
+      setLoadingAgencyDocument(false);
+    }
+  };
+
   const handleApproveAgencyDocument = async (documentId) => {
     try {
       setProcessingDocumentId(documentId);
@@ -489,6 +541,13 @@ function AdminDashboard() {
     } finally {
       setProcessingDocumentId(null);
     }
+  };
+
+  const handleCloseAgencyModal = () => {
+    setSelectedAgency(null);
+    setAgencyDocumentPreviewUrl(null);
+    setPreviewingDocumentId(null);
+    setAgencyDocumentPreviewError("");
   };
 
   /*
@@ -3060,7 +3119,7 @@ function AdminDashboard() {
 
               <button
                 type="button"
-                onClick={() => setSelectedAgency(null)}
+                onClick={handleCloseAgencyModal}
                 disabled={verifyingAgency}
                 style={{
                   border: "none",
@@ -3412,22 +3471,34 @@ function AdminDashboard() {
                           }}
                         >
                           {/* REVIEW BUTTON - KEEP AVAILABLE */}
-                          <a
-                            href={`https://proquire.onrender.com${document.document_path}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handlePreviewAgencyDocument(document.document_id)
+                            }
+                            disabled={
+                              loadingAgencyDocument &&
+                              previewingDocumentId === document.document_id
+                            }
                             style={{
                               padding: "9px 14px",
                               background: "#2563eb",
                               color: "#fff",
+                              border: "none",
                               borderRadius: "7px",
-                              textDecoration: "none",
+                              cursor: "pointer",
                               fontSize: "12px",
                               fontWeight: "600",
                             }}
                           >
-                            Review Document
-                          </a>
+                            {loadingAgencyDocument &&
+                            previewingDocumentId === document.document_id
+                              ? "Loading..."
+                              : previewingDocumentId === document.document_id &&
+                                  agencyDocumentPreviewUrl
+                                ? "Close Preview"
+                                : "Review Document"}
+                          </button>
 
                           {document.verification_status !== "Verified" && (
                             <button
@@ -3483,6 +3554,36 @@ function AdminDashboard() {
                             </button>
                           )}
                         </div>
+
+                        {previewingDocumentId === document.document_id && (
+                          <div style={{ marginTop: "15px" }}>
+                            {agencyDocumentPreviewError && (
+                              <p style={{ color: "#dc2626", fontSize: "12px" }}>
+                                {agencyDocumentPreviewError}
+                              </p>
+                            )}
+
+                            {loadingAgencyDocument && (
+                              <p style={{ color: "#64748b", fontSize: "12px" }}>
+                                Loading document...
+                              </p>
+                            )}
+
+                            {agencyDocumentPreviewUrl && (
+                              <iframe
+                                src={agencyDocumentPreviewUrl}
+                                title="Agency Verification Document"
+                                style={{
+                                  width: "100%",
+                                  height: "500px",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "8px",
+                                  background: "#ffffff",
+                                }}
+                              />
+                            )}
+                          </div>
+                        )}
 
                         {rejectingDocumentId === document.document_id && (
                           <div
@@ -3614,7 +3715,7 @@ function AdminDashboard() {
             >
               <button
                 type="button"
-                onClick={() => setSelectedAgency(null)}
+                onClick={handleCloseAgencyModal}
                 disabled={verifyingAgency}
                 style={{
                   padding: "10px 17px",
@@ -3635,7 +3736,7 @@ function AdminDashboard() {
       )}
 
       {/* ======================================
-          DOCUMENT REVIEW MODAL
+          TECHNICIAN DOCUMENT REVIEW MODAL
       ====================================== */}
 
       {selectedDocument && (
