@@ -222,7 +222,10 @@ function AdminDashboard() {
       setLoading(true);
       setError("");
 
-      if (!token) {
+      // Get the token before using it
+      const authToken = sessionStorage.getItem("token");
+
+      if (!authToken) {
         navigate("/admin-login");
         return;
       }
@@ -234,15 +237,9 @@ function AdminDashboard() {
         return;
       }
 
-      const token = sessionStorage.getItem("token");
-
-      if (!token) {
-        throw new Error("Admin authentication token not found.");
-      }
-
       const adminAuthConfig = {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
       };
 
@@ -254,18 +251,7 @@ function AdminDashboard() {
         ]);
 
       setUsers(usersResponse.data || []);
-
       setPendingAgencies(pendingAgenciesResponse.data || []);
-
-      console.log("PENDING AGENCIES:", pendingAgenciesResponse.data);
-
-      /*
-       * The backend can return multiple rows for one
-       * technician when that technician has multiple
-       * pending documents.
-       *
-       * Group those rows by technician_id.
-       */
 
       const groupedTechnicians = {};
 
@@ -288,15 +274,10 @@ function AdminDashboard() {
           document_path: technician.document_path,
           selfie_path: technician.selfie_path,
           verification_status: technician.verification_status,
-
           confidence_score: technician.confidence_score,
-
           verification_result: technician.verification_result,
-
           remarks: technician.remarks,
-
           verification_date: technician.verification_date,
-
           verified_by: technician.verified_by,
         });
       });
@@ -318,7 +299,8 @@ function AdminDashboard() {
       }
 
       setError(
-        "Unable to load dashboard data. Make sure the backend is running.",
+        err.response?.data?.message ||
+          "Unable to load dashboard data. Please check the backend.",
       );
     } finally {
       setLoading(false);
