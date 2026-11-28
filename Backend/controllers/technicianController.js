@@ -1,6 +1,9 @@
 const db = require("../config/db");
-const fs = require("fs");
+const crypto = require("crypto");
+const supabase = require("../config/supabase");
 const { analyzeDocument } = require("../services/geminiService");
+
+const STORAGE_BUCKET = "proquire-private";
 
 // ======================================================
 // Get All Verified Technicians
@@ -380,325 +383,395 @@ exports.verifyTechnician = (req, res) => {
 // Gemini AI Verification
 // ======================================================
 
-exports.uploadVerificationDocument = (req, res) => {
+exports.uploadVerificationDocument = async (req, res) => {
   const documentFile = req.files?.document?.[0];
   const selfieFile = req.files?.selfie?.[0];
-  if (req.user.role !== "technician") {
-    return res.status(403).json({
-      message: "Only technician accounts can upload verification documents.",
+
+  const uploadedPaths = [];
+  let documentSaved = false;
+
+  // Helper: execute database queries using async/await
+  const query = (sql, params = []) =>
+    new Promise((resolve, reject) => {
+      db.query(sql, params, (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
     });
-  }
 
-  const { technician_id, document_type, replaces_document_id } = req.body;
+  // Helper: remove files if a later operation fails
+  const cleanupUploads = async () => {
+    if (!uploadedPaths.length) return;
 
-  // ---------------------------------------------
-  // Check that a file was uploaded
-  // ---------------------------------------------
-
-  if (!documentFile) {
-    return res.status(400).json({
-      message: "Please upload a verification document.",
-    });
-  }
-
-  // National ID submissions must include a selfie
-  if (document_type === "National ID" && !selfieFile) {
     try {
-      fs.unlinkSync(documentFile.path);
-    } catch (error) {
-      console.log("Could not delete uploaded document:", error);
-    }
+      const { error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove(uploadedPaths);
 
-    return res.status(400).json({
-      message: "Please upload a selfie holding your National ID.",
-    });
-  }
-
-  // ---------------------------------------------
-  // Check required fields
-  // ---------------------------------------------
-
-  if (!technician_id || !document_type) {
-    try {
-      fs.unlinkSync(documentFile.path);
-
-      if (selfieFile) {
-        fs.unlinkSync(selfieFile.path);
+      if (error) {
+        console.error("Supabase cleanup error:", error.message);
       }
     } catch (error) {
-      console.log("Could not delete uploaded file:", error);
+      console.error("Storage cleanup failed:", error.message);
+    }
+  };
+
+  try {
+    // ---------------------------------------------
+    // Validate user
+    // ---------------------------------------------
+
+    if (req.user.role !== "technician") {
+      return res.status(403).json({
+        message: "Only technician accounts can upload verification documents.",
+      });
     }
 
-    return res.status(400).json({
-      message: "technician_id and document_type are required.",
-    });
-  }
+    const { technician_id, document_type, replaces_document_id } = req.body;
 
-  // ---------------------------------------------
-  // Verify technician ownership
-  // ---------------------------------------------
+    if (!documentFile) {
+      return res.status(400).json({
+        message: "Please upload a verification document.",
+      });
+    }
 
-  const ownershipSql = `
-    SELECT
+    if (!technician_id || !document_type) {
+      return res.status(400).json({
+        message: "technician_id and document_type are required.",
+      });
+    }
+
+    if (document_type === "National ID" && !selfieFile) {
+      return res.status(400).json({
+        message: "Please upload a selfie holding your National ID.",
+      });
+    }
+
+    if (
+      !Number.isInteger(Number(technician_id)) ||
+      Number(technician_id) <= 0
+    ) {
+      return res.status(400).json({
+        message: "Invalid technician ID.",
+      });
+    }
+
+    // ---------------------------------------------
+    // Validate ownership and replacement
+    // ---------------------------------------------
+
+    const ownershipSql = `
+      SELECT
         tp.technician_id,
         vd.document_id AS replacement_document_id
-    FROM technician_profiles tp
-    LEFT JOIN verification_documents vd
+      FROM technician_profiles tp
+      LEFT JOIN verification_documents vd
         ON vd.document_id = ?
         AND vd.technician_id = tp.technician_id
         AND vd.document_type = ?
         AND vd.verification_status = 'approved'
         AND vd.is_current = 1
-    WHERE tp.technician_id = ?
-    AND tp.user_id = ?
-`;
+      WHERE tp.technician_id = ?
+        AND tp.user_id = ?
+    `;
 
-  db.query(
-    ownershipSql,
-    [
+    const ownershipResults = await query(ownershipSql, [
       replaces_document_id || null,
       document_type,
-      technician_id,
+      Number(technician_id),
       req.user.user_id,
-    ],
-    async (err, results) => {
-      if (err) {
-        try {
-          fs.unlinkSync(documentFile.path);
+    ]);
 
-          if (selfieFile) {
-            fs.unlinkSync(selfieFile.path);
-          }
-        } catch (error) {
-          console.log("Could not delete uploaded files:", error);
-        }
+    if (ownershipResults.length === 0) {
+      return res.status(403).json({
+        message:
+          "You can only upload documents for your own technician profile.",
+      });
+    }
+
+    if (replaces_document_id && !ownershipResults[0].replacement_document_id) {
+      return res.status(400).json({
+        message: "The document you selected cannot be replaced.",
+      });
+    }
+
+    // ---------------------------------------------
+    // Generate unique Supabase storage paths
+    // ---------------------------------------------
+
+    const documentExtension = ".pdf";
+
+    const documentPath =
+      `technicians/${technician_id}/verification/documents/` +
+      `${crypto.randomUUID()}${documentExtension}`;
+
+    let selfiePath = null;
+
+    if (selfieFile) {
+      const selfieExtensions = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+      };
+
+      const selfieExtension = selfieExtensions[selfieFile.mimetype];
+
+      if (!selfieExtension) {
+        return res.status(400).json({
+          message: "Selfie must be a JPEG, PNG, or WEBP image.",
+        });
+      }
+
+      selfiePath =
+        `technicians/${technician_id}/verification/selfies/` +
+        `${crypto.randomUUID()}${selfieExtension}`;
+    }
+
+    // ---------------------------------------------
+    // Upload document to private Supabase storage
+    // ---------------------------------------------
+
+    const { error: documentUploadError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(documentPath, documentFile.buffer, {
+        contentType: documentFile.mimetype,
+        upsert: false,
+      });
+
+    if (documentUploadError) {
+      console.error("Technician document upload error:", documentUploadError);
+
+      return res.status(500).json({
+        message: "Unable to upload verification document.",
+      });
+    }
+
+    uploadedPaths.push(documentPath);
+
+    // ---------------------------------------------
+    // Upload selfie if provided
+    // ---------------------------------------------
+
+    if (selfieFile && selfiePath) {
+      const { error: selfieUploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(selfiePath, selfieFile.buffer, {
+          contentType: selfieFile.mimetype,
+          upsert: false,
+        });
+
+      if (selfieUploadError) {
+        console.error("Technician selfie upload error:", selfieUploadError);
+
+        await cleanupUploads();
 
         return res.status(500).json({
-          message: "Error checking technician ownership.",
-          error: err,
+          message: "Unable to upload verification selfie.",
         });
       }
 
-      // -----------------------------------------
-      // Technician does not belong to user
-      // -----------------------------------------
+      uploadedPaths.push(selfiePath);
+    }
 
-      if (results.length === 0) {
-        try {
-          fs.unlinkSync(documentFile.path);
+    // ---------------------------------------------
+    // Generate document ID from TiDB sequence
+    // ---------------------------------------------
 
-          if (selfieFile) {
-            fs.unlinkSync(selfieFile.path);
-          }
-        } catch (error) {
-          console.log("Could not delete uploaded files:", error);
-        }
+    const documentSequence = await query(`
+      SELECT NEXTVAL(verification_documents_document_id_seq) AS document_id
+    `);
 
-        return res.status(403).json({
-          message:
-            "You can only upload documents for your own technician profile.",
-        });
-      }
+    const documentId = Number(documentSequence[0].document_id);
 
-      // ---------------------------------------------
-      // Validate replacement document
-      // ---------------------------------------------
+    if (!Number.isInteger(documentId) || documentId <= 0) {
+      throw new Error("Unable to generate verification document ID.");
+    }
 
-      if (replaces_document_id && !results[0].replacement_document_id) {
-        return res.status(400).json({
-          message: "The document you selected cannot be replaced.",
-        });
-      }
+    // ---------------------------------------------
+    // Save document information
+    // ---------------------------------------------
 
-      // -----------------------------------------
-      // Create database path
-      // -----------------------------------------
-
-      const document_path = `uploads/documents/${documentFile.filename}`;
-
-      const selfie_path = selfieFile
-        ? `uploads/verification_selfies/${selfieFile.filename}`
-        : null;
-
-      // -----------------------------------------
-      // Save document information
-      // -----------------------------------------
-
-      const sql = `
-    INSERT INTO verification_documents
-    (
+    const insertDocumentSql = `
+      INSERT INTO verification_documents
+      (
+        document_id,
         technician_id,
         document_type,
         document_path,
         selfie_path,
         replaces_document_id,
         is_current
-    )
-    VALUES (?, ?, ?, ?, ?, ?)
-`;
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
 
-      db.query(
-        sql,
-        [
-          technician_id,
-          document_type,
-          document_path,
-          selfie_path,
-          replaces_document_id || null,
-          replaces_document_id ? 0 : 1,
-        ],
-        async (err, result) => {
-          if (err) {
-            try {
-              if (documentFile && fs.existsSync(documentFile.path)) {
-                fs.unlinkSync(documentFile.path);
-              }
+    await query(insertDocumentSql, [
+      documentId,
+      Number(technician_id),
+      document_type,
+      documentPath,
+      selfiePath,
+      replaces_document_id || null,
+      replaces_document_id ? 0 : 1,
+    ]);
 
-              if (selfieFile && fs.existsSync(selfieFile.path)) {
-                fs.unlinkSync(selfieFile.path);
-              }
-            } catch (error) {
-              console.log("Could not delete uploaded file:", error);
-            }
+    documentSaved = true;
 
-            return res.status(500).json({
-              message: "Error saving verification document.",
-              error: err,
-            });
-          }
+    // ---------------------------------------------
+    // Run Gemini AI analysis using the file buffer
+    // ---------------------------------------------
 
-          // -----------------------------------------
-          // Document successfully saved
-          // -----------------------------------------
+    console.log("Starting technician Gemini verification...");
 
-          const document_id = result.insertId;
+    let aiResult;
 
-          // -----------------------------------------
-          // Run Gemini AI analysis
-          // -----------------------------------------
-
-          console.log("Starting Gemini AI verification...");
-
-          let aiResult;
-
-          try {
-            aiResult = await analyzeDocument(
-              documentFile.path,
-              documentFile.mimetype,
-            );
-
-            console.log("Gemini AI verification completed.");
-          } catch (aiError) {
-            console.error("Gemini AI verification failed:", aiError.message);
-
-            return res.status(201).json({
-              message:
-                "Verification document uploaded, but AI analysis failed.",
-
-              document: {
-                document_id: document_id,
-                technician_id: Number(technician_id),
-                document_type: document_type,
-                document_path: document_path,
-                selfie_path: selfie_path,
-                selfie_url: selfie_path
-                  ? `http://localhost:5000/${selfie_path}`
-                  : null,
-                verification_status: "pending",
-
-                file_url: `http://localhost:5000/uploads/${document_path}`,
-              },
-
-              ai_verification: {
-                status: "failed",
-                message:
-                  "AI analysis could not be completed. Admin review is required.",
-              },
-            });
-          }
-
-          // -----------------------------------------
-          // Save Gemini result
-          // -----------------------------------------
-
-          const aiSql = `
-                        INSERT INTO ai_verifications
-                        (
-                            document_id,
-                            confidence_score,
-                            verification_result,
-                            verified_by,
-                            remarks
-                        )
-                        VALUES (?, ?, ?, ?, ?)
-                    `;
-
-          db.query(
-            aiSql,
-            [
-              document_id,
-              aiResult.confidence_score,
-              aiResult.verification_result,
-              "Gemini AI",
-              aiResult.remarks,
-            ],
-            (aiErr, aiInsertResult) => {
-              if (aiErr) {
-                console.error("AI result database error:", aiErr);
-
-                return res.status(500).json({
-                  message:
-                    "Document uploaded and AI analyzed it, but AI result could not be saved.",
-                  error: aiErr,
-                });
-              }
-
-              // -----------------------------------------
-              // Final response
-              // -----------------------------------------
-
-              res.status(201).json({
-                message:
-                  "Verification document uploaded and analyzed successfully.",
-
-                document: {
-                  document_id: document_id,
-
-                  technician_id: Number(technician_id),
-
-                  document_type: document_type,
-
-                  document_path: document_path,
-
-                  selfie_path: selfie_path,
-
-                  selfie_url: selfie_path
-                    ? `http://localhost:5000/${selfie_path}`
-                    : null,
-
-                  verification_status: "pending",
-
-                  file_url: `http://localhost:5000/${document_path}`,
-                },
-
-                ai_verification: {
-                  verification_id: aiInsertResult.insertId,
-
-                  verification_result: aiResult.verification_result,
-
-                  confidence_score: aiResult.confidence_score,
-
-                  document_type: aiResult.document_type,
-
-                  remarks: aiResult.remarks,
-                },
-              });
-            },
-          );
-        },
+    try {
+      aiResult = await analyzeDocument(
+        documentFile.buffer,
+        documentFile.mimetype,
+        "technician",
       );
-    },
-  );
+
+      console.log("Technician Gemini verification completed.");
+    } catch (aiError) {
+      console.error("Gemini technician analysis failed:", aiError.message);
+
+      return res.status(201).json({
+        message:
+          "Document uploaded, but AI analysis failed. Admin review is required.",
+
+        document: {
+          document_id: documentId,
+          technician_id: Number(technician_id),
+          document_type,
+          document_path: documentPath,
+          selfie_path: selfiePath,
+          verification_status: "pending",
+        },
+
+        ai_verification: {
+          status: "failed",
+          message:
+            "AI analysis could not be completed. Admin review is required.",
+        },
+      });
+    }
+
+    // ---------------------------------------------
+    // Generate AI verification ID
+    // ---------------------------------------------
+
+    const verificationSequence = await query(`
+      SELECT NEXTVAL(ai_verifications_verification_id_seq) AS verification_id
+    `);
+
+    const verificationId = Number(verificationSequence[0].verification_id);
+
+    if (!Number.isInteger(verificationId) || verificationId <= 0) {
+      console.error("Invalid AI verification sequence value.");
+
+      return res.status(201).json({
+        message:
+          "Document uploaded and analyzed, but the AI result could not be saved.",
+        document: {
+          document_id: documentId,
+          technician_id: Number(technician_id),
+          document_type,
+          document_path: documentPath,
+          selfie_path: selfiePath,
+          verification_status: "pending",
+        },
+      });
+    }
+
+    // ---------------------------------------------
+    // Save AI result
+    // ---------------------------------------------
+
+    const aiSql = `
+      INSERT INTO ai_verifications
+      (
+        verification_id,
+        document_id,
+        confidence_score,
+        verification_result,
+        verified_by,
+        remarks
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    try {
+      await query(aiSql, [
+        verificationId,
+        documentId,
+        aiResult.confidence_score,
+        aiResult.verification_result,
+        "Gemini AI",
+        aiResult.remarks,
+      ]);
+    } catch (aiDatabaseError) {
+      console.error("AI result database error:", aiDatabaseError);
+
+      return res.status(201).json({
+        message:
+          "Document uploaded and analyzed, but AI result could not be saved.",
+
+        document: {
+          document_id: documentId,
+          technician_id: Number(technician_id),
+          document_type,
+          document_path: documentPath,
+          selfie_path: selfiePath,
+          verification_status: "pending",
+        },
+      });
+    }
+
+    // ---------------------------------------------
+    // Final response
+    // ---------------------------------------------
+
+    return res.status(201).json({
+      message: "Verification document uploaded and analyzed successfully.",
+
+      document: {
+        document_id: documentId,
+        technician_id: Number(technician_id),
+        document_type,
+        document_path: documentPath,
+        selfie_path: selfiePath,
+        verification_status: "pending",
+      },
+
+      ai_verification: {
+        verification_id: verificationId,
+        verification_result: aiResult.verification_result,
+        confidence_score: aiResult.confidence_score,
+        document_type: aiResult.document_type,
+        remarks: aiResult.remarks,
+      },
+    });
+  } catch (error) {
+    console.error("========== TECHNICIAN UPLOAD ERROR ==========");
+    console.error("Message:", error.message);
+    console.error("Code:", error.code);
+    console.error("Details:", error.details);
+    console.error("Hint:", error.hint);
+    console.error("Stack:", error.stack);
+    console.error("==============================================");
+
+    // Only delete uploaded files if the database record
+    // has NOT been successfully saved.
+    if (!documentSaved) {
+      await cleanupUploads();
+    }
+
+    return res.status(500).json({
+      message: "Unable to upload technician verification document.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };
 
 // ======================================================

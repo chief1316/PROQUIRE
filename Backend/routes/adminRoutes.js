@@ -4,6 +4,7 @@ const path = require("path");
 const router = express.Router();
 
 const db = require("../config/db");
+const supabase = require("../config/supabase");
 
 const technicianController = require("../controllers/technicianController");
 
@@ -49,93 +50,6 @@ router.get(
   verifyToken,
   verifyAdmin,
   technicianController.getPendingTechnicians,
-);
-
-// Securely view technician verification documents and selfies
-router.get(
-  "/verification-documents/:documentId/:fileType",
-  verifyToken,
-  verifyAdmin,
-  (req, res) => {
-    const documentId = Number(req.params.documentId);
-    const fileType = req.params.fileType;
-
-    if (!Number.isInteger(documentId) || documentId < 1) {
-      return res.status(400).json({
-        message: "Invalid document ID.",
-      });
-    }
-
-    if (!["document", "selfie"].includes(fileType)) {
-      return res.status(400).json({
-        message: "Invalid file type.",
-      });
-    }
-
-    const sql = `
-            SELECT document_path, selfie_path
-            FROM verification_documents
-            WHERE document_id = ?
-        `;
-
-    db.query(sql, [documentId], (err, results) => {
-      if (err) {
-        console.error("Error retrieving verification file:", err);
-        return res.status(500).json({
-          message: "Unable to retrieve verification file.",
-        });
-      }
-
-      if (results.length === 0) {
-        return res.status(404).json({
-          message: "Verification document not found.",
-        });
-      }
-
-      const relativePath =
-        fileType === "document"
-          ? results[0].document_path
-          : results[0].selfie_path;
-
-      if (!relativePath) {
-        return res.status(404).json({
-          message: "This verification file is not available.",
-        });
-      }
-
-      const uploadsRoot = path.resolve(__dirname, "..", "uploads");
-
-      // Normalize the path stored in the database.
-      let storedPath = String(relativePath).replace(/\\/g, "/");
-
-      // Remove the leading slash.
-      storedPath = storedPath.replace(/^\/+/, "");
-
-      // Remove the uploads/ prefix if it is already included.
-      storedPath = storedPath.replace(/^uploads\//i, "");
-
-      const filePath = path.resolve(uploadsRoot, storedPath);
-
-      // Prevent directory traversal outside uploads.
-      const relativeCheck = path.relative(uploadsRoot, filePath);
-
-      if (relativeCheck.startsWith("..") || path.isAbsolute(relativeCheck)) {
-        return res.status(403).json({
-          message: "Access to this file is not allowed.",
-        });
-      }
-
-      if (!fs.existsSync(filePath)) {
-        console.error("Verification file missing:", filePath);
-
-        return res.status(404).json({
-          message: "Verification file not found on the server.",
-        });
-      }
-
-      res.sendFile(filePath);
-    });
-  },
 );
 
 // verify technician (admin only)

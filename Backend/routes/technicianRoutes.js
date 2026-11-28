@@ -5,19 +5,19 @@ console.log("TECHNICIAN ROUTES FILE LOADED");
 
 // Import technician controller functions
 const {
-    createProfile,
-    getAllTechnicians,
-    getTechnicianById,
-    getMyProfile,
-    getMyVerificationDocuments,
-    updateMyProfile,
-    getTechniciansByCategory,
-    verifyTechnician,
-    uploadVerificationDocument,
-    getPendingTechnicians,
-    getAIVerificationResults,
-    reviewVerificationDocument,
-    getMyAgencyTechnicians
+  createProfile,
+  getAllTechnicians,
+  getTechnicianById,
+  getMyProfile,
+  getMyVerificationDocuments,
+  updateMyProfile,
+  getTechniciansByCategory,
+  verifyTechnician,
+  uploadVerificationDocument,
+  getPendingTechnicians,
+  getAIVerificationResults,
+  reviewVerificationDocument,
+  getMyAgencyTechnicians,
 } = require("../controllers/technicianController");
 
 // Middleware
@@ -25,53 +25,31 @@ const verifyToken = require("../middleware/authMiddleware");
 const isAdmin = require("../middleware/adminMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 
-
 // ======================================================
 // Create Technician Profile
 // ======================================================
 
-router.post(
-    "/profile",
-    verifyToken,
-    createProfile
-);
-
+router.post("/profile", verifyToken, createProfile);
 
 // ======================================================
 // Get All Verified Technicians
 // ======================================================
 
-router.get(
-    "/",
-    getAllTechnicians
-);
-
+router.get("/", getAllTechnicians);
 
 // ======================================================
 // Get Technicians By Category
 // ======================================================
 
-router.get(
-    "/category/:categoryId",
-    getTechniciansByCategory
-);
-
+router.get("/category/:categoryId", getTechniciansByCategory);
 
 // ======================================================
 // Get Logged-in Technician's Profile
 // ======================================================
 
-router.get(
-    "/my-profile",
-    verifyToken,
-    getMyProfile
-);
+router.get("/my-profile", verifyToken, getMyProfile);
 
-router.put(
-    "/my-profile",
-    verifyToken,
-    updateMyProfile
-);
+router.put("/my-profile", verifyToken, updateMyProfile);
 console.log("PUT MY-PROFILE ROUTE REGISTERED");
 
 // ======================================================
@@ -80,69 +58,46 @@ console.log("PUT MY-PROFILE ROUTE REGISTERED");
 // ======================================================
 
 router.get(
-    "/my-verification-documents",
-    verifyToken,
-    getMyVerificationDocuments
+  "/my-verification-documents",
+  verifyToken,
+  getMyVerificationDocuments,
 );
 
-
-router.get(
-    "/agency/my-technicians",
-    verifyToken,
-    getMyAgencyTechnicians
-);
-
+router.get("/agency/my-technicians", verifyToken, getMyAgencyTechnicians);
 
 // ======================================================
 // Get Technician By ID
 // ======================================================
 
-router.get(
-    "/:id",
-    getTechnicianById
-);
-
+router.get("/:id", getTechnicianById);
 
 // ======================================================
 // Verify Technician
 // Admin Only
 // ======================================================
 
-router.patch(
-    "/verify/:id",
-    verifyToken,
-    isAdmin,
-    verifyTechnician
-);
-
+router.patch("/verify/:id", verifyToken, isAdmin, verifyTechnician);
 
 // ======================================================
 // Upload Verification Document
 // ======================================================
 
 router.post(
-    "/verification/upload",
-    verifyToken,
-    upload.fields([
-        { name: "document", maxCount: 1 },
-        { name: "selfie", maxCount: 1 }
-    ]),
-    uploadVerificationDocument
+  "/verification/upload",
+  verifyToken,
+  upload.uploadMemory.fields([
+    { name: "document", maxCount: 1 },
+    { name: "selfie", maxCount: 1 },
+  ]),
+  uploadVerificationDocument,
 );
-
 
 // ======================================================
 // Get Pending Technicians
 // Admin Only
 // ======================================================
 
-router.get(
-    "/pending/list",
-    verifyToken,
-    isAdmin,
-    getPendingTechnicians
-);
-
+router.get("/pending/list", verifyToken, isAdmin, getPendingTechnicians);
 
 // ======================================================
 // Get AI Verification Results
@@ -150,24 +105,22 @@ router.get(
 // ======================================================
 
 router.get(
-    "/ai-verification/results",
-    verifyToken,
-    isAdmin,
-    getAIVerificationResults
+  "/ai-verification/results",
+  verifyToken,
+  isAdmin,
+  getAIVerificationResults,
 );
-
 
 // ======================================================
 // Admin Final Review of Verification Document
 // ======================================================
 
 router.patch(
-    "/verification/review/:documentId",
-    verifyToken,
-    isAdmin,
-    reviewVerificationDocument
+  "/verification/review/:documentId",
+  verifyToken,
+  isAdmin,
+  reviewVerificationDocument,
 );
-
 
 // ======================================================
 // Export Router
