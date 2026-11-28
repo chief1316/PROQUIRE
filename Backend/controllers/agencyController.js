@@ -6,6 +6,9 @@ const { analyzeDocument } = require("../services/geminiService");
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+
+const supabase = require("../config/supabase");
 
 /*
 |--------------------------------------------------------------------------
@@ -309,7 +312,7 @@ const uploadAgencyDocument = (req, res) => {
     });
   }
 
-  if (!req.file) {
+  if (!req.file || !req.file.buffer) {
     return res.status(400).json({
       message: "Please select a PDF document to upload.",
     });
@@ -323,13 +326,12 @@ const uploadAgencyDocument = (req, res) => {
     });
   }
 
-  agencyModel.getAgencyByUserId(req.user.user_id, (err, agencies) => {
+  agencyModel.getAgencyByUserId(req.user.user_id, async (err, agencies) => {
     if (err) {
       console.error("Agency retrieval error:", err);
 
       return res.status(500).json({
         message: "Failed to retrieve agency profile.",
-        error: err,
       });
     }
 
@@ -341,146 +343,184 @@ const uploadAgencyDocument = (req, res) => {
 
     const agencyId = agencies[0].agency_id;
 
-    const documentPath = "/" + req.file.path.replace(/\\/g, "/");
-
-    // Save the document first.
-    // It remains Pending regardless of Gemini's recommendation.
-
-    const sql = `
-                INSERT INTO documents (
-                    agency_id,
-                    document_type,
-                    document_path,
-                    verification_status
-                )
-                VALUES (?, ?, ?, 'Pending')
-            `;
-
+    // Generate document ID using the TiDB sequence.
     db.query(
-      sql,
-      [agencyId, documentType, documentPath],
-      (insertErr, result) => {
-        if (insertErr) {
-          console.error("Agency document upload error:", insertErr);
+      "SELECT NEXTVAL(documents_document_id_seq) AS document_id",
+      async (sequenceErr, sequenceRows) => {
+        if (sequenceErr || !sequenceRows || !sequenceRows.length) {
+          console.error("Document ID generation error:", sequenceErr);
 
           return res.status(500).json({
-            message: "Failed to save agency verification document.",
-            error: insertErr,
+            message: "Failed to generate document ID.",
           });
         }
 
-        const documentId = result.insertId;
+        const documentId = sequenceRows[0].document_id;
 
-        console.log(`Agency document ${documentId} saved successfully.`);
+        // Store the PDF in Supabase private storage.
+        const bucketName = "proquire-private";
 
-        // Reset agency verification so a newly uploaded
-        // document enters the admin review queue.
+        const objectPath =
+          `agencies/${agencyId}/documents/` + `${crypto.randomUUID()}.pdf`;
 
-        db.query(
-          `
-                        UPDATE agency_profiles
-                        SET is_verified = 0
-                        WHERE agency_id = ?
-                        `,
-          [agencyId],
-          (updateErr) => {
-            if (updateErr) {
-              console.error(
-                "Failed to reset agency verification status:",
-                updateErr,
-              );
-            }
+        try {
+          const { error: storageError } = await supabase.storage
+            .from(bucketName)
+            .upload(objectPath, req.file.buffer, {
+              contentType: "application/pdf",
+              upsert: false,
+            });
 
-            // Analyze the uploaded PDF using Gemini.
-            // AI analysis must never determine final approval.
+          if (storageError) {
+            console.error("Supabase agency upload error:", storageError);
 
-            (async () => {
-              let aiResult = null;
-              let aiSaved = false;
+            return res.status(500).json({
+              message: "Failed to upload verification document.",
+            });
+          }
 
-              try {
-                aiResult = await analyzeDocument(
-                  req.file.path,
-                  req.file.mimetype,
-                  "agency",
-                );
+          // Insert the explicitly generated document ID.
+          const sql = `
+            INSERT INTO documents (
+              document_id,
+              agency_id,
+              document_type,
+              document_path,
+              verification_status
+            )
+            VALUES (?, ?, ?, ?, 'Pending')
+          `;
 
-                // Save Gemini's recommendation separately.
+          db.query(
+            sql,
+            [documentId, agencyId, documentType, objectPath],
+            async (insertErr) => {
+              if (insertErr) {
+                console.error("Agency document database error:", insertErr);
 
-                const aiSql = `
-                                        INSERT INTO agency_ai_verifications (
-                                            document_id,
-                                            confidence_score,
-                                            verification_result,
-                                            verified_by,
-                                            remarks
-                                        )
-                                        VALUES (?, ?, ?, 'Gemini AI', ?)
-                                    `;
+                // Remove uploaded file if database insertion fails.
+                const { error: cleanupError } = await supabase.storage
+                  .from(bucketName)
+                  .remove([objectPath]);
 
-                await new Promise((resolve, reject) => {
-                  db.query(
-                    aiSql,
-                    [
-                      documentId,
-                      aiResult.confidence_score,
-                      aiResult.verification_result,
-                      aiResult.remarks,
-                    ],
-                    (aiErr) => {
-                      if (aiErr) {
-                        return reject(aiErr);
-                      }
+                if (cleanupError) {
+                  console.error("Supabase cleanup error:", cleanupError);
+                }
 
-                      resolve();
-                    },
-                  );
+                return res.status(500).json({
+                  message: "Failed to save agency verification document.",
                 });
-
-                aiSaved = true;
-              } catch (aiError) {
-                console.error("Agency Gemini verification failed:", aiError);
               }
 
-              // Respond after AI analysis.
-              // The document always remains Pending
-              // until an administrator reviews it.
+              console.log(
+                `Agency document ${documentId} saved to Supabase successfully.`,
+              );
 
-              return res.status(201).json({
-                message: aiResult
-                  ? "Document uploaded and AI analysis completed. Awaiting administrator verification."
-                  : "Document uploaded successfully. AI analysis was unsuccessful; administrator review is required.",
+              // Reset agency verification for administrator review.
+              db.query(
+                `
+                  UPDATE agency_profiles
+                  SET is_verified = 0
+                  WHERE agency_id = ?
+                `,
+                [agencyId],
+                async (updateErr) => {
+                  if (updateErr) {
+                    console.error(
+                      "Failed to reset agency verification status:",
+                      updateErr,
+                    );
+                  }
 
-                document_id: documentId,
+                  let aiResult = null;
+                  let aiSaved = false;
 
-                agency_id: agencyId,
+                  try {
+                    // Gemini analyzes the in-memory PDF buffer.
+                    aiResult = await analyzeDocument(
+                      req.file.buffer,
+                      req.file.mimetype,
+                      "agency",
+                    );
 
-                document_type: documentType,
+                    const aiSql = `
+  INSERT INTO agency_ai_verifications (
+    verification_id,
+    document_id,
+    confidence_score,
+    verification_result,
+    verified_by,
+    remarks
+  )
+  VALUES (
+    NEXTVAL(agency_ai_verification_id_seq),
+    ?, ?, ?, 'Gemini AI', ?
+  )
+`;
 
-                verification_status: "Pending",
+                    await new Promise((resolve, reject) => {
+                      db.query(
+                        aiSql,
+                        [
+                          documentId,
+                          aiResult.confidence_score,
+                          aiResult.verification_result,
+                          aiResult.remarks,
+                        ],
+                        (aiErr) => {
+                          if (aiErr) return reject(aiErr);
+                          resolve();
+                        },
+                      );
+                    });
 
-                ai_analysis: aiResult
-                  ? {
-                      saved: aiSaved,
-                      verification_result: aiResult.verification_result,
-                      confidence_score: aiResult.confidence_score,
-                      document_type: aiResult.document_type,
-                      remarks: aiResult.remarks,
-                    }
-                  : {
-                      saved: false,
-                      verification_result: "review",
-                      remarks:
-                        "AI analysis unavailable. Manual administrator review is required.",
-                    },
+                    aiSaved = true;
+                  } catch (aiError) {
+                    console.error(
+                      "Agency Gemini verification failed:",
+                      aiError,
+                    );
+                  }
 
-                admin_verification_required: true,
+                  return res.status(201).json({
+                    message: aiResult
+                      ? "Document uploaded and AI analysis completed. Awaiting administrator verification."
+                      : "Document uploaded successfully. AI analysis was unsuccessful; administrator review is required.",
 
-                agency_status_reset: !updateErr,
-              });
-            })();
-          },
-        );
+                    document_id: documentId,
+                    agency_id: agencyId,
+                    document_type: documentType,
+                    verification_status: "Pending",
+
+                    ai_analysis: aiResult
+                      ? {
+                          saved: aiSaved,
+                          verification_result: aiResult.verification_result,
+                          confidence_score: aiResult.confidence_score,
+                          document_type: aiResult.document_type,
+                          remarks: aiResult.remarks,
+                        }
+                      : {
+                          saved: false,
+                          verification_result: "review",
+                          remarks:
+                            "AI analysis unavailable. Manual administrator review is required.",
+                        },
+
+                    admin_verification_required: true,
+                    agency_status_reset: !updateErr,
+                  });
+                },
+              );
+            },
+          );
+        } catch (storageError) {
+          console.error("Agency Supabase upload failed:", storageError);
+
+          return res.status(500).json({
+            message: "Unable to store agency verification document.",
+          });
+        }
       },
     );
   });
@@ -910,13 +950,13 @@ const getAgencyDocumentFile = (req, res) => {
   }
 
   const sql = `
-        SELECT document_path
-        FROM documents
-        WHERE document_id = ?
-        AND agency_id IS NOT NULL
-    `;
+    SELECT document_path
+    FROM documents
+    WHERE document_id = ?
+    AND agency_id IS NOT NULL
+  `;
 
-  db.query(sql, [documentId], (err, results) => {
+  db.query(sql, [documentId], async (err, results) => {
     if (err) {
       console.error("Agency document retrieval error:", err);
 
@@ -939,17 +979,55 @@ const getAgencyDocumentFile = (req, res) => {
       });
     }
 
+    // Normalize the stored database path.
+    const storedPath = String(relativePath)
+      .replace(/\\/g, "/")
+      .replace(/^\/+/, "");
+
+    // New documents are stored in Supabase.
+    if (storedPath.startsWith("agencies/")) {
+      try {
+        const { data, error } = await supabase.storage
+          .from("proquire-private")
+          .download(storedPath);
+
+        if (error || !data) {
+          console.error("Supabase document retrieval error:", error);
+
+          const isMissing = error && String(error.statusCode) === "404";
+
+          return res.status(isMissing ? 404 : 500).json({
+            message: isMissing
+              ? "Agency document not found in secure storage."
+              : "Failed to retrieve agency document from secure storage.",
+          });
+        }
+
+        const fileBuffer = Buffer.from(await data.arrayBuffer());
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", "inline");
+        res.setHeader("Content-Length", fileBuffer.length);
+        res.setHeader("X-Content-Type-Options", "nosniff");
+
+        return res.send(fileBuffer);
+      } catch (storageError) {
+        console.error("Agency Supabase preview error:", storageError);
+
+        return res.status(500).json({
+          message: "Unable to preview agency document.",
+        });
+      }
+    }
+
+    // Legacy documents: retain local filesystem support.
     const uploadsRoot = path.resolve(__dirname, "..", "uploads");
 
-    // Normalize database path.
-    let storedPath = String(relativePath)
-      .replace(/\\/g, "/")
-      .replace(/^\/+/, "")
-      .replace(/^uploads\//i, "");
+    const legacyPath = storedPath.replace(/^uploads\//i, "");
 
-    const filePath = path.resolve(uploadsRoot, storedPath);
+    const filePath = path.resolve(uploadsRoot, legacyPath);
 
-    // Prevent access outside uploads.
+    // Prevent access outside the uploads directory.
     const relativeCheck = path.relative(uploadsRoot, filePath);
 
     if (relativeCheck.startsWith("..") || path.isAbsolute(relativeCheck)) {
@@ -959,16 +1037,18 @@ const getAgencyDocumentFile = (req, res) => {
     }
 
     if (!fs.existsSync(filePath)) {
-      console.error("Agency document missing:", filePath);
+      console.error("Legacy agency document missing:", filePath);
 
       return res.status(404).json({
         message: "Agency document not found on server.",
       });
     }
 
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", "inline");
+    res.setHeader("X-Content-Type-Options", "nosniff");
 
-    res.sendFile(filePath);
+    return res.sendFile(filePath);
   });
 };
 

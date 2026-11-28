@@ -77,7 +77,7 @@ router.patch(
 router.post(
   "/documents/upload",
   verifyToken,
-  upload.single("document"),
+  upload.uploadMemory.single("document"),
   agencyController.uploadAgencyDocument,
 );
 
