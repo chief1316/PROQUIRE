@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const crypto = require("crypto");
 const supabase = require("../config/supabase");
+const path = require("path");
 const { analyzeDocument } = require("../services/geminiService");
 
 const STORAGE_BUCKET = "proquire-private";
@@ -1698,5 +1699,149 @@ exports.updateMyProfile = (req, res) => {
         });
       },
     );
+  });
+};
+
+// ======================================================
+// Admin: Retrieve Verification Document from Supabase
+// ======================================================
+
+exports.getVerificationDocumentFile = (req, res) => {
+  const documentId = Number(req.params.documentId);
+
+  if (!Number.isInteger(documentId) || documentId <= 0) {
+    return res.status(400).json({
+      message: "Invalid verification document ID.",
+    });
+  }
+
+  const sql = `
+    SELECT document_path
+    FROM verification_documents
+    WHERE document_id = ?
+  `;
+
+  db.query(sql, [documentId], async (err, results) => {
+    if (err) {
+      console.error("Error retrieving document path:", err);
+
+      return res.status(500).json({
+        message: "Unable to retrieve verification document.",
+      });
+    }
+
+    if (!results.length || !results[0].document_path) {
+      return res.status(404).json({
+        message: "Verification document not found.",
+      });
+    }
+
+    const filePath = results[0].document_path;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .download(filePath);
+
+      if (error || !data) {
+        console.error("Supabase document download error:", error);
+
+        return res.status(404).json({
+          message: "Verification document file not found in storage.",
+        });
+      }
+
+      const fileBuffer = Buffer.from(await data.arrayBuffer());
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline");
+      res.setHeader("Cache-Control", "private, no-store");
+
+      return res.send(fileBuffer);
+    } catch (downloadError) {
+      console.error("Document download error:", downloadError);
+
+      return res.status(500).json({
+        message: "Error downloading verification document.",
+      });
+    }
+  });
+};
+
+// ======================================================
+// Admin: Retrieve Verification Selfie from Supabase
+// ======================================================
+
+exports.getVerificationSelfieFile = (req, res) => {
+  const documentId = Number(req.params.documentId);
+
+  if (!Number.isInteger(documentId) || documentId <= 0) {
+    return res.status(400).json({
+      message: "Invalid verification document ID.",
+    });
+  }
+
+  const sql = `
+    SELECT selfie_path
+    FROM verification_documents
+    WHERE document_id = ?
+  `;
+
+  db.query(sql, [documentId], async (err, results) => {
+    if (err) {
+      console.error("Error retrieving selfie path:", err);
+
+      return res.status(500).json({
+        message: "Unable to retrieve verification selfie.",
+      });
+    }
+
+    if (!results.length || !results[0].selfie_path) {
+      return res.status(404).json({
+        message: "Verification selfie not found.",
+      });
+    }
+
+    const filePath = results[0].selfie_path;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .download(filePath);
+
+      if (error || !data) {
+        console.error("Supabase selfie download error:", error);
+
+        return res.status(404).json({
+          message: "Verification selfie file not found in storage.",
+        });
+      }
+
+      const fileBuffer = Buffer.from(await data.arrayBuffer());
+
+      // Determine the selfie MIME type from its stored extension.
+      const extension = path.extname(filePath).toLowerCase();
+
+      const mimeTypes = {
+        ".webp": "image/webp",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+      };
+
+      const contentType = mimeTypes[extension] || "application/octet-stream";
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", "inline");
+      res.setHeader("Cache-Control", "private, no-store");
+
+      return res.send(fileBuffer);
+    } catch (downloadError) {
+      console.error("Selfie download error:", downloadError);
+
+      return res.status(500).json({
+        message: "Error downloading verification selfie.",
+      });
+    }
   });
 };

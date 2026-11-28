@@ -52,6 +52,22 @@ router.get(
   technicianController.getPendingTechnicians,
 );
 
+// Retrieve verification document (admin only)
+router.get(
+  "/verification-documents/:documentId/document",
+  verifyToken,
+  verifyAdmin,
+  technicianController.getVerificationDocumentFile,
+);
+
+// Retrieve verification selfie (admin only)
+router.get(
+  "/verification-documents/:documentId/selfie",
+  verifyToken,
+  verifyAdmin,
+  technicianController.getVerificationSelfieFile,
+);
+
 // verify technician (admin only)
 router.patch(
   "/verify-technician/:id",
