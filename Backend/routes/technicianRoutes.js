@@ -9,6 +9,7 @@ const {
   getAllTechnicians,
   getTechnicianById,
   getMyProfile,
+  uploadMyProfilePhoto,
   getMyVerificationDocuments,
   updateMyProfile,
   getTechniciansByCategory,
@@ -48,6 +49,17 @@ router.get("/category/:categoryId", getTechniciansByCategory);
 // ======================================================
 
 router.get("/my-profile", verifyToken, getMyProfile);
+
+// ======================================================
+// Upload Technician Profile Photo
+// ======================================================
+
+router.post(
+  "/my-profile/photo",
+  verifyToken,
+  upload.uploadMemory.single("profile_photo"),
+  uploadMyProfilePhoto,
+);
 
 router.put("/my-profile", verifyToken, updateMyProfile);
 console.log("PUT MY-PROFILE ROUTE REGISTERED");

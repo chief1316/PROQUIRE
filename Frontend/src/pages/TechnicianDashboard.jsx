@@ -48,6 +48,7 @@ function TechnicianDashboard() {
   const [totalReviews, setTotalReviews] = useState(0);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [reviewError, setReviewError] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
 
   const user = useMemo(() => {
     try {
@@ -219,6 +220,23 @@ function TechnicianDashboard() {
 
     fetchNotifications();
   }, [token]);
+
+  useEffect(() => {
+    const loadProfilePhoto = async () => {
+      try {
+        const response = await api.get("/technicians/my-profile");
+
+        setProfilePhotoUrl(response.data?.profile_photo_url || "");
+      } catch (error) {
+        console.error(
+          "Error loading technician profile photo:",
+          error.response?.data || error.message,
+        );
+      }
+    };
+
+    loadProfilePhoto();
+  }, []);
 
   // Profile completion
   const profileCompletion = useMemo(() => {
@@ -585,11 +603,12 @@ function TechnicianDashboard() {
                   style={styles.avatar}
                   className="technician-profile-avatar"
                 >
-                  {user?.profile_photo ? (
+                  {profilePhotoUrl ? (
                     <img
-                      src={user.profile_photo}
+                      src={profilePhotoUrl}
                       alt={technicianName}
                       style={styles.avatarImage}
+                      onError={() => setProfilePhotoUrl("")}
                     />
                   ) : (
                     technicianName.charAt(0).toUpperCase()

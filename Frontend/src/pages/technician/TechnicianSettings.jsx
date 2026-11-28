@@ -41,9 +41,7 @@ const TechnicianSettings = () => {
 
   const [profilePhoto, setProfilePhoto] = useState(null);
 
-  const [profilePreview, setProfilePreview] = useState(
-    user.profile_photo ? user.profile_photo : "",
-  );
+  const [profilePreview, setProfilePreview] = useState("");
 
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -79,36 +77,32 @@ const TechnicianSettings = () => {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (!token) {
-        return;
-      }
+      if (!token) return;
 
       try {
-        const response = await api.get(`/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const [userResult, technicianResult] = await Promise.allSettled([
+          api.get("/users/me"),
+          api.get("/technicians/my-profile"),
+        ]);
 
-        const currentUser = response.data?.user || response.data;
+        if (userResult.status === "fulfilled") {
+          const currentUser =
+            userResult.value.data?.user || userResult.value.data;
 
-        if (!currentUser) {
-          return;
+          if (currentUser) {
+            setFullName(currentUser.full_name || currentUser.name || "");
+            setPhone(currentUser.phone || "");
+
+            sessionStorage.setItem("user", JSON.stringify(currentUser));
+          }
         }
 
-        setFullName(currentUser.full_name || currentUser.name || "");
+        if (technicianResult.status === "fulfilled") {
+          const technicianProfile =
+            technicianResult.value.data?.profile || technicianResult.value.data;
 
-        setPhone(currentUser.phone || "");
-
-        if (currentUser.profile_photo) {
-          setProfilePreview(currentUser.profile_photo);
+          setProfilePreview(technicianProfile?.profile_photo_url || "");
         }
-
-        /*
-         * Keep sessionStorage user information
-         * synchronized with the latest profile data.
-         */
-        sessionStorage.setItem("user", JSON.stringify(currentUser));
       } catch (error) {
         console.error("Error loading technician profile:", error);
       }
@@ -140,6 +134,14 @@ const TechnicianSettings = () => {
     setProfilePreview(previewUrl);
   };
 
+  useEffect(() => {
+    return () => {
+      if (profilePreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(profilePreview);
+      }
+    };
+  }, [profilePreview]);
+
   /*
    * =========================================================
    * Update profile
@@ -151,7 +153,6 @@ const TechnicianSettings = () => {
 
     if (!token) {
       setProfileError("Your session has expired. Please log in again.");
-
       return;
     }
 
@@ -160,51 +161,52 @@ const TechnicianSettings = () => {
       setProfileMessage("");
       setProfileError("");
 
-      const formData = new FormData();
-
-      formData.append("full_name", fullName);
-
-      formData.append("phone", phone);
-
-      if (profilePhoto) {
-        formData.append("profile_photo", profilePhoto);
-      }
-
-      const response = await api.put(`/users/me`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
+      // Save name and phone separately from the photo.
+      await api.put("/users/me", {
+        full_name: fullName,
+        phone,
       });
 
-      /*
-       * Update the saved user information so
-       * the dashboard immediately reflects changes.
-       */
-      try {
-        const savedUser = JSON.parse(sessionStorage.getItem("user")) || {};
+      let photoUrl = null;
 
-        const updatedUser = {
-          ...savedUser,
-          full_name: fullName,
-          name: fullName,
-          phone: phone,
-        };
+      // Upload the photo to Supabase through the technician endpoint.
+      if (profilePhoto) {
+        const formData = new FormData();
+        formData.append("profile_photo", profilePhoto);
 
-        if (response.data?.user?.profile_photo) {
-          updatedUser.profile_photo = response.data.user.profile_photo;
+        const photoResponse = await api.post(
+          "/technicians/my-profile/photo",
+          formData,
+        );
+
+        photoUrl =
+          photoResponse.data?.profile_photo_url ||
+          photoResponse.data?.profile?.profile_photo_url ||
+          null;
+
+        if (photoUrl) {
+          setProfilePreview(photoUrl);
         }
-
-        sessionStorage.setItem("user", JSON.stringify(updatedUser));
-      } catch {
-        // Keep the successful API update unaffected.
       }
 
-      setProfilePhoto(null);
+      // Keep the local account information synchronized.
+      const savedUser = JSON.parse(sessionStorage.getItem("user")) || {};
 
-      setProfileMessage(
-        response.data?.message || "Profile updated successfully.",
-      );
+      const updatedUser = {
+        ...savedUser,
+        full_name: fullName,
+        name: fullName,
+        phone,
+      };
+
+      if (photoUrl) {
+        updatedUser.profile_photo_url = photoUrl;
+      }
+
+      sessionStorage.setItem("user", JSON.stringify(updatedUser));
+
+      setProfilePhoto(null);
+      setProfileMessage("Profile updated successfully.");
     } catch (error) {
       console.error("Profile update error:", error);
 

@@ -162,86 +162,263 @@ exports.getMyProfile = (req, res) => {
 
   const sql = `
     SELECT
-        tp.technician_id,
-        tp.user_id,
-        u.full_name,
-        u.email,
-        u.phone,
-        c.category_name,
-        tp.category_id,
-        tp.bio,
-        tp.years_experience,
-        tp.location,
-        tp.employment_type,
-        tp.agency_id,
-        ap.company_name AS agency_name,
-        tp.is_verified,
+      tp.technician_id,
+      tp.user_id,
+      u.full_name,
+      u.email,
+      u.phone,
+      u.profile_photo,
+      c.category_name,
+      tp.category_id,
+      tp.bio,
+      tp.years_experience,
+      tp.location,
+      tp.employment_type,
+      tp.agency_id,
+      ap.company_name AS agency_name,
+      tp.is_verified,
 
+      CASE
+        WHEN tp.is_verified = 1 THEN 'approved'
 
+        WHEN EXISTS (
+          SELECT 1
+          FROM verification_documents vd_pending
+          WHERE vd_pending.technician_id = tp.technician_id
+          AND vd_pending.verification_status = 'pending'
+        ) THEN 'pending'
 
-CASE
-    WHEN tp.is_verified = 1 THEN 'approved'
+        WHEN EXISTS (
+          SELECT 1
+          FROM verification_documents vd_rejected
+          WHERE vd_rejected.technician_id = tp.technician_id
+          AND vd_rejected.verification_status = 'rejected'
+        ) THEN 'rejected'
 
-            WHEN EXISTS (
-                SELECT 1
-                FROM verification_documents vd_pending
-                WHERE vd_pending.technician_id = tp.technician_id
-                AND vd_pending.verification_status = 'pending'
-            ) THEN 'pending'
+        ELSE 'pending'
+      END AS verification_status,
 
-            WHEN EXISTS (
-                SELECT 1
-                FROM verification_documents vd_rejected
-                WHERE vd_rejected.technician_id = tp.technician_id
-                AND vd_rejected.verification_status = 'rejected'
-            ) THEN 'rejected'
-
-            ELSE 'pending'
-        END AS verification_status,
-
-        (
-            SELECT vd_reason.rejection_reason
-            FROM verification_documents vd_reason
-            WHERE vd_reason.technician_id = tp.technician_id
-            AND vd_reason.verification_status = 'rejected'
-            AND vd_reason.rejection_reason IS NOT NULL
-            AND TRIM(vd_reason.rejection_reason) <> ''
-            ORDER BY vd_reason.uploaded_at DESC
-            LIMIT 1
-        ) AS rejection_reason
+      (
+        SELECT vd_reason.rejection_reason
+        FROM verification_documents vd_reason
+        WHERE vd_reason.technician_id = tp.technician_id
+        AND vd_reason.verification_status = 'rejected'
+        AND vd_reason.rejection_reason IS NOT NULL
+        AND TRIM(vd_reason.rejection_reason) <> ''
+        ORDER BY vd_reason.uploaded_at DESC
+        LIMIT 1
+      ) AS rejection_reason
 
     FROM technician_profiles tp
 
     JOIN users u
-        ON tp.user_id = u.user_id
+      ON tp.user_id = u.user_id
 
     JOIN categories c
-        ON tp.category_id = c.category_id
+      ON tp.category_id = c.category_id
 
     LEFT JOIN agency_profiles ap
-        ON tp.agency_id = ap.agency_id
+      ON tp.agency_id = ap.agency_id
 
     WHERE tp.user_id = ?
-`;
+  `;
 
-  db.query(sql, [user_id], (err, results) => {
+  db.query(sql, [user_id], async (err, results) => {
     if (err) {
       console.error("Error fetching technician profile:", err);
 
       return res.status(500).json({
-        message: "Error fetching your technician profile",
-        error: err,
+        message: "Error fetching your technician profile.",
       });
     }
 
     if (results.length === 0) {
       return res.status(404).json({
-        message: "Technician profile not found",
+        message: "Technician profile not found.",
       });
     }
 
-    res.status(200).json(results[0]);
+    const profile = results[0];
+
+    // Generate a temporary URL for the private Supabase photo.
+    profile.profile_photo_url = null;
+
+    if (
+      profile.profile_photo &&
+      !profile.profile_photo.startsWith("http://") &&
+      !profile.profile_photo.startsWith("https://")
+    ) {
+      const { data, error: signedUrlError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(profile.profile_photo, 3600);
+
+      if (signedUrlError) {
+        console.error(
+          "Profile photo signed URL error:",
+          signedUrlError.message,
+        );
+      } else {
+        profile.profile_photo_url = data.signedUrl;
+      }
+    }
+
+    return res.status(200).json(profile);
   });
+};
+
+exports.uploadMyProfilePhoto = async (req, res) => {
+  let uploadedPath = null;
+
+  try {
+    // Only technicians can upload technician profile photos.
+    if (req.user.role !== "technician") {
+      return res.status(403).json({
+        message: "Only technicians can upload profile photos.",
+      });
+    }
+
+    const photo = req.file;
+
+    if (!photo) {
+      return res.status(400).json({
+        message: "Please select a profile photo.",
+      });
+    }
+
+    // Validate image type.
+    const allowedTypes = {
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+    };
+
+    const extension = allowedTypes[photo.mimetype];
+
+    if (!extension) {
+      return res.status(400).json({
+        message: "Profile photo must be JPG, PNG or WEBP.",
+      });
+    }
+
+    // Find the technician profile and existing photo.
+    const findSql = `
+      SELECT
+        tp.technician_id,
+        u.profile_photo
+      FROM technician_profiles tp
+      JOIN users u ON u.user_id = tp.user_id
+      WHERE tp.user_id = ?
+    `;
+
+    const [profile] = await new Promise((resolve, reject) => {
+      db.query(findSql, [req.user.user_id], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    if (!profile) {
+      return res.status(404).json({
+        message: "Technician profile not found.",
+      });
+    }
+
+    const technicianId = profile.technician_id;
+    const oldPhotoPath = profile.profile_photo;
+
+    // Generate a unique storage path.
+    uploadedPath =
+      `technicians/${technicianId}/profile/` +
+      `${crypto.randomUUID()}${extension}`;
+
+    // Upload the photo to Supabase.
+    const { error: uploadError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(uploadedPath, photo.buffer, {
+        contentType: photo.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Profile photo upload error:", uploadError);
+
+      return res.status(500).json({
+        message: "Unable to upload profile photo.",
+      });
+    }
+
+    // Save the Supabase path in the users table.
+    await new Promise((resolve, reject) => {
+      db.query(
+        `UPDATE users SET profile_photo = ? WHERE user_id = ?`,
+        [uploadedPath, req.user.user_id],
+        (err, result) => {
+          if (err) return reject(err);
+          resolve(result);
+        },
+      );
+    });
+
+    // Delete the previous photo only if it belongs to this
+    // technician's profile folder.
+    const oldPhotoPrefix = `technicians/${technicianId}/profile/`;
+
+    if (
+      oldPhotoPath &&
+      oldPhotoPath.startsWith(oldPhotoPrefix) &&
+      oldPhotoPath !== uploadedPath
+    ) {
+      const { error: deleteError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove([oldPhotoPath]);
+
+      if (deleteError) {
+        console.error("Old profile photo cleanup error:", deleteError.message);
+      }
+    }
+
+    // Generate a temporary display URL.
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(uploadedPath, 3600);
+
+    if (signedError) {
+      console.error("Profile photo signed URL error:", signedError);
+
+      return res.status(200).json({
+        message: "Profile photo uploaded successfully.",
+        profile_photo: uploadedPath,
+        profile_photo_url: null,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Profile photo uploaded successfully.",
+      profile_photo: uploadedPath,
+      profile_photo_url: signedData.signedUrl,
+    });
+  } catch (error) {
+    console.error("========== PROFILE PHOTO ERROR ==========");
+    console.error("Message:", error.message);
+    console.error("Code:", error.code);
+    console.error("Stack:", error.stack);
+    console.error("==========================================");
+
+    // Remove the new upload if saving the database record failed.
+    if (uploadedPath) {
+      const { error: cleanupError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove([uploadedPath]);
+
+      if (cleanupError) {
+        console.error("Profile photo cleanup error:", cleanupError.message);
+      }
+    }
+
+    return res.status(500).json({
+      message: "Unable to update technician profile photo.",
+    });
+  }
 };
 
 // ======================================================
